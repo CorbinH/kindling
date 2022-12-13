@@ -5,6 +5,7 @@ coroutines = "1.6.4"
 flatlaf = "3.1"
 kotest = "5.5.5"
 ignition = "8.1.1"
+ktor = "2.1.3"
 
 [plugins]
 kotlin = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
@@ -23,6 +24,10 @@ logback = { group = "ch.qos.logback", name = "logback-classic", version = "1.4.6
 hsql = { group = "org.hsqldb", name = "hsqldb", version = "2.7.1" }
 zip4j = { group = "net.lingala.zip4j", name = "zip4j", version = "2.11.4" }
 excelkt = { group = "io.github.evanrupert", name = "excelkt", version = "1.0.2" }
+client-core = { group = "io.ktor", name = "ktor-client-core", version.ref = "ktor" }
+client-cio = { group = "io.ktor", name = "ktor-client-cio", version.ref = "ktor" }
+client-content-negotiation = { group = "io.ktor", name = "ktor-client-content-negotiation", version.ref = "ktor" }
+client-serialization-kotlinx-json = { group = "io.ktor", name = "ktor-serialization-kotlinx-json", version.ref = "ktor" }
 
 # build
 jsoup = { group = "org.jsoup", name = "jsoup", version = "1.15.4" }
@@ -70,6 +75,12 @@ kotest = [
 ignition = [
     "ignition-common",
     "ignition-gateway",
+]
+ktor = [
+    "client-serialization-kotlinx-json",
+    "client-content-negotiation",
+    "client-cio",
+    "client-core",
 ]
 ia-transitive = [
     "apache-commons",

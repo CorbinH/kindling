@@ -1,12 +1,6 @@
 package io.github.paulgriffith.kindling.core
 
-import io.github.paulgriffith.kindling.utils.Action
-import io.github.paulgriffith.kindling.utils.FileExtensionFilter
-import io.github.paulgriffith.kindling.utils.FloatableComponent
-import io.github.paulgriffith.kindling.utils.PopupMenuCustomizer
-import io.github.paulgriffith.kindling.utils.Properties
-import io.github.paulgriffith.kindling.utils.exportToCSV
-import io.github.paulgriffith.kindling.utils.exportToXLSX
+import io.github.paulgriffith.kindling.utils.*
 import net.miginfocom.swing.MigLayout
 import java.io.File
 import javax.swing.Icon
@@ -48,6 +42,11 @@ abstract class ToolPanel(
                     },
                 )
             }
+            add(
+                Action("Export To Web") {
+                    modelSupplier().uploadToWeb(defaultFileName)
+                },
+            )
         }
 
     companion object {
