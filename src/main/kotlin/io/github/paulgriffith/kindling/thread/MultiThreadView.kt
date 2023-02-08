@@ -21,19 +21,15 @@ import io.github.paulgriffith.kindling.utils.*
 import io.github.paulgriffith.kindling.utils.Action
 import kotlinx.coroutines.*
 import net.miginfocom.swing.MigLayout
-import org.apache.poi.sl.usermodel.Background
 import org.jdesktop.swingx.JXSearchField
 import org.jdesktop.swingx.decorator.ColorHighlighter
 import org.jdesktop.swingx.table.ColumnControlButton
 import org.jdesktop.swingx.table.TableColumnExt
-import org.jpmml.evaluator.FieldValue
-import org.jpmml.evaluator.InputField
 import org.jpmml.evaluator.LoadingModelEvaluatorBuilder
 import org.jpmml.evaluator.ModelEvaluator
 import org.jpmml.evaluator.ProbabilityDistribution
 import java.awt.Desktop
 import java.awt.Rectangle
-import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
 import javax.swing.*
@@ -379,20 +375,14 @@ class MultiThreadView(
 
     private fun markThreadsOfInterest() = BACKGROUND.launch {
         val model = mainTable.model.threadData
-        val inputFields: List<InputField> = evaluator.inputFields
 
         model.flatten().filterNotNull().forEach { thread ->
-            val map = mutableMapOf<String, FieldValue>()
-            for (inputField in inputFields) {
-                val name = inputField.name
-                val value = thread.getPmmlProperty(name)
-                val inputValue = inputField.prepare(value)
-
-                map[name] = inputValue
-            }
-            val evaluation = evaluator.evaluate(map)
+            val evaluation = evaluator.evaluate(
+                evaluator.inputFields.associate { field ->
+                    field.name to field.prepare(thread.getPmmlProperty(field.name))
+                }
+            )
             val result = (evaluation["marked"] as ProbabilityDistribution<Int>).result
-
             if (result == 1) thread.marked = true
         }
     }
@@ -404,6 +394,9 @@ class MultiThreadView(
         "stacktrace_depth" -> stacktrace.size
         "cpu_usage" -> cpuUsage
         "daemon" -> isDaemon
+        "thread_pool" -> pool
+        "version" -> threadDumps.first().version
+        "thread_id" -> id
         else -> null
     }
 
