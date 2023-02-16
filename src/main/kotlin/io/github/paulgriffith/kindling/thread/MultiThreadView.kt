@@ -264,7 +264,7 @@ class MultiThreadView(
     }
 
     init {
-        pmml
+        currentPMML
         name = if (mainTable.model.isSingleContext) {
             paths.first().name
         } else {
@@ -408,15 +408,15 @@ class MultiThreadView(
             val os = System.getProperty("os.name").substringBefore(' ')
             val user = System.getProperty("user.name")
             when (os) {
-                "Windows" -> "C:/Users/$user/"
-                "Linux" -> "/home/$user/"
-                "MAC" -> "Users/$user/Library/Caches/"
+                "Windows" -> "C:/Users/$user/.kindling/machine-learning-data/"
+                "Linux" -> "/home/$user/.kindling/machine-learning-data/"
+                "MAC" -> "Users/$user/Library/Caches/.kindling/machine-learning-data/"
                 else -> ""
             }
         }
 
-        private val currentPMMLVersion = run {
-            val folder = File("$cacheFilePath.kindling/machine-learning-data/")
+        private val oldPMMLVersion = run {
+            val folder = File(cacheFilePath)
             val listOfFiles = folder.listFiles()
             var version = ""
             if (listOfFiles != null) {
@@ -430,7 +430,7 @@ class MultiThreadView(
         }
 
         private fun removeOldPMMLVersions() {
-            val folder = File("$cacheFilePath.kindling/machine-learning-data/")
+            val folder = File(cacheFilePath)
             val listOfFiles = folder.listFiles()
             if (listOfFiles != null && newPMMLVersion != "") {
                 for (i in listOfFiles.indices) {
@@ -453,22 +453,24 @@ class MultiThreadView(
         private val NUMERIC_SORT_ASCENDING = FlatSVGIcon("icons/bx-sort-up.svg")
         private val NUMERIC_SORT_DESCENDING = FlatSVGIcon("icons/bx-sort-down.svg")
 
-        private fun updatePMML() {
-            val client = HttpClient()
-            runBlocking {
-                val response: HttpResponse = client.request("https://iazendesk.inductiveautomation.com/system/webdev/ThreadCSVImportTool/LogisticRegressionThread.pmml") {
-                    method = HttpMethod.Get
+        fun updatePMML() {
+            if (cacheFilePath.isNotEmpty()){
+                val client = HttpClient()
+                runBlocking {
+                    val response: HttpResponse = client.request("https://iazendesk.inductiveautomation.com/system/webdev/ThreadCSVImportTool/LogisticRegressionThread.pmml") {
+                        method = HttpMethod.Get
+                    }
+                    Files.createDirectories(Paths.get(cacheFilePath))
+                    val file = File("${cacheFilePath}thread_machine_learning_$newPMMLVersion.pmml")
+                    file.bufferedWriter().use { out ->
+                        out.write(response.bodyAsText())
+                    }
+                    removeOldPMMLVersions()
                 }
-                Files.createDirectories(Paths.get("$cacheFilePath.kindling/machine-learning-data"))
-                val file = File("$cacheFilePath.kindling/machine-learning-data/thread_machine_learning_$newPMMLVersion.pmml")
-                file.bufferedWriter().use { out ->
-                    out.write(response.bodyAsText())
-                }
-                removeOldPMMLVersions()
             }
         }
 
-        private val pmml by lazy {
+        val currentPMML by lazy {
             run {
                 val client = HttpClient()
                 runBlocking {
@@ -486,7 +488,7 @@ class MultiThreadView(
                                 desk.browse(URI("https://iazendesk.inductiveautomation.com/data/perspective/client/zendesk_display"))
                             }
                         }
-                    } else if (response.bodyAsText() != currentPMMLVersion) {
+                    } else if (response.bodyAsText() != oldPMMLVersion) {
                         if (pmmlPopup("New Machine Learning Model Available!", "There is a newer version of the Machine Learning Model available. Would you like to update?", arrayOf("No", "Update Now!")) == 1) {
                             updatePMML()
                         }

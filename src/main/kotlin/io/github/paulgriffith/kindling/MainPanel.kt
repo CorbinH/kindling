@@ -12,6 +12,7 @@ import io.github.paulgriffith.kindling.core.Tool
 import io.github.paulgriffith.kindling.core.ToolOpeningException
 import io.github.paulgriffith.kindling.core.ToolPanel
 import io.github.paulgriffith.kindling.internal.FileTransferHandler
+import io.github.paulgriffith.kindling.thread.MultiThreadView
 import io.github.paulgriffith.kindling.utils.Action
 import io.github.paulgriffith.kindling.utils.DARK_THEME
 import io.github.paulgriffith.kindling.utils.FlatScrollPane
@@ -134,7 +135,14 @@ class MainPanel(empty: Boolean) : JPanel(MigLayout("ins 6, fill")) {
             },
         )
         add(
-            JMenu("Debug").apply {
+            JMenu("Help").apply {
+                add(
+                        Action("Update Machine Learning Model") {
+                            if (MultiThreadView.currentPMML.isNotEmpty()) {
+                                MultiThreadView.updatePMML()
+                            }
+                        },
+                )
                 add(
                     Action("UI Inspector") {
                         FlatUIDefaultsInspector.show()
