@@ -46,6 +46,7 @@ dependencies {
     api(libs.svgSalamander)
     api(libs.bundles.coroutines)
     api(libs.bundles.flatlaf)
+    api(libs.bundles.ktor)
     api(libs.bundles.ignition) {
         // Exclude transitive IA dependencies - we only need core Ignition classes for cache deserialization
         isTransitive = false
@@ -115,6 +116,7 @@ runtime {
             "java.naming",
             "java.xml",
             "jdk.zipfs",
+            "jdk.crypto.ec",
         ),
     )
 
