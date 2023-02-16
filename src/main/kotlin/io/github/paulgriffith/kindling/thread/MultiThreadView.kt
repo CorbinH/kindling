@@ -3,35 +3,24 @@ package io.github.paulgriffith.kindling.thread
 import com.formdev.flatlaf.extras.FlatSVGIcon
 import com.jidesoft.comparator.AlphanumComparator
 import com.jidesoft.swing.CheckBoxListSelectionModel
-import io.github.paulgriffith.kindling.core.Detail
+import io.github.paulgriffith.kindling.MainPanel
+import io.github.paulgriffith.kindling.core.*
 import io.github.paulgriffith.kindling.core.Detail.BodyLine
-import io.github.paulgriffith.kindling.core.MultiClipboardTool
-import io.github.paulgriffith.kindling.core.ToolOpeningException
-import io.github.paulgriffith.kindling.core.ToolPanel
-import io.github.paulgriffith.kindling.core.add
 import io.github.paulgriffith.kindling.thread.FilterModel.Companion.byCountAsc
 import io.github.paulgriffith.kindling.thread.FilterModel.Companion.byCountDesc
 import io.github.paulgriffith.kindling.thread.FilterModel.Companion.byNameAsc
 import io.github.paulgriffith.kindling.thread.FilterModel.Companion.byNameDesc
-import io.github.paulgriffith.kindling.thread.model.Stacktrace
-import io.github.paulgriffith.kindling.thread.model.Thread
-import io.github.paulgriffith.kindling.thread.model.ThreadDump
-import io.github.paulgriffith.kindling.thread.model.ThreadLifespan
-import io.github.paulgriffith.kindling.thread.model.ThreadModel
+import io.github.paulgriffith.kindling.thread.model.*
 import io.github.paulgriffith.kindling.thread.model.ThreadModel.MultiThreadColumns
 import io.github.paulgriffith.kindling.thread.model.ThreadModel.SingleThreadColumns
+import io.github.paulgriffith.kindling.utils.*
 import io.github.paulgriffith.kindling.utils.Action
-import io.github.paulgriffith.kindling.utils.Column
-import io.github.paulgriffith.kindling.utils.EDT_SCOPE
-import io.github.paulgriffith.kindling.utils.FlatScrollPane
-import io.github.paulgriffith.kindling.utils.ReifiedJXTable
-import io.github.paulgriffith.kindling.utils.attachPopupMenu
-import io.github.paulgriffith.kindling.utils.escapeHtml
-import io.github.paulgriffith.kindling.utils.getValue
-import io.github.paulgriffith.kindling.utils.selectedRowIndices
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import io.ktor.client.HttpClient
+import io.ktor.client.request.request
+import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.HttpMethod
+import kotlinx.coroutines.*
 import net.miginfocom.swing.MigLayout
 import org.jdesktop.swingx.JXSearchField
 import org.jdesktop.swingx.decorator.ColorHighlighter
@@ -39,20 +28,13 @@ import org.jdesktop.swingx.table.ColumnControlButton
 import org.jdesktop.swingx.table.TableColumnExt
 import java.awt.Desktop
 import java.awt.Rectangle
+import java.io.File
+import java.io.IOException
+import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Path
-import javax.swing.ButtonGroup
-import javax.swing.Icon
-import javax.swing.JLabel
-import javax.swing.JMenu
-import javax.swing.JMenuBar
-import javax.swing.JPanel
-import javax.swing.JPopupMenu
-import javax.swing.JSplitPane
-import javax.swing.JToggleButton
-import javax.swing.ListSelectionModel
-import javax.swing.SortOrder
-import javax.swing.UIManager
+import java.nio.file.Paths
+import javax.swing.*
 import kotlin.io.path.inputStream
 import kotlin.io.path.name
 import kotlin.io.path.nameWithoutExtension
@@ -282,6 +264,7 @@ class MultiThreadView(
     }
 
     init {
+        pmml
         name = if (mainTable.model.isSingleContext) {
             paths.first().name
         } else {
@@ -419,11 +402,110 @@ class MultiThreadView(
 
     companion object {
         private val BACKGROUND = CoroutineScope(Dispatchers.Default)
+        private var newPMMLVersion = ""
 
-        private val NATURAL_SORT_ASCENDING = FlatSVGIcon("icons/bx-sort-a-z.svg")
+        private val cacheFilePath = run {
+            val os = System.getProperty("os.name").substringBefore(' ')
+            val user = System.getProperty("user.name")
+            when (os) {
+                "Windows" -> "C:/Users/$user/"
+                "Linux" -> "/home/$user/"
+                "MAC" -> "Users/$user/Library/Caches/"
+                else -> ""
+            }
+        }
+
+        private val currentPMMLVersion = run {
+            val folder = File("$cacheFilePath.kindling/machine-learning-data/")
+            val listOfFiles = folder.listFiles()
+            var version = ""
+            if (listOfFiles != null) {
+                for (i in listOfFiles.indices) {
+                    if (listOfFiles[i].isFile && listOfFiles[i].name.contains("thread_machine_learning")) {
+                        version = listOfFiles[i].toString().substringBeforeLast(".pmml").substringAfterLast("_")
+                    }
+                }
+            }
+            version
+        }
+
+        private fun removeOldPMMLVersions() {
+            val folder = File("$cacheFilePath.kindling/machine-learning-data/")
+            val listOfFiles = folder.listFiles()
+            if (listOfFiles != null && newPMMLVersion != "") {
+                for (i in listOfFiles.indices) {
+                    if (listOfFiles[i].isFile && listOfFiles[i].name.contains("thread_machine_learning")) {
+                        if (listOfFiles[i].toString().substringBeforeLast(".pmml").substringAfterLast("_") != newPMMLVersion) {
+                            val fileName = listOfFiles[i].toString()
+                            try {
+                                Files.delete(Paths.get(fileName))
+                            } catch (e: IOException) {
+                                e.printStackTrace()
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        val NATURAL_SORT_ASCENDING = FlatSVGIcon("icons/bx-sort-a-z.svg")
         private val NATURAL_SORT_DESCENDING = FlatSVGIcon("icons/bx-sort-z-a.svg")
         private val NUMERIC_SORT_ASCENDING = FlatSVGIcon("icons/bx-sort-up.svg")
         private val NUMERIC_SORT_DESCENDING = FlatSVGIcon("icons/bx-sort-down.svg")
+
+        private fun updatePMML() {
+            val client = HttpClient()
+            runBlocking {
+                val response: HttpResponse = client.request("https://iazendesk.inductiveautomation.com/system/webdev/ThreadCSVImportTool/LogisticRegressionThread.pmml") {
+                    method = HttpMethod.Get
+                }
+                Files.createDirectories(Paths.get("$cacheFilePath.kindling/machine-learning-data"))
+                val file = File("$cacheFilePath.kindling/machine-learning-data/thread_machine_learning_$newPMMLVersion.pmml")
+                file.bufferedWriter().use { out ->
+                    out.write(response.bodyAsText())
+                }
+                removeOldPMMLVersions()
+            }
+        }
+
+        private val pmml by lazy {
+            run {
+                val client = HttpClient()
+                runBlocking {
+                    val response: HttpResponse = client.request("https://iazendesk.inductiveautomation.com/system/webdev/ThreadCSVImportTool/validate_pmml_version") {
+                        method = HttpMethod.Get
+                        url {
+                            parameters.append("version", MainPanel.VERSION)
+                        }
+                    }
+                    newPMMLVersion = response.bodyAsText()
+                    if (response.bodyAsText() == "") {
+                        if (pmmlPopup("New Version Available!", "There is a new version of Kindling available. Would you like to upgrade?", arrayOf("No", "Upgrade Now!")) == 1) {
+                            val desk = Desktop.getDesktop()
+                            withContext(Dispatchers.IO) {
+                                desk.browse(URI("https://iazendesk.inductiveautomation.com/data/perspective/client/zendesk_display"))
+                            }
+                        }
+                    } else if (response.bodyAsText() != currentPMMLVersion) {
+                        if (pmmlPopup("New Machine Learning Model Available!", "There is a newer version of the Machine Learning Model available. Would you like to update?", arrayOf("No", "Update Now!")) == 1) {
+                            updatePMML()
+                        }
+                    }
+                    response.bodyAsText()
+                }
+            }
+        }
+
+        private fun pmmlPopup(title: String, message: String, options: Array<String>): Int {
+            return JOptionPane.showOptionDialog(JFrame(),
+                    message,
+                    title,
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.QUESTION_MESSAGE,
+                    null,
+                    options,
+                    options[1])
+        }
 
         private fun List<ThreadDump?>.toLifespanList(): List<ThreadLifespan> {
             val idsToLifespans = mutableMapOf<Int, Array<Thread?>>()
