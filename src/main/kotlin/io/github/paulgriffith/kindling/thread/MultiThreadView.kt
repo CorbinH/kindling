@@ -5,8 +5,6 @@ import com.jidesoft.comparator.AlphanumComparator
 import com.jidesoft.swing.CheckBoxListSelectionModel
 import io.github.paulgriffith.kindling.core.ClipboardTool
 import io.github.paulgriffith.kindling.core.Detail
-import io.github.paulgriffith.kindling.MainPanel
-import io.github.paulgriffith.kindling.core.*
 import io.github.paulgriffith.kindling.core.Detail.BodyLine
 import io.github.paulgriffith.kindling.core.MultiTool
 import io.github.paulgriffith.kindling.core.ToolOpeningException
