@@ -12,4 +12,5 @@ object Kindling {
         val toolkit = Toolkit.getDefaultToolkit()
         toolkit.getImage(this::class.java.getResource("/icons/kindling.png"))
     }
+    const val VERSION = "1.0.5"
 }
