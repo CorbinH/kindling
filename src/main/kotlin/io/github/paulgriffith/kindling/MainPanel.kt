@@ -11,7 +11,7 @@ import io.github.paulgriffith.kindling.core.Tool
 import io.github.paulgriffith.kindling.core.ToolOpeningException
 import io.github.paulgriffith.kindling.core.ToolPanel
 import io.github.paulgriffith.kindling.internal.FileTransferHandler
-import io.github.paulgriffith.kindling.thread.MultiThreadView
+import io.github.paulgriffith.kindling.thread.model.MachineLearningModel
 import io.github.paulgriffith.kindling.utils.Action
 import io.github.paulgriffith.kindling.utils.FlatScrollPane
 import io.github.paulgriffith.kindling.utils.TabStrip
@@ -123,11 +123,9 @@ class MainPanel(empty: Boolean) : JPanel(MigLayout("ins 6, fill")) {
         add(
             JMenu("Help").apply {
                 add(
-                        Action("Update Machine Learning Model") {
-                            if (MultiThreadView.currentPMML.isNotEmpty()) {
-                                MultiThreadView.updatePMML()
-                            }
-                        },
+                    Action("Update Machine Learning Model") {
+                        MachineLearningModel.verifyPMML()
+                    },
                 )
                 add(
                     Action("UI Inspector") {
@@ -213,7 +211,6 @@ class MainPanel(empty: Boolean) : JPanel(MigLayout("ins 6, fill")) {
 
     companion object {
         val THEME_DETECTOR: OsThemeDetector = OsThemeDetector.getDetector()
-        const val VERSION = "1.0.5"
         val LOGGER = getLogger<MainPanel>()
 
         @JvmStatic

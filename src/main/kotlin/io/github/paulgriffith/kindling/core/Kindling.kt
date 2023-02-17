@@ -83,4 +83,5 @@ object Kindling {
             FlatAnimatedLafChange.hideSnapshotWithAnimation()
         }
     }
+    const val VERSION = "1.0.5"
 }
