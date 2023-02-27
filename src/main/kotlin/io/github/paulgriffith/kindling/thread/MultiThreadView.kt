@@ -14,12 +14,26 @@ import io.github.paulgriffith.kindling.thread.FilterModel.Companion.byCountAsc
 import io.github.paulgriffith.kindling.thread.FilterModel.Companion.byCountDesc
 import io.github.paulgriffith.kindling.thread.FilterModel.Companion.byNameAsc
 import io.github.paulgriffith.kindling.thread.FilterModel.Companion.byNameDesc
-import io.github.paulgriffith.kindling.thread.model.*
+import io.github.paulgriffith.kindling.thread.model.MachineLearningModel
+import io.github.paulgriffith.kindling.thread.model.Stacktrace
+import io.github.paulgriffith.kindling.thread.model.Thread
+import io.github.paulgriffith.kindling.thread.model.ThreadDump
+import io.github.paulgriffith.kindling.thread.model.ThreadLifespan
+import io.github.paulgriffith.kindling.thread.model.ThreadModel
 import io.github.paulgriffith.kindling.thread.model.ThreadModel.MultiThreadColumns
 import io.github.paulgriffith.kindling.thread.model.ThreadModel.SingleThreadColumns
-import io.github.paulgriffith.kindling.utils.*
 import io.github.paulgriffith.kindling.utils.Action
-import kotlinx.coroutines.*
+import io.github.paulgriffith.kindling.utils.Column
+import io.github.paulgriffith.kindling.utils.EDT_SCOPE
+import io.github.paulgriffith.kindling.utils.FlatScrollPane
+import io.github.paulgriffith.kindling.utils.ReifiedJXTable
+import io.github.paulgriffith.kindling.utils.attachPopupMenu
+import io.github.paulgriffith.kindling.utils.escapeHtml
+import io.github.paulgriffith.kindling.utils.getValue
+import io.github.paulgriffith.kindling.utils.selectedRowIndices
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import net.miginfocom.swing.MigLayout
 import org.jdesktop.swingx.JXSearchField
 import org.jdesktop.swingx.decorator.ColorHighlighter
@@ -34,7 +48,18 @@ import java.awt.Rectangle
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
-import javax.swing.*
+import javax.swing.ButtonGroup
+import javax.swing.Icon
+import javax.swing.JLabel
+import javax.swing.JMenu
+import javax.swing.JMenuBar
+import javax.swing.JPanel
+import javax.swing.JPopupMenu
+import javax.swing.JSplitPane
+import javax.swing.JToggleButton
+import javax.swing.ListSelectionModel
+import javax.swing.SortOrder
+import javax.swing.UIManager
 import kotlin.io.path.inputStream
 import kotlin.io.path.name
 import kotlin.io.path.nameWithoutExtension
@@ -208,17 +233,19 @@ class MultiThreadView(
         build()
     }
 
-    private val threadsOfInterest: List<Thread> = buildList {
-        val threads = mainTable.model.threadData
+    private val threadsOfInterest: List<Thread> by lazy {
+        buildList {
+            val threads = mainTable.model.threadData
 
-        threads.flatten().filterNotNull().forEach { thread ->
-            val evaluation = evaluator.evaluate(
-                evaluator.inputFields.associate { field ->
-                    field.name to field.prepare(thread.getPmmlProperty(field.name))
-                }
-            )
-            val result = (evaluation["marked"] as ProbabilityDistribution<*>).result as Int
-            if (result == 1) add(thread)
+            threads.flatten().filterNotNull().forEach { thread ->
+                val evaluation = evaluator.evaluate(
+                    evaluator.inputFields.associate { field ->
+                        field.name to field.prepare(thread.getPmmlProperty(field.name))
+                    }
+                )
+                val result = (evaluation["marked"] as ProbabilityDistribution<*>).result as Int
+                if (result == 1) add(thread)
+            }
         }
     }
 
