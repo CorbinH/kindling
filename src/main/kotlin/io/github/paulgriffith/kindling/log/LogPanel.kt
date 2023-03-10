@@ -209,7 +209,7 @@ class LogPanel(
         init {
             val delta = Duration.between(rawData.first().timestamp, rawData.last().timestamp)
             val slice = delta.dividedBy((rawData.size.toLong() / 60).coerceAtLeast(1))
-            val insertionPoint = DURATIONS.binarySearch { it.compareTo(slice) }
+            val insertionPoint = DURATIONS.binarySearch { it.compareTo(slice) }.coerceAtLeast(-DURATIONS.size)
             val aggregate = DURATIONS[insertionPoint.absoluteValue - 1]
 
             toolTipText = aggregate.toString()
