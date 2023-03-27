@@ -1,11 +1,11 @@
 package io.github.paulgriffith.kindling.thread.model
 
 import io.github.paulgriffith.kindling.core.ToolOpeningException
-import io.github.paulgriffith.kindling.utils.getLogger
 import io.github.paulgriffith.kindling.utils.getValue
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
+import kotlinx.serialization.Transient
 import kotlinx.serialization.json.Json
 import java.io.InputStream
 import java.lang.Thread.State as ThreadState
@@ -16,13 +16,13 @@ data class ThreadDump internal constructor(
     val threads: List<Thread>,
     @SerialName("deadlocks")
     val deadlockIds: List<Int> = emptyList(),
+    @Transient
+    val isLegacy: Boolean = false,
 ) {
     companion object {
         private val JSON = Json {
             ignoreUnknownKeys = true
         }
-
-        private val logger = getLogger<ThreadDump>()
 
         fun fromStream(stream: InputStream): ThreadDump? {
             val text = stream.reader().readText()
@@ -47,6 +47,7 @@ data class ThreadDump internal constructor(
                         else -> parseWebPage(text)
                     },
                     deadlockIds = deadlockIds,
+                    isLegacy = true,
                 )
             }
         }
