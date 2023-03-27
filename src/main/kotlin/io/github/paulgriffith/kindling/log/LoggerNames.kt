@@ -71,7 +71,6 @@ class LoggerNamesList(model: LoggerNamesModel) : CheckBoxList(model) {
                 }
             }
         }
-
         selectAll()
     }
 

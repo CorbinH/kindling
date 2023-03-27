@@ -43,7 +43,7 @@ class Header(private val totalRows: Int) : JPanel(MigLayout("ins 0, fill")) {
                 addActionListener {
                     isShowFullLoggerName = !isShowFullLoggerName
                 }
-            },
+            }
         )
         add(
                 JCheckBoxMenuItem("Show Time Filter").apply {
@@ -70,7 +70,7 @@ class Header(private val totalRows: Int) : JPanel(MigLayout("ins 0, fill")) {
                         }
                     }
                 }
-            },
+            }
         )
     }
 
