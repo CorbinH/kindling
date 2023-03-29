@@ -13,9 +13,9 @@ typealias FilterComparator = Comparator<Map.Entry<String?, Int>>
 class FilterModel(val rawData: Map<String?, Int>) : AbstractListModel<Any>() {
     var comparator: FilterComparator = byCountDesc
         set(value) {
+            field = value
             values = rawData.entries.sortedWith(value).map { it.key }
             fireContentsChanged(this, 0, size)
-            field = value
         }
 
     private var values = rawData.entries.sortedWith(comparator).map { it.key }
@@ -77,6 +77,20 @@ class FilterList(private val emptyLabel: String) : CheckBoxList(FilterModel(empt
                 checkBoxListSelectedIndex = index
             }
         }
+    }
+
+    fun updateComparator(comparator: FilterComparator) {
+        checkBoxListSelectionModel.valueIsAdjusting = true
+        val currentSelection = checkBoxListSelectedValues
+        lastSelection = if (currentSelection.isEmpty()) {
+            lastSelection
+        } else {
+            currentSelection
+        }
+        model.comparator = comparator
+        selectNone()
+        addCheckBoxListSelectedValues(lastSelection)
+        checkBoxListSelectionModel.valueIsAdjusting = false
     }
 
     fun select(value: String) {

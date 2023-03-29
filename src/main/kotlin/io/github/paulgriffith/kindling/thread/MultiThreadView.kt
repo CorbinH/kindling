@@ -490,9 +490,9 @@ class MultiThreadView(
                 description = description,
                 icon = icon,
             ) {
-                stateList.model.comparator = comparator
-                poolList.model.comparator = comparator
-                systemList.model.comparator = comparator
+                stateList.updateComparator(comparator)
+                poolList.updateComparator(comparator)
+                systemList.updateComparator(comparator)
             },
         )
     }

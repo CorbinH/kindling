@@ -23,9 +23,9 @@ class LogDetailsPane : JPanel(MigLayout("ins 1, fill")) {
         newValue.forEach {
             detailsPanel.add(DetailContainer(it), "growx, wrap")
         }
-        detailsPanel.revalidate()
         detailsScrollPane.verticalScrollBar.value = 0
-
+        detailsPanel.revalidate()
+        detailsPanel.repaint()
     }
 
     private val detailsPanel = JPanel(MigLayout("ins 2,  fillx"))
