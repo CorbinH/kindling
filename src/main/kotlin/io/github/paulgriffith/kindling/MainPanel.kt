@@ -11,6 +11,7 @@ import io.github.paulgriffith.kindling.core.Tool
 import io.github.paulgriffith.kindling.core.ToolOpeningException
 import io.github.paulgriffith.kindling.core.ToolPanel
 import io.github.paulgriffith.kindling.internal.FileTransferHandler
+import io.github.paulgriffith.kindling.thread.model.MachineLearningModel
 import io.github.paulgriffith.kindling.utils.Action
 import io.github.paulgriffith.kindling.utils.FlatScrollPane
 import io.github.paulgriffith.kindling.utils.TabStrip
@@ -120,8 +121,17 @@ class MainPanel(empty: Boolean) : JPanel(MigLayout("ins 6, fill")) {
             },
         )
         add(
-            JMenu("Debug").apply
-            {
+            JMenu("Help").apply {
+                add(
+                    Action("Update Machine Learning Model") {
+                        MachineLearningModel.verifyPMML()
+                    },
+                )
+                add(
+                    Action("Enable/Disable Experimental ML Features") {
+                        MachineLearningModel.enabled = !MachineLearningModel.enabled
+                    }
+                )
                 add(
                     Action("UI Inspector") {
                         FlatUIDefaultsInspector.show()

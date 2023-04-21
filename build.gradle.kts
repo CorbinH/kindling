@@ -45,6 +45,7 @@ dependencies {
     api(libs.svgSalamander)
     api(libs.bundles.coroutines)
     api(libs.bundles.flatlaf)
+    api(libs.bundles.ktor)
     api(libs.bundles.ignition) {
         // Exclude transitive IA dependencies - we only need core Ignition classes for cache deserialization
         isTransitive = false
@@ -53,6 +54,7 @@ dependencies {
     api(libs.excelkt)
     api(libs.jfreechart)
     api(libs.rsyntaxtextarea)
+    api(libs.jpmml)
     implementation(libs.osthemedetector)
     runtimeOnly(libs.bundles.ia.transitive)
 
