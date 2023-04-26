@@ -6,6 +6,7 @@ import com.jidesoft.swing.CheckBoxListSelectionModel
 import io.github.inductiveautomation.kindling.core.ClipboardTool
 import io.github.inductiveautomation.kindling.core.Detail
 import io.github.inductiveautomation.kindling.core.Detail.BodyLine
+import io.github.inductiveautomation.kindling.core.Kindling.Preferences.Experimental.enableMachineLearning
 import io.github.inductiveautomation.kindling.core.MultiTool
 import io.github.inductiveautomation.kindling.core.Preference
 import io.github.inductiveautomation.kindling.core.Preference.Companion.PreferenceCheckbox
@@ -33,6 +34,7 @@ import io.github.inductiveautomation.kindling.utils.attachPopupMenu
 import io.github.inductiveautomation.kindling.utils.escapeHtml
 import io.github.inductiveautomation.kindling.utils.selectedRowIndices
 import io.github.inductiveautomation.kindling.utils.toBodyLine
+import io.github.inductiveautomation.kindling.utils.uploadMultipleToWeb
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -60,6 +62,7 @@ import javax.swing.JSplitPane
 import javax.swing.JToggleButton
 import javax.swing.ListSelectionModel
 import javax.swing.SortOrder
+import javax.swing.SwingUtilities
 import javax.swing.UIManager
 import kotlin.io.path.inputStream
 import kotlin.io.path.name
@@ -97,6 +100,18 @@ class MultiThreadView(
                 updateData()
             }
         }
+
+    private val evaluator: ModelEvaluator<*> = LoadingModelEvaluatorBuilder().run {
+        val pathToModel = MachineLearningModel.pmmlFilePath
+        try {
+            javaClass.getResourceAsStream(pathToModel).use(this::load)
+        } catch(e: Exception) {
+            Paths.get(pathToModel).inputStream().use(this::load)
+        }
+        build()
+    }
+
+    private var threadsOfInterest: List<Thread> = emptyList()
 
     private val mainTable: ReifiedJXTable<ThreadModel> = run {
         // populate initial state of all the filter lists
@@ -180,8 +195,9 @@ class MultiThreadView(
                     }
                 }
             }
-            actionMap.put("${ColumnControlButton.COLUMN_CONTROL_MARKER}.clearAllMarks", clearAllMarks)
+
             actionMap.apply {
+                put("${ColumnControlButton.COLUMN_CONTROL_MARKER}.clearAllMarks", clearAllMarks)
                 put(
                     "${ColumnControlButton.COLUMN_CONTROL_MARKER}.clearAllMarks",
                     Action(name = "Clear All Marks") {
@@ -192,14 +208,13 @@ class MultiThreadView(
                         }
                     },
                 )
-                if (MachineLearningModel.enabled) {
-                    put(
-                        "${ColumnControlButton.COLUMN_CONTROL_MARKER}.markThreadsOfInterest",
-                        Action("Mark Threads of Interest") {
-                            markThreadsOfInterest()
-                        }
-                    )
-                }
+                put(
+                    "${ColumnControlButton.COLUMN_CONTROL_MARKER}.markThreadsOfInterest",
+                    Action("Mark Threads of Interest") {
+                        markThreadsOfInterest()
+                    }
+                )
+
             }
 
             attachPopupMenu table@{ event ->
@@ -239,32 +254,9 @@ class MultiThreadView(
         }
     }
 
-    private val evaluator: ModelEvaluator<*> = LoadingModelEvaluatorBuilder().run {
-        MachineLearningModel.verifyPMML()
-        val pathToModel = MachineLearningModel.pmmlFilePath
-        try {
-            javaClass.getResourceAsStream(pathToModel).use(this::load)
-        } catch(e: Exception) {
-            Paths.get(pathToModel).inputStream().use(this::load)
-        }
-        build()
-    }
-
-    private val threadsOfInterest: List<Thread> by lazy {
-        if (threadDumps.any(ThreadDump::isLegacy) || !MachineLearningModel.enabled) return@lazy emptyList()
-
-        buildList {
-            val threads = mainTable.model.threadData
-
-            threads.flatten().filterNotNull().forEach { thread ->
-                val evaluation = evaluator.evaluate(
-                    evaluator.inputFields.associate { field ->
-                        field.name to field.prepare(thread.getPmmlProperty(field.name))
-                    }
-                )
-                val result = (evaluation["marked"] as ProbabilityDistribution<*>).result as Int
-                if (result == 1) add(thread)
-            }
+    init {
+        BACKGROUND.launch {
+            updateThreadsOfInterest()
         }
     }
 
@@ -275,17 +267,6 @@ class MultiThreadView(
     }
 
     private var listModelsAdjusting = false
-
-    private val exportMenu = run {
-        val firstThreadDump = threadDumps.first()
-        val fileName = "threaddump_${firstThreadDump.version}_${firstThreadDump.hashCode()}"
-        exportMenu(fileName) { mainTable.model }
-    }
-
-    private val exportButton = JMenuBar().apply {
-        add(exportMenu)
-        exportMenu.isEnabled = mainTable.model.isSingleContext
-    }
 
     private fun filter(thread: Thread?): Boolean {
         if (thread == null) {
@@ -335,7 +316,6 @@ class MultiThreadView(
                 mainTable.columnFactory = newModel.columns.toColumnFactory()
                 mainTable.model = newModel
                 mainTable.createDefaultColumnsFromModel()
-                exportMenu.isEnabled = newModel.isSingleContext
 
                 if (selectedID != null) {
                     val newSelectedIndex = mainTable.model.threadData.indexOfFirst { lifespan ->
@@ -355,6 +335,33 @@ class MultiThreadView(
                     mainTable.setSortOrder(sortedColumnIdentifier, sortOrder)
                 }
             }
+        }
+    }
+
+    private val multiExportMenu = JMenu("Export").apply {
+        add(
+            Action("Export all to Web") {
+                val models = threadDumps.map {
+                    val fileName = "threaddump_${it.version}_${it.hashCode()}"
+                    val model = ThreadModel(listOf(it).toLifespanList())
+                    fileName to model
+                }
+                uploadMultipleToWeb(models)
+            }
+        )
+    }
+
+    private val singleExportMenu = run {
+        val selectedThreadDump = threadDumpCheckboxList.selectedValue as ThreadDump?
+        val fileName = "threaddump_${selectedThreadDump?.version}_${selectedThreadDump.hashCode()}"
+        exportMenu(fileName) { mainTable.model }
+    }
+
+    private val exportButton = JMenuBar().apply {
+        if (mainTable.model.isSingleContext) {
+            add(singleExportMenu)
+        } else {
+            add(multiExportMenu)
         }
     }
 
@@ -394,6 +401,15 @@ class MultiThreadView(
                     }
                     visibleThreadDumps = selectedThreadDumps
                     listModelsAdjusting = false
+                    exportButton.run {
+                        removeAll()
+                        if (selectedThreadDumps.filterNotNull().size == 1) {
+                            add(singleExportMenu)
+                        } else {
+                            add(multiExportMenu)
+                        }
+                        revalidate()
+                    }
                 }
             }
         }
@@ -415,19 +431,20 @@ class MultiThreadView(
             comparison.updateData()
         }
 
-        comparison.addBlockerSelectedListener { selectedID ->
-            for (i in 0 until mainTable.model.rowCount) {
-                if (selectedID == mainTable.model[i, mainTable.model.columns.id]) {
-                    val rowIndex = mainTable.convertRowIndexToView(i)
-                    mainTable.selectionModel.setSelectionInterval(0, rowIndex)
-                    mainTable.scrollRectToVisible(Rectangle(mainTable.getCellRect(rowIndex, 0, true)))
-                    break
+        comparison.apply {
+            addBlockerSelectedListener { selectedID ->
+                for (i in 0 until mainTable.model.rowCount) {
+                    if (selectedID == mainTable.model[i, mainTable.model.columns.id]) {
+                        val rowIndex = mainTable.convertRowIndexToView(i)
+                        mainTable.selectionModel.setSelectionInterval(0, rowIndex)
+                        mainTable.scrollRectToVisible(Rectangle(mainTable.getCellRect(rowIndex, 0, true)))
+                        break
+                    }
                 }
             }
-        }
-
-        comparison.addThreadMarkedListener {
-            mainTable.repaint()
+            addThreadMarkedListener {
+                mainTable.repaint()
+            }
         }
 
         val sortButtons = ButtonGroup()
@@ -476,6 +493,42 @@ class MultiThreadView(
             },
             "push, grow, span",
         )
+
+        enableMachineLearning.addChangeListener { enable ->
+            if (enable) {
+                SwingUtilities.invokeLater {
+                    MachineLearningModel.verifyPMML()
+                }
+            }
+
+            BACKGROUND.launch {
+                updateThreadsOfInterest()
+
+                EDT_SCOPE.launch {
+                    mainTable.repaint()
+                }
+            }
+        }
+    }
+
+    private fun updateThreadsOfInterest() {
+        threadsOfInterest = if (enableMachineLearning.currentValue) {
+            buildList {
+                val threads = mainTable.model.threadData
+
+                threads.flatten().filterNotNull().forEach { thread ->
+                    val evaluation = evaluator.evaluate(
+                        evaluator.inputFields.associate { field ->
+                            field.name to field.prepare(thread.getPmmlProperty(field.name))
+                        }
+                    )
+                    val result = (evaluation["marked"] as ProbabilityDistribution<*>).result as Int
+                    if (result == 1) add(thread)
+                }
+            }
+        } else {
+            emptyList()
+        }
     }
 
     private fun markThreadsOfInterest() = BACKGROUND.launch {

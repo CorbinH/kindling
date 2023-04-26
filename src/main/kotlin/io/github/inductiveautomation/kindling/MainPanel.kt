@@ -9,6 +9,7 @@ import com.formdev.flatlaf.fonts.roboto.FlatRobotoFont
 import com.formdev.flatlaf.util.SystemInfo
 import io.github.inductiveautomation.kindling.core.ClipboardTool
 import io.github.inductiveautomation.kindling.core.CustomIconView
+import io.github.inductiveautomation.kindling.core.Kindling.BETA_VERSION
 import io.github.inductiveautomation.kindling.core.Kindling.Preferences.Advanced.Debug
 import io.github.inductiveautomation.kindling.core.Kindling.Preferences.General.ChoosableEncodings
 import io.github.inductiveautomation.kindling.core.Kindling.Preferences.General.DefaultEncoding
@@ -268,7 +269,7 @@ class MainPanel : JPanel(MigLayout("ins 6, fill")) {
                 lafSetup()
 
                 jFrame(
-                    title = "Kindling",
+                    title = "Kindling $BETA_VERSION",
                     width = 1280,
                     height = 800,
                     embedContentIntoTitleBar = true,
