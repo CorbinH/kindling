@@ -1,6 +1,7 @@
 package io.github.paulgriffith.kindling.utils // ktlint-disable filename
 
 import io.github.evanrupert.excelkt.workbook
+import io.github.paulgriffith.kindling.core.Kindling
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.cio.CIO
@@ -8,8 +9,10 @@ import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
-import io.ktor.client.statement.*
-import io.ktor.http.*
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.contentType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.slf4j.Logger
@@ -186,8 +189,9 @@ fun uploadBlocking(model: TableModel, filename: String, username: String): Boole
     runBlocking(Dispatchers.IO) { uploadClient.upload(model, filename, username) }
 
 fun TableModel.uploadToWeb(filename: String) {
-    val username = JOptionPane.showInputDialog(null, "Enter Username:\n")
+    val username = Kindling.user ?: JOptionPane.showInputDialog(null, "Enter Username:\n")
     if (!username.isNullOrEmpty()) {
+        Kindling.user = username
         val responseData = checkFileAndUserBlocking(filename, username)
         val uploadExists = responseData.second
         val responseCode = responseData.first
@@ -217,6 +221,7 @@ fun TableModel.uploadToWeb(filename: String) {
                 }
             }
         } else {
+            Kindling.user = null
             JOptionPane.showMessageDialog(
                 null,
                 "Failed to upload $filename.\nError response: $responseCode",
@@ -224,6 +229,72 @@ fun TableModel.uploadToWeb(filename: String) {
                 JOptionPane.ERROR_MESSAGE,
             )
         }
+    }
+}
+
+fun uploadMultipleToWeb(namesAndModels: List<Pair<String, TableModel>>) {
+    val fileNames = namesAndModels.map { it.first }
+
+    val username = Kindling.user ?: JOptionPane.showInputDialog(null, "Enter Username:\n")
+    if (!username.isNullOrEmpty()) {
+        Kindling.user = username
+        val responseData = fileNames.map { checkFileAndUserBlocking(it, username) }
+
+        fun invalidCode(res: Pair<HttpStatusCode, Boolean>) = res.first.value !in 200..299
+
+        if (responseData.any(::invalidCode)) {
+            Kindling.user = null
+            val codes = responseData.joinToString("\n") { it.first.toString() }
+            JOptionPane.showMessageDialog(
+                null,
+                "Failed to upload. Received the following response codes:\n$codes",
+                "Error",
+                JOptionPane.ERROR_MESSAGE,
+            )
+        } else {
+            val indicesOfExisting = responseData.mapIndexedNotNull { index, (_, exists) ->
+                if (exists) index else null
+            }
+
+            val overwriteUploadList = indicesOfExisting.joinToString("\n") { i ->
+                val fileName = fileNames[i]
+                "${i + 1}: $fileName"
+            }
+
+            if (indicesOfExisting.isEmpty() || JOptionPane.showConfirmDialog(
+                    null,
+                    "The following filename(s) already exist in the database. Overwrite?\n$overwriteUploadList",
+                    "Filename Already Exists",
+                    JOptionPane.YES_NO_CANCEL_OPTION,
+                ) == JOptionPane.YES_OPTION
+            ) {
+                val (uploadSuccess, uploadFailed) = namesAndModels.partition {
+                    uploadBlocking(it.second, it.first, username)
+                }
+
+                val failedFileNames = uploadFailed.map { it.first }
+
+                if (uploadSuccess.isNotEmpty()) {
+                    JOptionPane.showMessageDialog(
+                        null,
+                        "Uploaded ${uploadSuccess.size} file(s) successfully",
+                        "Success",
+                        JOptionPane.INFORMATION_MESSAGE,
+                    )
+                }
+                if (uploadFailed.isNotEmpty()) {
+                    Kindling.user = null
+                    JOptionPane.showMessageDialog(
+                        null,
+                        "Failed to upload the following:\n${failedFileNames.joinToString("\n")}",
+                        "Error",
+                        JOptionPane.ERROR_MESSAGE,
+                    )
+                }
+            }
+        }
+    } else {
+        Kindling.user = null
     }
 }
 
