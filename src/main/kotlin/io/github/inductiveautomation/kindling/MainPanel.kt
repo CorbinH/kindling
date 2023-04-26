@@ -11,6 +11,7 @@ import com.formdev.flatlaf.util.SystemInfo
 import com.jidesoft.swing.StyleRange.STYLE_UNDERLINED
 import io.github.inductiveautomation.kindling.core.ClipboardTool
 import io.github.inductiveautomation.kindling.core.CustomIconView
+import io.github.inductiveautomation.kindling.core.Kindling.BETA_VERSION
 import io.github.inductiveautomation.kindling.core.EditorTool
 import io.github.inductiveautomation.kindling.core.Kindling
 import io.github.inductiveautomation.kindling.core.Kindling.Preferences.Advanced.Debug
@@ -26,7 +27,6 @@ import io.github.inductiveautomation.kindling.core.ToolOpeningException
 import io.github.inductiveautomation.kindling.core.ToolPanel
 import io.github.inductiveautomation.kindling.core.preferencesEditor
 import io.github.inductiveautomation.kindling.internal.FileTransferHandler
-import io.github.inductiveautomation.kindling.thread.model.MachineLearningModel
 import io.github.inductiveautomation.kindling.utils.Action
 import io.github.inductiveautomation.kindling.utils.EmptyBorder
 import io.github.inductiveautomation.kindling.utils.FlatScrollPane
@@ -69,7 +69,6 @@ import java.nio.charset.Charset
 import java.util.function.BiFunction
 import javax.swing.Icon
 import javax.swing.JButton
-import javax.swing.JCheckBoxMenuItem
 import javax.swing.JComboBox
 import javax.swing.JFileChooser
 import javax.swing.JFrame
@@ -335,13 +334,6 @@ class MainPanel : JPanel(MigLayout("ins 6, fill, hidemode 3")) {
                         },
                     )
                 }
-                add(
-                    JCheckBoxMenuItem("Machine Learning Thread Prediction").apply {
-                        addActionListener {
-                            MachineLearningModel.enabled = !MachineLearningModel.enabled
-                        }
-                    },
-                )
             },
         )
     }
@@ -450,7 +442,7 @@ class MainPanel : JPanel(MigLayout("ins 6, fill, hidemode 3")) {
                 lafSetup()
 
                 jFrame(
-                    title = "Kindling",
+                    title = "Kindling $BETA_VERSION",
                     width = 1280,
                     height = 800,
                     embedContentIntoTitleBar = true,

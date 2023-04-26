@@ -9,6 +9,7 @@ import io.github.inductiveautomation.kindling.core.Preference.Companion.preferen
 import io.github.inductiveautomation.kindling.utils.ACTION_ICON_SCALE_FACTOR
 import io.github.inductiveautomation.kindling.utils.CharsetSerializer
 import io.github.inductiveautomation.kindling.utils.DocumentAdapter
+import io.github.inductiveautomation.kindling.utils.EmptyBorder
 import io.github.inductiveautomation.kindling.utils.PathSerializer
 import io.github.inductiveautomation.kindling.utils.PathSerializer.serializedForm
 import io.github.inductiveautomation.kindling.utils.ThemeSerializer
@@ -29,14 +30,18 @@ import java.net.URI
 import java.nio.charset.Charset
 import java.nio.file.Path
 import java.util.Vector
+import javax.swing.JButton
 import javax.swing.JComboBox
+import javax.swing.JPanel
 import javax.swing.JSpinner
+import javax.swing.JTextField
 import javax.swing.SpinnerNumberModel
 import kotlin.io.path.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.inputStream
 import kotlin.io.path.outputStream
 import kotlin.time.Duration.Companion.seconds
+import net.miginfocom.swing.MigLayout
 import io.github.inductiveautomation.kindling.core.Theme.Companion as KindlingTheme
 
 data object Kindling {
@@ -199,6 +204,40 @@ data object Kindling {
             override val preferences: List<Preference<*>> = listOf(Theme, ScaleFactor)
         }
 
+        data object Experimental : PreferenceCategory {
+            val User: Preference<String> = preference(
+                name = "Username",
+                description = "Username used for authenticated thread dump uploads. Press enter to submit changes.",
+                default = "",
+                editor = {
+                    JPanel(MigLayout("ins 0, gap 8")).apply {
+                        border = EmptyBorder()
+                        val textField = JTextField(currentValue, 15)
+                        val submit = JButton("Submit").apply {
+                            addActionListener {
+                                currentValue = textField.text
+                            }
+                        }
+                        add(textField)
+                        add(submit)
+                    }
+                }
+            )
+
+            val enableMachineLearning: Preference<Boolean> = preference(
+                name = "Machine Learning Model",
+                description = null,
+                default = false,
+                editor = {
+                    PreferenceCheckbox("Enable Machine Learning Prediction for thread dumps")
+                },
+            )
+
+            override val displayName = "Experimental"
+            override val serialKey = "experimental"
+            override val preferences: List<Preference<*>> = listOf(User, enableMachineLearning)
+        }
+
         data object Advanced : PreferenceCategory {
             val Debug: Preference<Boolean> = preference(
                 name = "Debug Mode",
@@ -245,6 +284,7 @@ data object Kindling {
             add(General)
             add(UI)
             addAll(Tool.tools.filterIsInstance<PreferenceCategory>())
+            add(Experimental)
             // put advanced last
             add(Advanced)
         }
@@ -290,5 +330,5 @@ data object Kindling {
         }
     }
 
-    const val VERSION = "1.6.0"
+    const val BETA_VERSION = "1.6.0"
 }
