@@ -23,6 +23,8 @@ object Kindling {
 
     val frameIcon: Image = Toolkit.getDefaultToolkit().getImage(this::class.java.getResource("/icons/kindling.png"))
 
+    var user: String? = null
+
     @Suppress("ktlint:trailing-comma-on-declaration-site")
     enum class Theme(val lookAndFeel: FlatLaf, private val rSyntaxThemeName: String) {
         Light(

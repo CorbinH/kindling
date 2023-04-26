@@ -31,6 +31,7 @@ import io.github.paulgriffith.kindling.utils.attachPopupMenu
 import io.github.paulgriffith.kindling.utils.escapeHtml
 import io.github.paulgriffith.kindling.utils.getValue
 import io.github.paulgriffith.kindling.utils.selectedRowIndices
+import io.github.paulgriffith.kindling.utils.uploadMultipleToWeb
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -261,15 +262,31 @@ class MultiThreadView(
 
     private var listModelsAdjusting = false
 
-    private val exportMenu = run {
+    private val multiExportMenu = JMenu("Export").apply {
+        add(
+            Action("Export all to Web") {
+                val models = threadDumps.map {
+                    val fileName = "threaddump_${it.version}_${it.hashCode()}"
+                    val model = ThreadModel(listOf(it).toLifespanList())
+                    fileName to model
+                }
+                uploadMultipleToWeb(models)
+            }
+        )
+    }
+
+    private val singleExportMenu = run {
         val firstThreadDump = threadDumps.first()
         val fileName = "threaddump_${firstThreadDump.version}_${firstThreadDump.hashCode()}"
         exportMenu(fileName) { mainTable.model }
     }
 
     private val exportButton = JMenuBar().apply {
-        add(exportMenu)
-        exportMenu.isEnabled = mainTable.model.isSingleContext
+        if (mainTable.model.isSingleContext) {
+            add(singleExportMenu)
+        } else {
+            add(multiExportMenu)
+        }
     }
 
     private fun filter(thread: Thread?): Boolean {
@@ -320,7 +337,6 @@ class MultiThreadView(
                 mainTable.columnFactory = newModel.columns.toColumnFactory()
                 mainTable.model = newModel
                 mainTable.createDefaultColumnsFromModel()
-                exportMenu.isEnabled = newModel.isSingleContext
 
                 if (selectedID != null) {
                     val newSelectedIndex = mainTable.model.threadData.indexOfFirst { lifespan ->
@@ -379,6 +395,15 @@ class MultiThreadView(
                     }
                     visibleThreadDumps = selectedThreadDumps
                     listModelsAdjusting = false
+                    exportButton.run {
+                        removeAll()
+                        if (selectedThreadDumps.filterNotNull().size == 1) {
+                            add(singleExportMenu)
+                        } else {
+                            add(multiExportMenu)
+                        }
+                        revalidate()
+                    }
                 }
             }
         }
