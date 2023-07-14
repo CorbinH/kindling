@@ -2,6 +2,7 @@ package io.github.inductiveautomation.kindling.log
 
 import com.formdev.flatlaf.extras.FlatSVGIcon
 import io.github.inductiveautomation.kindling.core.ClipboardTool
+import io.github.inductiveautomation.kindling.core.Kindling
 import io.github.inductiveautomation.kindling.core.MultiTool
 import io.github.inductiveautomation.kindling.core.ToolPanel
 import io.github.inductiveautomation.kindling.utils.Action
@@ -47,15 +48,19 @@ class WrapperLogView(
 }
 
 object LogViewer : MultiTool, ClipboardTool {
+    private const val MAX_EXTENSION_INDEX = 20
     override val title = "Wrapper Log"
     override val description = "wrapper.log(.n) files"
     override val icon = FlatSVGIcon("icons/bx-file.svg")
-    override val extensions = listOf("log", "1", "2", "3", "4", "5")
+    override val extensions: List<String> = buildList {
+        add("log")
+        addAll((1..MAX_EXTENSION_INDEX).map { it.toString() })
+    }
 
     override fun open(paths: List<Path>): ToolPanel {
         require(paths.isNotEmpty()) { "Must provide at least one path" }
         val events = paths.flatMap { path ->
-            path.useLines { lines -> LogPanel.parseLogs(lines) }
+            path.useLines(Kindling.selectedWrapperEncoding) { lines -> LogPanel.parseLogs(lines) }
         }
         return WrapperLogView(
             events = events,
