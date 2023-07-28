@@ -27,10 +27,7 @@ import org.jdesktop.swingx.JXTaskPane
 import org.jdesktop.swingx.JXTaskPaneContainer
 import java.awt.Color
 import java.awt.Font
-import java.awt.Desktop
 import java.awt.event.ItemEvent
-import java.awt.event.MouseAdapter
-import java.awt.event.MouseEvent
 import java.text.DecimalFormat
 import java.util.EventListener
 import javax.swing.JPanel
@@ -152,27 +149,6 @@ class ThreadComparisonPane(
     private fun fireThreadMarkedEvent(value: Boolean) {
         for (listener in listeners.getAll<ThreadMarkedListener>()) {
             listener.onThreadMarked(value)
-        }
-    }
-
-    private class ComparisonEditorKit : HTMLEditorKit() {
-        init {
-            styleSheet.apply {
-                //language=CSS
-                addRule(
-                    """
-                b {
-                    font-size: larger;
-                }
-                pre { 
-                    font-size: 10px; 
-                }
-                object { 
-                    padding-left: 16px; 
-                }
-                    """.trimIndent(),
-                )
-            }
         }
     }
 

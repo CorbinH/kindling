@@ -49,7 +49,6 @@ dependencies {
     api(libs.jfreechart)
     api(libs.rsyntaxtextarea)
     api(libs.jpmml)
-    implementation(libs.osthemedetector)
     runtimeOnly(libs.bundles.ia.transitive)
 
     testImplementation(libs.bundles.kotest)
