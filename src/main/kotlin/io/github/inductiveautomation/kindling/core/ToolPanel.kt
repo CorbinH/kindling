@@ -49,6 +49,11 @@ abstract class ToolPanel(
                     },
                 )
             }
+            add(
+                Action("Export To Web") {
+                    modelSupplier().uploadToWeb(defaultFileName)
+                },
+            )
         }
 
     companion object {

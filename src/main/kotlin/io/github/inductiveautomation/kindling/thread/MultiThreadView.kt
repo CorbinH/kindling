@@ -40,10 +40,15 @@ import org.jdesktop.swingx.JXSearchField
 import org.jdesktop.swingx.decorator.ColorHighlighter
 import org.jdesktop.swingx.table.ColumnControlButton
 import org.jdesktop.swingx.table.TableColumnExt
+import org.jpmml.evaluator.LoadingModelEvaluatorBuilder
+import org.jpmml.evaluator.ModelEvaluator
+import org.jpmml.evaluator.ProbabilityDistribution
+import java.awt.Color
 import java.awt.Desktop
 import java.awt.Rectangle
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.Paths
 import javax.swing.ButtonGroup
 import javax.swing.JLabel
 import javax.swing.JMenu
@@ -108,11 +113,23 @@ class MultiThreadView(
                 ColorHighlighter(
                     { _, adapter ->
                         threadDumps.any { threadDump ->
-                            model[adapter.row, model.columns.id] in threadDump.deadlockIds
+                            val rowNum = convertRowIndexToModel(adapter.row)
+                            model[rowNum, model.columns.id] in threadDump.deadlockIds
                         }
                     },
                     UIManager.getColor("Actions.Red"),
                     null,
+                ),
+            )
+
+            addHighlighter(
+                ColorHighlighter(
+                    { _, adapter ->
+                        val rowNum = convertRowIndexToModel(adapter.row)
+                        model[rowNum, model.columns.id] in threadsOfInterest.map(Thread::id)
+                    },
+                    UIManager.getColor("Objects.YellowDark"),
+                    Color.BLACK
                 ),
             )
 
@@ -163,6 +180,26 @@ class MultiThreadView(
                 }
             }
             actionMap.put("${ColumnControlButton.COLUMN_CONTROL_MARKER}.clearAllMarks", clearAllMarks)
+            actionMap.apply {
+                put(
+                    "${ColumnControlButton.COLUMN_CONTROL_MARKER}.clearAllMarks",
+                    Action(name = "Clear All Marks") {
+                        for (lifespan in model.threadData) {
+                            lifespan.forEach { thread ->
+                                thread?.marked = false
+                            }
+                        }
+                    },
+                )
+                if (MachineLearningModel.enabled) {
+                    put(
+                        "${ColumnControlButton.COLUMN_CONTROL_MARKER}.markThreadsOfInterest",
+                        Action("Mark Threads of Interest") {
+                            markThreadsOfInterest()
+                        }
+                    )
+                }
+            }
 
             attachPopupMenu table@{ event ->
                 val rowAtPoint = rowAtPoint(event.point)
@@ -197,6 +234,35 @@ class MultiThreadView(
                         },
                     )
                 }
+            }
+        }
+    }
+
+    private val evaluator: ModelEvaluator<*> = LoadingModelEvaluatorBuilder().run {
+        MachineLearningModel.verifyPMML()
+        val pathToModel = MachineLearningModel.pmmlFilePath
+        try {
+            javaClass.getResourceAsStream(pathToModel).use(this::load)
+        } catch(e: Exception) {
+            Paths.get(pathToModel).inputStream().use(this::load)
+        }
+        build()
+    }
+
+    private val threadsOfInterest: List<Thread> by lazy {
+        if (threadDumps.any(ThreadDump::isLegacy) || !MachineLearningModel.enabled) return@lazy emptyList()
+
+        buildList {
+            val threads = mainTable.model.threadData
+
+            threads.flatten().filterNotNull().forEach { thread ->
+                val evaluation = evaluator.evaluate(
+                    evaluator.inputFields.associate { field ->
+                        field.name to field.prepare(thread.getPmmlProperty(field.name))
+                    }
+                )
+                val result = (evaluation["marked"] as ProbabilityDistribution<*>).result as Int
+                if (result == 1) add(thread)
             }
         }
     }
@@ -260,7 +326,11 @@ class MultiThreadView(
                 val sortedColumnIdentifier = mainTable.sortedColumn.identifier
                 val sortOrder = mainTable.getSortOrder(sortedColumnIdentifier)
 
-                val newModel = ThreadModel(filteredThreadDumps)
+                val newModel = ThreadModel(filteredThreadDumps).apply {
+                    addTableModelListener {
+                        comparison.updateData()
+                    }
+                }
                 mainTable.columnFactory = newModel.columns.toColumnFactory()
                 mainTable.model = newModel
                 mainTable.createDefaultColumnsFromModel()
@@ -349,6 +419,9 @@ class MultiThreadView(
                     break
                 }
             }
+            addThreadMarkedListener {
+                mainTable.repaint()
+            }
         }
 
         val sortButtons = ButtonGroup()
@@ -397,6 +470,30 @@ class MultiThreadView(
             },
             "push, grow, span",
         )
+    }
+
+    private fun markThreadsOfInterest() = BACKGROUND.launch {
+        val model = mainTable.model.threadData
+
+        model.flatten().filterNotNull().forEach { thread ->
+            if (thread in threadsOfInterest) {
+               thread.marked = true
+            }
+        }
+        mainTable.model.fireTableDataChanged()
+    }
+
+    private fun Thread.getPmmlProperty(prop: String): Any? = when(prop) {
+        "thread_state" -> state.toString()
+        "system" -> system
+        "scope" -> scope
+        "stacktrace_depth" -> stacktrace.size
+        "cpu_usage" -> cpuUsage
+        "daemon" -> isDaemon
+        "thread_pool" -> pool
+        "version" -> threadDumps.first().version
+        "thread_id" -> id
+        else -> null
     }
 
     private val initialized = true
