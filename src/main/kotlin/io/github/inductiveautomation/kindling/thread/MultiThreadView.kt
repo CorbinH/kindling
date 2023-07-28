@@ -16,6 +16,7 @@ import io.github.inductiveautomation.kindling.core.ToolOpeningException
 import io.github.inductiveautomation.kindling.core.ToolPanel
 import io.github.inductiveautomation.kindling.core.add
 import io.github.inductiveautomation.kindling.thread.model.MachineLearningModel
+import io.github.inductiveautomation.kindling.thread.model.MachineLearningModel.evaluator
 import io.github.inductiveautomation.kindling.thread.model.Thread
 import io.github.inductiveautomation.kindling.thread.model.ThreadColumnIdentifier
 import io.github.inductiveautomation.kindling.thread.model.ThreadDump
@@ -26,6 +27,7 @@ import io.github.inductiveautomation.kindling.thread.model.ThreadModel.SingleThr
 import io.github.inductiveautomation.kindling.utils.Action
 import io.github.inductiveautomation.kindling.utils.Column
 import io.github.inductiveautomation.kindling.utils.EDT_SCOPE
+import io.github.inductiveautomation.kindling.utils.FileFilter
 import io.github.inductiveautomation.kindling.utils.FilterList
 import io.github.inductiveautomation.kindling.utils.FilterModel
 import io.github.inductiveautomation.kindling.utils.FlatScrollPane
@@ -41,17 +43,14 @@ import kotlinx.coroutines.launch
 import net.miginfocom.swing.MigLayout
 import org.jdesktop.swingx.JXSearchField
 import org.jdesktop.swingx.decorator.ColorHighlighter
-import org.jdesktop.swingx.table.ColumnControlButton
+import org.jdesktop.swingx.table.ColumnControlButton.COLUMN_CONTROL_MARKER
 import org.jdesktop.swingx.table.TableColumnExt
-import org.jpmml.evaluator.LoadingModelEvaluatorBuilder
-import org.jpmml.evaluator.ModelEvaluator
 import org.jpmml.evaluator.ProbabilityDistribution
 import java.awt.Color
 import java.awt.Desktop
 import java.awt.Rectangle
 import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.Paths
 import javax.swing.ButtonGroup
 import javax.swing.JLabel
 import javax.swing.JMenu
@@ -100,16 +99,6 @@ class MultiThreadView(
                 updateData()
             }
         }
-
-    private val evaluator: ModelEvaluator<*> = LoadingModelEvaluatorBuilder().run {
-        val pathToModel = MachineLearningModel.pmmlFilePath
-        try {
-            javaClass.getResourceAsStream(pathToModel).use(this::load)
-        } catch(e: Exception) {
-            Paths.get(pathToModel).inputStream().use(this::load)
-        }
-        build()
-    }
 
     private var threadsOfInterest: List<Thread> = emptyList()
 
@@ -197,9 +186,9 @@ class MultiThreadView(
             }
 
             actionMap.apply {
-                put("${ColumnControlButton.COLUMN_CONTROL_MARKER}.clearAllMarks", clearAllMarks)
+                put("$COLUMN_CONTROL_MARKER}.clearAllMarks", clearAllMarks)
                 put(
-                    "${ColumnControlButton.COLUMN_CONTROL_MARKER}.clearAllMarks",
+                    "${COLUMN_CONTROL_MARKER}.clearAllMarks",
                     Action(name = "Clear All Marks") {
                         for (lifespan in model.threadData) {
                             lifespan.forEach { thread ->
@@ -209,7 +198,7 @@ class MultiThreadView(
                     },
                 )
                 put(
-                    "${ColumnControlButton.COLUMN_CONTROL_MARKER}.markThreadsOfInterest",
+                    "${COLUMN_CONTROL_MARKER}.markThreadsOfInterest",
                     Action("Mark Threads of Interest") {
                         markThreadsOfInterest()
                     }
@@ -255,9 +244,7 @@ class MultiThreadView(
     }
 
     init {
-        BACKGROUND.launch {
-            updateThreadsOfInterest()
-        }
+        updateThreadsOfInterest()
     }
 
     private var comparison = ThreadComparisonPane(threadDumps.size, threadDumps[0].version)
@@ -351,11 +338,12 @@ class MultiThreadView(
         )
     }
 
-    private val singleExportMenu = run {
-        val selectedThreadDump = threadDumpCheckboxList.selectedValue as ThreadDump?
-        val fileName = "threaddump_${selectedThreadDump?.version}_${selectedThreadDump.hashCode()}"
-        exportMenu(fileName) { mainTable.model }
-    }
+    private val singleExportMenu: JMenu
+        get() = run {
+            val selectedThreadDump = visibleThreadDumps.firstNotNullOf { it }
+            val fileName = "threaddump_${selectedThreadDump.version}_${selectedThreadDump.hashCode()}"
+            exportMenu(fileName) { mainTable.model }
+        }
 
     private val exportButton = JMenuBar().apply {
         if (mainTable.model.isSingleContext) {
@@ -408,7 +396,7 @@ class MultiThreadView(
                         } else {
                             add(multiExportMenu)
                         }
-                        revalidate()
+                        this@run.revalidate()
                     }
                 }
             }
@@ -478,12 +466,12 @@ class MultiThreadView(
                     for (element in sortGroupEnumeration) {
                         add(element, "gapx 2")
                     }
-                    add(FlatScrollPane(stateList), "w 220, h 100!")
+                    add(FlatScrollPane(stateList), "w 220!, h 100!")
                     // if all the thread dumps are "unassigned", no need to add the system selector
                     if (systemList.model.size > 2) {
-                        add(FlatScrollPane(systemList), "w 220, growy")
+                        add(FlatScrollPane(systemList), "w 220!, growy")
                     }
-                    add(FlatScrollPane(poolList), "w 220, pushy 300, growy")
+                    add(FlatScrollPane(poolList), "w 220!, pushy 300, growy")
                     add(FlatScrollPane(mainTable), "newline, spany, pushx, grow")
                 },
                 comparison,
@@ -512,7 +500,7 @@ class MultiThreadView(
     }
 
     private fun updateThreadsOfInterest() {
-        threadsOfInterest = if (enableMachineLearning.currentValue) {
+        threadsOfInterest = if (enableMachineLearning.currentValue && !threadDumps.any { it.isLegacy }) {
             buildList {
                 val threads = mainTable.model.threadData
 
@@ -637,7 +625,22 @@ data object MultiThreadViewer : MultiTool, ClipboardTool, PreferenceCategory {
     override val title = "Thread Viewer"
     override val description = "Thread dump (.json or .txt) files"
     override val icon = FlatSVGIcon("icons/bx-file.svg")
-    override val extensions = listOf("json", "txt")
+    override val filter = FileFilter(
+        description = description,
+        predicate = { file ->
+            file.extension in listOf("json", "txt") &&
+            run {
+                val firstTwoLines =  buildString {
+                    file.bufferedReader().use { br ->
+                        append(br.readLine())
+                        append(br.readLine())
+                    }
+                }
+                "Ignition" in firstTwoLines || "version" in firstTwoLines
+            }
+        }
+    )
+
     override val respectsEncoding: Boolean = true
     override fun open(path: Path): ToolPanel = open(listOf(path))
     override fun open(paths: List<Path>): ToolPanel {
