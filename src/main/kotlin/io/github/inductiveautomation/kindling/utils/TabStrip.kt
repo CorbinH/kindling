@@ -154,7 +154,12 @@ class TabStrip : FlatTabbedPane() {
         final override fun addComponentListener(l: ComponentListener) = super.addComponentListener(l)
 
         override fun customizePopupMenu(menu: JPopupMenu) {
-            (component.value as? PopupMenuCustomizer)?.customizePopupMenu(menu)
+            if (component.isInitialized()) {
+                val actualComponent = component.value
+                if (actualComponent is PopupMenuCustomizer) {
+                    actualComponent.customizePopupMenu(menu)
+                }
+            }
         }
     }
 
