@@ -64,9 +64,12 @@ data object Kindling {
         }
     }
 
+    val homepage = URI("https://github.com/inductiveautomation/kindling")
+    val forumThread = URI("https://forum.inductiveautomation.com/t/54689")
+
     const val SECONDARY_ACTION_ICON_SCALE = 0.75F
 
-    val BETA_VERSION: String = "1.1.0"//Properties(Path.of("gradle.properties").inputStream()).getProperty("version")
+    val BETA_VERSION: String = "1.1.1"//Properties(Path.of("gradle.properties").inputStream()).getProperty("version")
 
     data object Preferences {
         data object General : PreferenceCategory {

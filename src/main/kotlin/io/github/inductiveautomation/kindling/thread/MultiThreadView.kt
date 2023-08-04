@@ -37,6 +37,7 @@ import io.github.inductiveautomation.kindling.utils.escapeHtml
 import io.github.inductiveautomation.kindling.utils.selectedRowIndices
 import io.github.inductiveautomation.kindling.utils.toBodyLine
 import io.github.inductiveautomation.kindling.utils.uploadMultipleToWeb
+import io.github.inductiveautomation.kindling.utils.transferTo
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -63,10 +64,7 @@ import javax.swing.ListSelectionModel
 import javax.swing.SortOrder
 import javax.swing.SwingUtilities
 import javax.swing.UIManager
-import kotlin.io.path.inputStream
-import kotlin.io.path.name
-import kotlin.io.path.nameWithoutExtension
-import kotlin.io.path.outputStream
+import kotlin.io.path.*
 
 class MultiThreadView(
     val paths: List<Path>,
@@ -649,9 +647,7 @@ data object MultiThreadViewer : MultiTool, ClipboardTool, PreferenceCategory {
 
     override fun open(data: String): ToolPanel {
         val tempFile = Files.createTempFile("kindling", "cb")
-        data.byteInputStream().use { threadDump ->
-            tempFile.outputStream().use(threadDump::copyTo)
-        }
+        data.byteInputStream() transferTo tempFile.outputStream()
         return open(tempFile)
     }
 
