@@ -7,8 +7,7 @@ import com.formdev.flatlaf.extras.FlatUIDefaultsInspector
 import com.formdev.flatlaf.extras.components.FlatTextArea
 import com.formdev.flatlaf.fonts.roboto.FlatRobotoFont
 import com.formdev.flatlaf.util.SystemInfo
-import io.github.inductiveautomation.kindling.core.ClipboardTool
-import io.github.inductiveautomation.kindling.core.CustomIconView
+import io.github.inductiveautomation.kindling.core.*
 import io.github.inductiveautomation.kindling.core.Kindling.BETA_VERSION
 import io.github.inductiveautomation.kindling.core.Kindling.Preferences.Advanced.Debug
 import io.github.inductiveautomation.kindling.core.Kindling.Preferences.General.ChoosableEncodings
@@ -17,11 +16,6 @@ import io.github.inductiveautomation.kindling.core.Kindling.Preferences.General.
 import io.github.inductiveautomation.kindling.core.Kindling.Preferences.General.HomeLocation
 import io.github.inductiveautomation.kindling.core.Kindling.Preferences.UI.ScaleFactor
 import io.github.inductiveautomation.kindling.core.Kindling.Preferences.UI.Theme
-import io.github.inductiveautomation.kindling.core.MultiTool
-import io.github.inductiveautomation.kindling.core.Tool
-import io.github.inductiveautomation.kindling.core.ToolOpeningException
-import io.github.inductiveautomation.kindling.core.ToolPanel
-import io.github.inductiveautomation.kindling.core.preferencesEditor
 import io.github.inductiveautomation.kindling.internal.FileTransferHandler
 import io.github.inductiveautomation.kindling.utils.Action
 import io.github.inductiveautomation.kindling.utils.FlatScrollPane
@@ -275,7 +269,7 @@ class MainPanel : JPanel(MigLayout("ins 6, fill")) {
                     embedContentIntoTitleBar = true,
                 ) {
                     defaultCloseOperation = JFrame.EXIT_ON_CLOSE
-
+                    iconImage = Kindling.frameIcons[0]
                     val mainPanel = MainPanel()
                     add(mainPanel)
                     jMenuBar = mainPanel.menuBar
