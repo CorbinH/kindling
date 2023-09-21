@@ -1,6 +1,6 @@
 package io.github.inductiveautomation.kindling.thread
 
-import io.github.inductiveautomation.kindling.thread.model.Thread.Companion.extractPool
+import io.github.inductiveautomation.kindling.thread.model.Thread.Companion.parseThreadPool
 import io.github.inductiveautomation.kindling.thread.model.ThreadDump
 import io.kotest.assertions.asClue
 import io.kotest.core.spec.style.FunSpec
@@ -74,7 +74,7 @@ class ThreadViewTests : FunSpec(
                 ),
                 row("AsyncSocketIOSession[I/O]-1", "AsyncSocketIOSession[I/O]"),
             ) { name, pool ->
-                extractPool(name) shouldBe pool
+                parseThreadPool(name, false) shouldBe pool
             }
         }
     },

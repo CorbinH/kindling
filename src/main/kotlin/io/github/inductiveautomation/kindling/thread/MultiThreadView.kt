@@ -454,16 +454,10 @@ class MultiThreadView(
         }
 
         betterThreadPools.addChangeListener {
-            val threads = mainTable.model.threadData.flatten().asSequence().filterNotNull()
+            val threads = threadDumps.toLifespanList().flatten().asSequence().filterNotNull()
 
-            if (it) {
-                threads.forEach { thread ->
-                    thread.pool = Thread.parseThreadPool(thread.name)
-                }
-            } else {
-                threads.forEach { thread ->
-                    thread.pool = Thread.extractPool(thread.name)
-                }
+            threads.forEach { thread ->
+                thread.pool = Thread.parseThreadPool(thread.name, it)
             }
 
             mainTable.model.fireTableDataChanged()

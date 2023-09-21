@@ -37,8 +37,7 @@ data class Thread(
 ) {
     var marked: Boolean = false
 
-    var pool: String? = if (betterThreadPools.currentValue) parseThreadPool(name) else extractPool(name)
-//        get() = if (betterThreadPools.currentValue) parseThreadPool(name) else extractPool(name)
+    var pool: String? = parseThreadPool(name, betterThreadPools.currentValue)
 
     @Serializable
     data class Monitors(
@@ -103,44 +102,44 @@ data class Thread(
             }
         }
 
-        fun parseThreadPool(threadName: String): String? {
-            if ("scheduled-tag-reads" in threadName) {
-                return "scheduled-tag-reads"
-            }
-
-            if ("webserver" in threadName && "acceptor" in threadName) {
-                return "webserver-acceptor"
-            }
-
-            val dashTokens = threadName.split("-").map { token ->
-                token.split("[").first()
-                    .split("/").first()
-                    .split("@").first()
-                    .split("(").first()
-            }
-
-            val spaceTokens = threadName.split(" ").map { token ->
-                token.split("[").first()
-                    .split("/").first()
-                    .split("@").first()
-                    .split("(").first()
-            }
-
-            return dashTokens.asSequence().mapIndexed { index, _ ->
-                dashTokens.subList(0, index + 1).joinToString("-")
-            }.find {
-                it in threadPoolMap.keys
-            } ?: spaceTokens.asSequence().mapIndexed { index, _ ->
-                spaceTokens.subList(0, index + 1).joinToString(" ")
-            }.find {
-                it in threadPoolMap.keys
-            }
-        }
-
         private val threadPoolRegex = "(?<pool>.+)-\\d+\$".toRegex()
+        fun parseThreadPool(threadName: String, betterThreadPool: Boolean): String? {
+            if (betterThreadPool) {
+                if ("scheduled-tag-reads" in threadName) {
+                    return "scheduled-tag-reads"
+                }
 
-        internal fun extractPool(name: String): String? {
-            return threadPoolRegex.find(name)?.groups?.get("pool")?.value
+                if ("webserver" in threadName && "acceptor" in threadName) {
+                    return "webserver-acceptor"
+                }
+
+                val dashTokens = threadName.split("-").map { token ->
+                    token.split("[").first()
+                        .split("/").first()
+                        .split("@").first()
+                        .split("(").first()
+                }
+
+                val spaceTokens = threadName.split(" ").map { token ->
+                    token.split("[").first()
+                        .split("/").first()
+                        .split("@").first()
+                        .split("(").first()
+                }
+
+                return dashTokens.asSequence().mapIndexed { index, _ ->
+                    dashTokens.subList(0, index + 1).joinToString("-")
+                }.find {
+                    it in threadPoolMap.keys
+                } ?: spaceTokens.asSequence().mapIndexed { index, _ ->
+                    spaceTokens.subList(0, index + 1).joinToString(" ")
+                }.find {
+                    it in threadPoolMap.keys
+                }
+            } else {
+                return threadPoolRegex.find(threadName)?.groups?.get("pool")?.value
+            }
+
         }
     }
 }
