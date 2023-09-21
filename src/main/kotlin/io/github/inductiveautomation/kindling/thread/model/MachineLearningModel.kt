@@ -28,11 +28,11 @@ object MachineLearningModel {
 
     private const val PMML_FILE_PREFIX = "thread_machine_learning_"
     private const val PMML_FILE_ENDPOINT =
-        "https://iazendesk.inductiveautomation.com/system/webdev/ThreadCSVImportTool/pmml/$PMML_FILE_PREFIX"
+        "${Kindling.GATEWAY_ADDRESS}/system/webdev/ThreadCSVImportTool/pmml/$PMML_FILE_PREFIX"
     private const val VERSION_ENDPOINT =
-        "https://iazendesk.inductiveautomation.com/system/webdev/ThreadCSVImportTool/validate_pmml_version"
+        "${Kindling.GATEWAY_ADDRESS}/system/webdev/ThreadCSVImportTool/validate_pmml_version"
     private const val KINDLING_DOWNLOAD_URL =
-        "https://iazendesk.inductiveautomation.com/data/perspective/client/zendesk_display"
+        "${Kindling.GATEWAY_ADDRESS}/data/perspective/client/zendesk_display"
 
     private val currentPMMLVersion by lazy {
         val client = HttpClient()
@@ -64,7 +64,7 @@ object MachineLearningModel {
             folder.toFile().listFiles()?.findLast { file ->
                 file.isFile && file.name.contains(PMML_FILE_PREFIX)
             }!!.absolutePath
-    }
+        }
 
     private val oldPMMLVersion = pmmlFilePath.substringBeforeLast(".pmml").substringAfterLast("_")
 
@@ -76,7 +76,7 @@ object MachineLearningModel {
         LoadingModelEvaluatorBuilder().run {
             try {
                 javaClass.getResourceAsStream(pmmlFilePath).use(this::load)
-            } catch(e: Exception) { // No pmml found in cache - fallback to jar
+            } catch (e: Exception) { // No pmml found in cache - fallback to jar
                 Paths.get(pmmlFilePath).inputStream().use(this::load)
             }
             build()
@@ -127,7 +127,7 @@ object MachineLearningModel {
     }
 
     private fun updatePMML() {
-        if (cacheFilePath.name.isNotEmpty()){
+        if (cacheFilePath.name.isNotEmpty()) {
             val client = HttpClient()
             runBlocking {
                 val response: HttpResponse = client.request("$PMML_FILE_ENDPOINT$currentPMMLVersion.pmml") {
@@ -152,7 +152,7 @@ object MachineLearningModel {
             JOptionPane.QUESTION_MESSAGE,
             ImageIcon(Kindling.frameIcons.first()),
             options,
-            options[1]
+            options[1],
         )
     }
 }
