@@ -239,7 +239,6 @@ class LogbackConfigDeserializer {
 
     // Read in XML file as LogbackConfigData data class (deserialization)
     fun getObjectFromXML(filePath: String): LogbackConfigData? {
-
         kotlinXmlMapper.apply {
             jacksonMapperBuilder().apply {
                 disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)

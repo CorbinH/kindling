@@ -5,6 +5,8 @@ import io.github.inductiveautomation.kindling.core.Tool
 import io.github.inductiveautomation.kindling.core.ToolPanel
 import io.github.inductiveautomation.kindling.utils.FileFilter
 import io.github.inductiveautomation.kindling.utils.chooseFiles
+import net.miginfocom.swing.MigLayout
+import org.jdesktop.swingx.autocomplete.AutoCompleteDecorator
 import java.nio.file.Path
 import javax.swing.BorderFactory
 import javax.swing.Icon
@@ -24,8 +26,6 @@ import javax.swing.UIManager
 import javax.swing.text.DefaultFormatterFactory
 import javax.swing.text.NumberFormatter
 import kotlin.io.path.name
-import net.miginfocom.swing.MigLayout
-import org.jdesktop.swingx.autocomplete.AutoCompleteDecorator
 
 object LogbackEditor : Tool {
     override val title = "Logback Editor"
@@ -86,7 +86,6 @@ class LogbackView(path: Path) : ToolPanel() {
 //              this.writeXmlFile(this.configs, path.toString())
                 this.writeXmlFile(this.configs, testPath)
             }
-
         }
     }
 
