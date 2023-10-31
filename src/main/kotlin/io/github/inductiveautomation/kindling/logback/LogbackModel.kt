@@ -32,7 +32,7 @@ data class LogbackConfigData(
     var scanPeriod: String? = null,
 
     @field:JacksonXmlProperty(localName = "property")
-    var rootDir: RootDirectory?,
+    var rootDir: RootDirectory? = null,
 
     @field:JacksonXmlProperty(localName = "root")
     var root: Root = Root("INFO"),
@@ -195,7 +195,8 @@ data class RollingPolicy(
 )
 
 class LogbackConfigManager(
-    val configs: LogbackConfigData,
+    var configs: LogbackConfigData?,
+    var configString: String? = null,
 //        val selectedLoggers: MutableList<SelectedLogger>,
 ) {
 
@@ -215,18 +216,23 @@ class LogbackConfigManager(
     // Generate XML-mapped data classes from the selected loggers
 
     // Convert LogbackConfigData data class to XML string (for UI and clipboard)
-    fun generateXmlString(sourceObject: LogbackConfigData = configs): String {
+    fun generateXmlString(sourceObject: LogbackConfigData? = configs): String {
         return XML_HEADER + xmlMapper.writeValueAsString(sourceObject)
     }
 
     // Convert LogbackConfigData data class to XML file (serialization)
-    fun writeXmlFile(sourceObject: LogbackConfigData = configs, filePathString: String) {
+    fun writeXmlFile(sourceObject: LogbackConfigData? = configs, filePathString: String) {
         xmlMapper.writeValue(File(filePathString), sourceObject)
     }
 
     companion object {
         const val XML_HEADER = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
     }
+
+    init{
+        configString = generateXmlString(configs)
+    }
+
 }
 
 class LogbackConfigDeserializer {
