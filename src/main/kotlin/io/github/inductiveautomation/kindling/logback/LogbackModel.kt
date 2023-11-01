@@ -197,7 +197,7 @@ data class RollingPolicy(
 class LogbackConfigManager(
     var configs: LogbackConfigData?,
     var configString: String? = null,
-//        val selectedLoggers: MutableList<SelectedLogger>,
+//    val selectedLoggers: MutableList<SelectedLogger>? = null,
 ) {
 
     // Build XmlMapper with the parameters for serialization
@@ -215,24 +215,57 @@ class LogbackConfigManager(
 
     // Generate XML-mapped data classes from the selected loggers
 
+    // For each SelectedLogger, we need:
+    // a <logger> element
+
+    // if same output, use <appender-ref ref="SysoutAppender" />
+
+    // if separate output, use <appender-ref ref="FILE"/>
+    // also need a new appender, use <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    // filter? <filter class="ch.qos.logback.classic.filter.LevelFilter">
+    // rollingPolicy
+    // encoder.filenamePattern
+    //
+    fun updateLoggerConfigs(selectedLoggers: MutableList<SelectedLogger>?) {
+        selectedLoggers?.forEach {
+            println("Checking logger: $it")
+            if (it.separateOutput) {
+                println(it)
+                println("${it.name} is set to a separate output destination.")
+                println("Output folder: ${it.outputFolder}")
+            } else {
+                println("${it.name} is set to output to regular logs file.")
+            }
+        }
+    }
+
+//    val name: String = "SelectedLogger.name",
+//    val description: String = "SelectedLogger.description",
+//    val level: String = "INFO",
+//    val separateOutput: Boolean = false,
+//    val outputFolder: String = "\${ROOT}\\AdditionalLogs",
+//    val filenamePattern: String = "${name.replace(".", "")}.%d{yyyy-MM-dd}.%i.log",
+//    val maxFileSize: Long = 10,
+//    val totalSizeCap: Long = 1000,
+//    val maxDaysHistory: Long = 5
+
     // Convert LogbackConfigData data class to XML string (for UI and clipboard)
-    fun generateXmlString(sourceObject: LogbackConfigData? = configs): String {
-        return XML_HEADER + xmlMapper.writeValueAsString(sourceObject)
+    private fun generateXmlString(): String {
+        return XML_HEADER + xmlMapper.writeValueAsString(configs)
     }
 
     // Convert LogbackConfigData data class to XML file (serialization)
-    fun writeXmlFile(sourceObject: LogbackConfigData? = configs, filePathString: String) {
-        xmlMapper.writeValue(File(filePathString), sourceObject)
+    fun writeXmlFile(filePathString: String) {
+        xmlMapper.writeValue(File(filePathString), configs)
     }
 
     companion object {
         const val XML_HEADER = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
     }
 
-    init{
-        configString = generateXmlString(configs)
+    init {
+        configString = generateXmlString()
     }
-
 }
 
 class LogbackConfigDeserializer {
