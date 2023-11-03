@@ -47,6 +47,7 @@ data class LogbackConfigData(
     var logger: List<Logger>? = listOf(),
 
 )
+
 /*
 The root directory is a <property> element which stores the root log output folder as its value.
  */
@@ -168,6 +169,7 @@ data class Logger(
     var appenderRef: MutableList<AppenderRef>? = mutableListOf(),
 
 )
+
 /*
 The <filter> element filters events based on exact level matching.
 If the event's level is equal to the configured level, the filter accepts or denies the event, depending on the
