@@ -21,7 +21,7 @@ containing zero or more <appender> elements, followed by zero or more <logger> e
 followed by at most one <root> element.
  */
 @JacksonXmlRootElement(localName = "configuration")
-@JsonPropertyOrder("rootDir") // ensure that "rootDir" is declared before other elements that reference its value
+@JsonPropertyOrder("logHomeDir") // ensure that "logHomeDir" is declared before other elements that reference its value
 data class LogbackConfigData(
 
     @field:JacksonXmlProperty(isAttribute = true, localName = "debug")
@@ -34,7 +34,7 @@ data class LogbackConfigData(
     var scanPeriod: String? = null,
 
     @field:JacksonXmlProperty(localName = "property")
-    var rootDir: RootDirectory? = null,
+    var logHomeDir: LogHomeDirectory? = null,
 
     @field:JacksonXmlProperty(localName = "root")
     var root: Root = Root("INFO"),
@@ -50,13 +50,13 @@ data class LogbackConfigData(
 )
 
 /*
-The root directory is a <property> element which stores the root log output folder as its value.
+The log home directory is a <property> element which stores the root log output folder as its value.
  */
 @JacksonXmlRootElement
-data class RootDirectory(
+data class LogHomeDirectory(
 
     @field:JacksonXmlProperty(isAttribute = true, localName = "name")
-    var name: String = "ROOT",
+    var name: String = "LOG_HOME",
 
     @field:JacksonXmlProperty(isAttribute = true, localName = "value")
     var value: String = System.getProperty("user.home"),

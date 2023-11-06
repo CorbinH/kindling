@@ -3,6 +3,7 @@ package io.github.inductiveautomation.kindling.utils
 import java.text.NumberFormat
 import java.util.EventListener
 import javax.swing.JFormattedTextField
+import javax.swing.SwingConstants
 import javax.swing.SwingUtilities
 import javax.swing.event.DocumentEvent
 import javax.swing.event.DocumentListener
@@ -46,6 +47,7 @@ class NumericEntryField(inputValue: Long) : JFormattedTextField(inputValue) {
 
     init {
         formatterFactory = DefaultFormatterFactory(NumberFormatter(format))
+        horizontalAlignment = SwingConstants.CENTER
         document.addDocumentListener(
             object : DocumentListener {
                 override fun insertUpdate(e: DocumentEvent?) {

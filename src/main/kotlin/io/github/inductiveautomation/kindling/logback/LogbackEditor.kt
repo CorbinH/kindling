@@ -6,6 +6,8 @@ import io.github.inductiveautomation.kindling.core.ToolPanel
 import io.github.inductiveautomation.kindling.utils.FileFilter
 import io.github.inductiveautomation.kindling.utils.NumericEntryField
 import io.github.inductiveautomation.kindling.utils.chooseFiles
+import java.awt.Toolkit
+import java.awt.datatransfer.StringSelection
 import java.io.File
 import java.nio.file.Path
 import javax.swing.BorderFactory
@@ -73,7 +75,15 @@ class LogbackView(path: Path) : ToolPanel() {
     private val xmlPreviewLabel = JLabel("XML Output Preview")
     private val xmlOutputPreview = JTextArea().apply {
         isEditable = false
+        font = UIManager.getFont("monospaced.font")
         text = logbackConfigManager.configString
+    }
+
+    private val copyXmlButton = JButton("Copy to clipboard").apply{
+        addActionListener{
+            val clipboard = Toolkit.getDefaultToolkit().systemClipboard
+            clipboard.setContents(StringSelection(xmlOutputPreview.text), null)
+        }
     }
 
     private val saveXmlButton = JButton("Save XML file").apply {
@@ -99,6 +109,7 @@ class LogbackView(path: Path) : ToolPanel() {
     private val xmlPreviewPanel = JPanel(MigLayout("fill, ins 0")).apply {
         add(xmlPreviewLabel, "north, growx, wrap")
         add(scrollPane, "push, grow, wrap")
+        add(copyXmlButton, "growx, wrap")
         add(saveXmlButton, "growx")
     }
 
@@ -110,9 +121,9 @@ class LogbackView(path: Path) : ToolPanel() {
         println("updateData()")
         val temp = xmlOutputPreview.caretPosition
 
-        logbackConfigManager.configs?.rootDir = RootDirectory(
-            "ROOT",
-            directorySelectorPanel.rootDirField.text.replace("\\", "\\\\"),
+        logbackConfigManager.configs?.logHomeDir = LogHomeDirectory(
+            "LOG_HOME",
+            directorySelectorPanel.logHomeField.text.replace("\\", "\\\\"),
         )
         logbackConfigManager.configs?.scan = if (scanForChangesPanel.scanForChangesCheckbox.isSelected) true else null
         logbackConfigManager.configs?.scanPeriod = if (scanForChangesPanel.scanForChangesCheckbox.isSelected) {
@@ -149,7 +160,7 @@ class LogbackView(path: Path) : ToolPanel() {
                 editorPanel,
                 previewPanel,
             ).apply {
-                isOneTouchExpandable = true
+                isOneTouchExpandable
                 resizeWeight = 0.5
             },
             "push, grow",
@@ -159,30 +170,30 @@ class LogbackView(path: Path) : ToolPanel() {
 
     inner class DirectorySelectorPanel : JPanel(MigLayout("fill, ins 0")) {
 
-        private var rootDirPath = System.getProperty("user.home")
-        val rootDirField = JTextField(rootDirPath)
+        private var logHomePath = System.getProperty("user.home")
+        val logHomeField = JTextField(logHomePath)
 
         private val fileChooser = JFileChooser().apply {
             fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
             addActionListener {
                 if (selectedFile != null) {
-                    rootDirPath = selectedFile.absolutePath
+                    logHomePath = selectedFile.absolutePath
                 }
             }
         }
 
-        private val rootDirBrowseButton = JButton("Browse").apply {
+        private val logHomeBrowseButton = JButton("Browse").apply {
             addActionListener {
                 fileChooser.chooseFiles(this@DirectorySelectorPanel)
-                this@DirectorySelectorPanel.rootDirField.text = rootDirPath
+                this@DirectorySelectorPanel.logHomeField.text = logHomePath
                 updateData()
             }
         }
 
         init {
-            add(JLabel("Logs Root Directory"), "growx, wrap")
-            add(rootDirField, "growx, push, split 2")
-            add(rootDirBrowseButton, "w 100")
+            add(JLabel("Log Home Directory"), "growx, wrap")
+            add(logHomeField, "growx, push, split 2")
+            add(logHomeBrowseButton, "w 100")
         }
     }
 
@@ -226,6 +237,7 @@ class LogbackView(path: Path) : ToolPanel() {
             insertItemAt("", 0)
             selectedIndex = -1
             AutoCompleteDecorator.decorate(this)
+            setPrototypeDisplayValue("X".repeat(50))
         }
 
         private val addButton = JButton("Add logger").apply {
@@ -235,7 +247,7 @@ class LogbackView(path: Path) : ToolPanel() {
                     (loggerComboBox.selectedItem as String) !in selectedLoggersList.map { logger -> logger.name }
                 ) {
                     selectedLoggersList.add(SelectedLogger((loggerComboBox.selectedItem as String)))
-                    selectedLoggersPanel.add(SelectedLoggerCard(selectedLoggersList.last()), "north, growx, shrinkx, wrap")
+                    selectedLoggersPanel.add(SelectedLoggerCard(selectedLoggersList.last()), "north, growx, shrinkx, wrap, gapx 5 5")
                     revalidate()
                     updateData()
                     loggerComboBox.selectedIndex = -1
@@ -311,7 +323,7 @@ class LogbackView(path: Path) : ToolPanel() {
         }
     }
 
-    inner class SelectedLoggerCard(logger: SelectedLogger) : JPanel(MigLayout("fill, ins 0, hidemode 3")) {
+    inner class SelectedLoggerCard(logger: SelectedLogger) : JPanel(MigLayout("fill, ins 5, hidemode 3")) {
 
         private val closeButton = JButton(FlatSVGIcon("icons/bx-x.svg")).apply {
             border = null
@@ -391,7 +403,7 @@ class LogbackView(path: Path) : ToolPanel() {
             border = BorderFactory.createTitledBorder(logger.name)
             add(loggerLevelSelector, "w 100")
 //            add(loggerDescription, "growx, push")
-            add(closeButton, "right, wrap")
+            add(closeButton, "right, wrap, gap 5 5")
 
             add(loggerSeparateOutput, "growx, span 3, wrap")
             add(separateOutputOptions, "growx, span 3")
@@ -416,7 +428,7 @@ data class SelectedLogger(
     val description: String = " Logger description",
     var level: String = "INFO",
     var separateOutput: Boolean = false,
-    var outputFolder: String = "\${ROOT}\\\\AdditionalLogs\\\\",
+    var outputFolder: String = "\${LOG_HOME}\\\\AdditionalLogs\\\\",
     var filenamePattern: String = "${name.replace(".", "")}.%d{yyyy-MM-dd}.%i.log",
     var maxFileSize: Long = 10,
     var totalSizeCap: Long = 1000,
