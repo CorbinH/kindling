@@ -10,6 +10,7 @@ import com.fasterxml.jackson.dataformat.xml.XmlMapper
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlElementWrapper
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlRootElement
+import com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator
 import com.fasterxml.jackson.module.kotlin.jacksonMapperBuilder
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import java.io.File
@@ -20,7 +21,7 @@ containing zero or more <appender> elements, followed by zero or more <logger> e
 followed by at most one <root> element.
  */
 @JacksonXmlRootElement(localName = "configuration")
-@JsonPropertyOrder("rootDir") // ensure that "rootDir" is declared before other elements reference its value
+@JsonPropertyOrder("rootDir") // ensure that "rootDir" is declared before other elements that reference its value
 data class LogbackConfigData(
 
     @field:JacksonXmlProperty(isAttribute = true, localName = "debug")
@@ -87,7 +88,7 @@ data class Root(
 )
 
 /*
-An appender is configured with the <appender> element, which takes two mandatory attributes name and class.
+An appender is configured with the <appender> element, which takes two mandatory attributes: name and class.
 The name attribute specifies the name of the appender whereas the class attribute specifies the fully qualified name of
 the appender class to instantiate. The <appender> element may contain zero or one <layout> elements, zero or more
 <encoder> elements and zero or more <filter> elements.
@@ -192,6 +193,20 @@ data class LevelFilter(
 
 )
 
+/*
+Sometimes you may wish to archive files essentially by date but at the same time limit the size of each log file,
+in particular if post-processing tools impose size limits on the log files.
+In order to address this requirement, logback ships with SizeAndTimeBasedRollingPolicy.
+
+Note the "%i" conversion token in addition to "%d". Both the %i and %d tokens are mandatory.
+Each time the current log file reaches maxFileSize before the current time period ends,
+it will be archived with an increasing index, starting at 0.
+
+Size and time based archiving supports deletion of old archive files.
+You need to specify the number of periods to preserve with the maxHistory property.
+When your application is stopped and restarted, logging will continue at the correct location,
+i.e. at the largest index number for the current period.
+ */
 @JacksonXmlRootElement(localName = "rollingPolicy")
 data class RollingPolicy(
 
@@ -225,13 +240,14 @@ class LogbackConfigManager(
 
     private val xmlMapper: XmlMapper = xmlMapperBuilder.apply {
         setSerializationInclusion(JsonInclude.Include.NON_EMPTY)
+        enable(ToXmlGenerator.Feature.WRITE_XML_DECLARATION)
         enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS)
         enable(SerializationFeature.INDENT_OUTPUT)
     }
 
     // Convert LogbackConfigData data class to XML string (for UI and clipboard)
     fun generateXmlString(): String {
-        return XML_HEADER + xmlMapper.writeValueAsString(configs)
+        return xmlMapper.writeValueAsString(configs)
     }
 
     // Convert LogbackConfigData data class to XML file (serialization)
@@ -245,54 +261,51 @@ class LogbackConfigManager(
     For those using a separate appender, we need to generate that <appender> element.
     */
     fun updateLoggerConfigs(selectedLoggers: MutableList<SelectedLogger>) {
-        if (selectedLoggers.isNotEmpty()) {
-            val separateOutputLoggers = selectedLoggers.filter { selectedLogger: SelectedLogger ->
-                selectedLogger.separateOutput
-            }
-
-            println("Loggers with separate output:")
-            println(separateOutputLoggers)
-
-            val loggerElements = selectedLoggers.map {
-                Logger(
-                    name = it.name,
-                    level = it.level,
-                    additivity = false,
-                    appenderRef = if (it.separateOutput) {
-                        mutableListOf(AppenderRef(it.name))
-                    } else {
-                        mutableListOf(AppenderRef("SysoutAsync"))
-                    },
-                )
-            }
-
-            val appenderElements = separateOutputLoggers.map {
-                Appender(
-                    name = it.name,
-                    className = "ch.qos.logback.core.rolling.RollingFileAppender",
-                    rollingPolicy = RollingPolicy(
-                        className = "ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy",
-                        fileNamePattern = it.outputFolder + it.filenamePattern,
-                        maxFileSize = it.maxFileSize.toString() + "MB",
-                        totalSizeCap = it.totalSizeCap.toString() + "MB",
-                        maxHistory = it.maxDaysHistory.toString(),
-                    ),
-                    encoder = mutableListOf(
-                        Encoder(
-                            pattern = "%.-1p [%-30c{1}] [%d{MM:dd:YYYY HH:mm:ss, America/Los_Angeles}]: %m %X%n",
-                        ),
-                    ),
-                )
-            }
-
-            configs?.logger = loggerElements
-            configs?.appender = appenderElements.plus(DEFAULT_APPENDERS)
-
-            println(configs)
+        val separateOutputLoggers = selectedLoggers.filter { selectedLogger: SelectedLogger ->
+            selectedLogger.separateOutput
         }
+
+        println("Loggers with separate output:")
+        println(separateOutputLoggers)
+
+        val loggerElements = selectedLoggers.map {
+            Logger(
+                name = it.name,
+                level = it.level,
+                additivity = false,
+                appenderRef = if (it.separateOutput) {
+                    mutableListOf(AppenderRef(it.name))
+                } else {
+                    mutableListOf(AppenderRef("SysoutAsync"))
+                },
+            )
+        }
+
+        val appenderElements = separateOutputLoggers.map {
+            Appender(
+                name = it.name,
+                className = "ch.qos.logback.core.rolling.RollingFileAppender",
+                rollingPolicy = RollingPolicy(
+                    className = "ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy",
+                    fileNamePattern = it.outputFolder + it.filenamePattern,
+                    maxFileSize = it.maxFileSize.toString() + "MB",
+                    totalSizeCap = it.totalSizeCap.toString() + "MB",
+                    maxHistory = it.maxDaysHistory.toString(),
+                ),
+                encoder = mutableListOf(
+                    Encoder(
+                        pattern = "%.-1p [%-30c{1}] [%d{MM:dd:YYYY HH:mm:ss, America/Los_Angeles}]: %m %X%n",
+                    ),
+                ),
+            )
+        }
+
+        configs?.logger = loggerElements
+        configs?.appender = appenderElements.plus(DEFAULT_APPENDERS)
+
+        println(configs)
     }
     companion object {
-        const val XML_HEADER = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
         val DEFAULT_APPENDERS = listOf(
             Appender(
                 name = "SysoutAppender",
@@ -336,25 +349,23 @@ class LogbackConfigDeserializer {
         setDefaultUseWrapper(false)
     }
 
-    private val kotlinXmlMapper = XmlMapper(xmlModule).registerKotlinModule()
+    private val xmlMapper = XmlMapper(xmlModule).registerKotlinModule().apply {
+        jacksonMapperBuilder().apply {
+            disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+            enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES)
+            enable(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY)
+            enable(MapperFeature.USE_ANNOTATIONS)
+        }
+    }
 
     // Read in XML file as LogbackConfigData data class (deserialization)
     fun getObjectFromXML(filePath: String): LogbackConfigData? {
-        kotlinXmlMapper.apply {
-            jacksonMapperBuilder().apply {
-                disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-                enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES)
-                enable(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY)
-                enable(MapperFeature.USE_ANNOTATIONS)
-            }
-        }
-
         return try {
             val file = File(filePath)
             if (file.exists()) {
                 val xmlContent = file.readText()
                 println("XML Content: $xmlContent")
-                kotlinXmlMapper.readValue(file, LogbackConfigData::class.java)
+                xmlMapper.readValue(file, LogbackConfigData::class.java)
             } else {
                 println("File not found: $filePath")
                 null

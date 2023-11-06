@@ -22,8 +22,12 @@ import javax.swing.JTextArea
 import javax.swing.JTextField
 import javax.swing.SwingConstants
 import javax.swing.UIManager
+import javax.swing.event.DocumentEvent
+import javax.swing.event.DocumentListener
 import javax.swing.filechooser.FileNameExtensionFilter
 import kotlin.io.path.name
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import net.miginfocom.swing.MigLayout
 import org.jdesktop.swingx.autocomplete.AutoCompleteDecorator
 
@@ -38,8 +42,8 @@ object LogbackEditor : Tool {
 
 class LogbackView(path: Path) : ToolPanel() {
 
+    private val logbackConfigManager = LogbackConfigManager(configs = LogbackConfigData())
     val selectedLoggersList = mutableListOf<SelectedLogger>()
-    var logbackConfigManager = LogbackConfigManager(configs = LogbackConfigData())
 
     private val directorySelectorPanel = DirectorySelectorPanel()
     private val scanForChangesPanel = ScanForChangesPanel()
@@ -51,6 +55,7 @@ class LogbackView(path: Path) : ToolPanel() {
     private val clearAllButton = JButton("Clear all selected loggers").apply {
         addActionListener {
             loggerConfigPanel.clearAll()
+            updateData()
         }
     }
     private val editorPanel = JPanel(MigLayout("fill, ins 10")).apply {
@@ -105,9 +110,17 @@ class LogbackView(path: Path) : ToolPanel() {
         println("updateData()")
         val temp = xmlOutputPreview.caretPosition
 
-        logbackConfigManager.configs?.rootDir = RootDirectory(value = directorySelectorPanel.rootDirField.text)
-        logbackConfigManager.configs?.scan = scanForChangesPanel.scanForChangesCheckbox.isSelected
-        logbackConfigManager.configs?.scanPeriod = scanForChangesPanel.scanPeriod.text + " seconds"
+        logbackConfigManager.configs?.rootDir = RootDirectory(
+            "ROOT",
+            directorySelectorPanel.rootDirField.text.replace("\\", "\\\\"),
+        )
+        logbackConfigManager.configs?.scan = if (scanForChangesPanel.scanForChangesCheckbox.isSelected) true else null
+        logbackConfigManager.configs?.scanPeriod = if (scanForChangesPanel.scanForChangesCheckbox.isSelected) {
+            "${scanForChangesPanel.scanPeriod.text} seconds"
+        } else {
+            null
+        }
+
         loggerConfigPanel.selectedLoggersPanel.components.forEachIndexed { index, selectedLoggerCard ->
             selectedLoggersList[index].level = (selectedLoggerCard as SelectedLoggerCard).loggerLevelSelector.selectedItem as String
             selectedLoggersList[index].separateOutput = selectedLoggerCard.loggerSeparateOutput.isSelected
@@ -127,10 +140,8 @@ class LogbackView(path: Path) : ToolPanel() {
         name = path.name
         toolTipText = path.toString()
 
-        val testObject = LogbackConfigDeserializer().getObjectFromXML(path.toString())
-        println("LogbackConfigData object: $testObject")
-
-        logbackConfigManager.configs = testObject
+        val configsFromXml = LogbackConfigDeserializer().getObjectFromXML(path.toString())
+        logbackConfigManager.configs = configsFromXml
 
         add(
             JSplitPane(
@@ -152,19 +163,19 @@ class LogbackView(path: Path) : ToolPanel() {
         val rootDirField = JTextField(rootDirPath)
 
         private val fileChooser = JFileChooser().apply {
+            fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
             addActionListener {
                 if (selectedFile != null) {
                     rootDirPath = selectedFile.absolutePath
-                    logbackConfigManager.configs?.rootDir = RootDirectory("ROOT", "selectedFile.absolutePath")
                 }
             }
-            fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
         }
 
         private val rootDirBrowseButton = JButton("Browse").apply {
             addActionListener {
                 fileChooser.chooseFiles(this@DirectorySelectorPanel)
                 this@DirectorySelectorPanel.rootDirField.text = rootDirPath
+                updateData()
             }
         }
 
@@ -180,8 +191,7 @@ class LogbackView(path: Path) : ToolPanel() {
         val scanForChangesCheckbox = JCheckBox("Scan for config changes?").apply {
             addActionListener {
                 this@ScanForChangesPanel.customEntryPanel.isVisible = this.isSelected
-                logbackConfigManager.configs?.scan = if (this.isSelected) true else null
-                logbackConfigManager.configs?.scanPeriod = if (this.isSelected) scanPeriod.value.toString() else null
+                updateData()
             }
         }
 
@@ -202,14 +212,14 @@ class LogbackView(path: Path) : ToolPanel() {
     }
     inner class LoggerSelectorPanel : JPanel(MigLayout("fill, ins 0")) {
 
-        private val loggerItems = arrayOf(
-            "perspective.clientSession",
-            "projectManager",
-            "alarms",
-            "this.is.a.real.logger",
-            "totally.a.valid.logger.name",
-            "tags.execution.actors",
-        )
+        private val loggerItems = getLoggerList()
+
+        private fun getLoggerList(): Array<String> {
+            val filename = "src/main/resources/loggers.json"
+            val rawJsonString = File(filename).bufferedReader().readLines().joinToString(separator = "")
+            val obj = Json.decodeFromString<List<IgnitionLogger>>(rawJsonString)
+            return obj.map { it.name }.toTypedArray()
+        }
 
         private val loggerComboBox = JComboBox(loggerItems).apply {
             isEditable = true
@@ -221,16 +231,17 @@ class LogbackView(path: Path) : ToolPanel() {
         private val addButton = JButton("Add logger").apply {
             addActionListener {
                 if (loggerComboBox.selectedItem != null &&
+                    loggerComboBox.selectedItem != "" &&
                     (loggerComboBox.selectedItem as String) !in selectedLoggersList.map { logger -> logger.name }
                 ) {
                     selectedLoggersList.add(SelectedLogger((loggerComboBox.selectedItem as String)))
                     selectedLoggersPanel.add(SelectedLoggerCard(selectedLoggersList.last()), "north, growx, shrinkx, wrap")
                     revalidate()
+                    updateData()
+                    loggerComboBox.selectedIndex = -1
                 }
             }
         }
-
-        // For testing
 
         val selectedLoggersPanel = JPanel(MigLayout("fill, ins 5, hidemode 0"))
 
@@ -245,6 +256,7 @@ class LogbackView(path: Path) : ToolPanel() {
                 removeAll()
                 revalidate()
                 repaint()
+                updateData()
             }
         }
 
@@ -311,25 +323,37 @@ class LogbackView(path: Path) : ToolPanel() {
                         loggerConfigPanel.selectedLoggersPanel.remove(index)
                     }
                 }
+                updateData()
             }
         }
 
-        private val loggerDescription = JLabel("<html>Description: <i>${logger.description}</i>")
+//        private val loggerDescription = JLabel("<html>Description: <i>${logger.description}</i>")
         private val loggingLevels = arrayOf("OFF", "ERROR", "WARN", "INFO", "DEBUG", "TRACE", "ALL")
         val loggerLevelSelector = JComboBox(loggingLevels).apply {
             selectedItem = logger.level
+            addActionListener {
+                updateData()
+            }
         }
 
         val loggerOutputFolder = JTextField(logger.outputFolder).apply {
-            addActionListener {
-                updateData()
-            }
+            document.addDocumentListener(
+                object : DocumentListener {
+                    override fun insertUpdate(e: DocumentEvent?) = updateData()
+                    override fun removeUpdate(e: DocumentEvent?) = updateData()
+                    override fun changedUpdate(e: DocumentEvent?) = updateData()
+                },
+            )
         }
 
         val loggerFilenamePattern = JTextField(logger.filenamePattern).apply {
-            addActionListener {
-                updateData()
-            }
+            document.addDocumentListener(
+                object : DocumentListener {
+                    override fun insertUpdate(e: DocumentEvent?) = updateData()
+                    override fun removeUpdate(e: DocumentEvent?) = updateData()
+                    override fun changedUpdate(e: DocumentEvent?) = updateData()
+                },
+            )
         }
 
         val maxFileSize = SizeEntryField("Max File Size", logger.maxFileSize, "MB")
@@ -358,6 +382,7 @@ class LogbackView(path: Path) : ToolPanel() {
         val loggerSeparateOutput = JCheckBox("Output to separate location?").apply {
             addActionListener {
                 this@SelectedLoggerCard.separateOutputOptions.isVisible = this.isSelected
+                updateData()
             }
         }
 
@@ -365,7 +390,7 @@ class LogbackView(path: Path) : ToolPanel() {
             name = logger.name
             border = BorderFactory.createTitledBorder(logger.name)
             add(loggerLevelSelector, "w 100")
-            add(loggerDescription, "growx, push")
+//            add(loggerDescription, "growx, push")
             add(closeButton, "right, wrap")
 
             add(loggerSeparateOutput, "growx, span 3, wrap")
@@ -387,13 +412,18 @@ class LogbackView(path: Path) : ToolPanel() {
 }
 
 data class SelectedLogger(
-    val name: String = "SelectedLogger.name",
-    val description: String = " n/a",
+    val name: String = "Logger name",
+    val description: String = " Logger description",
     var level: String = "INFO",
     var separateOutput: Boolean = false,
-    var outputFolder: String = "\${ROOT}\\AdditionalLogs",
+    var outputFolder: String = "\${ROOT}\\\\AdditionalLogs\\\\",
     var filenamePattern: String = "${name.replace(".", "")}.%d{yyyy-MM-dd}.%i.log",
     var maxFileSize: Long = 10,
     var totalSizeCap: Long = 1000,
     var maxDaysHistory: Long = 5,
+)
+
+@Serializable
+data class IgnitionLogger(
+    val name: String,
 )
