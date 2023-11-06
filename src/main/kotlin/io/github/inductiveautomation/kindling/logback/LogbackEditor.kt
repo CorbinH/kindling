@@ -78,14 +78,12 @@ class LogbackView(path: Path) : ToolPanel() {
         font = UIManager.getFont("monospaced.font")
         text = logbackConfigManager.configString
     }
-
-    private val copyXmlButton = JButton("Copy to clipboard").apply{
-        addActionListener{
+    private val copyXmlButton = JButton("Copy to clipboard").apply {
+        addActionListener {
             val clipboard = Toolkit.getDefaultToolkit().systemClipboard
             clipboard.setContents(StringSelection(xmlOutputPreview.text), null)
         }
     }
-
     private val saveXmlButton = JButton("Save XML file").apply {
         addActionListener {
 
@@ -103,16 +101,13 @@ class LogbackView(path: Path) : ToolPanel() {
             }
         }
     }
-
     private val scrollPane = JScrollPane(xmlOutputPreview)
-
     private val xmlPreviewPanel = JPanel(MigLayout("fill, ins 0")).apply {
         add(xmlPreviewLabel, "north, growx, wrap")
         add(scrollPane, "push, grow, wrap")
         add(copyXmlButton, "growx, wrap")
         add(saveXmlButton, "growx")
     }
-
     private val previewPanel = JPanel(MigLayout("fill, ins 10")).apply {
         add(xmlPreviewPanel, "grow, push")
     }
@@ -196,7 +191,6 @@ class LogbackView(path: Path) : ToolPanel() {
             add(logHomeBrowseButton, "w 100")
         }
     }
-
     inner class ScanForChangesPanel : JPanel(MigLayout("fill, hidemode 3, ins 0")) {
 
         val scanForChangesCheckbox = JCheckBox("Scan for config changes?").apply {
@@ -302,6 +296,7 @@ class LogbackView(path: Path) : ToolPanel() {
         private val unit = JTextField(unitValue).apply {
             border = null
             isEditable = false
+            horizontalAlignment = SwingConstants.CENTER
             foreground = UIManager.getColor("TextArea.inactiveForeground")
         }
 
