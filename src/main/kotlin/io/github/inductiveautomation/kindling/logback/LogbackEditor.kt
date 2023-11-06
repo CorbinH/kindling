@@ -241,7 +241,9 @@ class LogbackView(path: Path) : ToolPanel() {
                     (loggerComboBox.selectedItem as String) !in selectedLoggersList.map { logger -> logger.name }
                 ) {
                     selectedLoggersList.add(SelectedLogger((loggerComboBox.selectedItem as String)))
-                    selectedLoggersPanel.add(SelectedLoggerCard(selectedLoggersList.last()), "north, growx, shrinkx, wrap, gapx 5 5")
+                    selectedLoggersPanel.add(SelectedLoggerCard(
+                            selectedLoggersList.last()),
+                            "north, growx, shrinkx, wrap, gap 5 5 3 3")
                     revalidate()
                     updateData()
                     loggerComboBox.selectedIndex = -1
