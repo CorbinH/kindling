@@ -44,8 +44,10 @@ object LogbackEditor : Tool {
 
 class LogbackView(path: Path) : ToolPanel() {
 
-    private val logbackConfigManager = LogbackConfigManager(configs = LogbackConfigData())
-    val selectedLoggersList = mutableListOf<SelectedLogger>()
+    private val configsFromXml = LogbackConfigDeserializer().getObjectFromXML(path.toString())
+    private val logbackConfigManager = LogbackConfigManager(configs = configsFromXml)
+
+    val selectedLoggersList = logbackConfigManager.getLoggerConfigs()
 
     private val directorySelectorPanel = DirectorySelectorPanel()
     private val scanForChangesPanel = ScanForChangesPanel()
@@ -75,8 +77,10 @@ class LogbackView(path: Path) : ToolPanel() {
     private val xmlPreviewLabel = JLabel("XML Output Preview")
     private val xmlOutputPreview = JTextArea().apply {
         isEditable = false
+        lineWrap = true
         font = UIManager.getFont("monospaced.font")
         text = logbackConfigManager.configString
+        caretPosition = 0
     }
     private val copyXmlButton = JButton("Copy to clipboard").apply {
         addActionListener {
@@ -121,11 +125,8 @@ class LogbackView(path: Path) : ToolPanel() {
             directorySelectorPanel.logHomeField.text.replace("\\", "\\\\"),
         )
         logbackConfigManager.configs?.scan = if (scanForChangesPanel.scanForChangesCheckbox.isSelected) true else null
-        logbackConfigManager.configs?.scanPeriod = if (scanForChangesPanel.scanForChangesCheckbox.isSelected) {
-            "${scanForChangesPanel.scanPeriod.text} seconds"
-        } else {
-            null
-        }
+        logbackConfigManager.configs?.scanPeriod = if (scanForChangesPanel.scanForChangesCheckbox.isSelected)
+            "${scanForChangesPanel.scanPeriodField.text} seconds" else null
 
         loggerConfigPanel.selectedLoggersPanel.components.forEachIndexed { index, selectedLoggerCard ->
             selectedLoggersList[index].level = (selectedLoggerCard as SelectedLoggerCard).loggerLevelSelector.selectedItem as String
@@ -139,15 +140,17 @@ class LogbackView(path: Path) : ToolPanel() {
         logbackConfigManager.updateLoggerConfigs(selectedLoggersList)
 
         xmlOutputPreview.text = logbackConfigManager.generateXmlString()
-        xmlOutputPreview.caretPosition = temp
+
+        if (temp > xmlOutputPreview.text.length) {
+            xmlOutputPreview.caretPosition = xmlOutputPreview.text.length
+        } else {
+            xmlOutputPreview.caretPosition = temp
+        }
     }
 
     init {
         name = path.name
         toolTipText = path.toString()
-
-        val configsFromXml = LogbackConfigDeserializer().getObjectFromXML(path.toString())
-        logbackConfigManager.configs = configsFromXml
 
         add(
             JSplitPane(
@@ -165,7 +168,8 @@ class LogbackView(path: Path) : ToolPanel() {
 
     inner class DirectorySelectorPanel : JPanel(MigLayout("fill, ins 0")) {
 
-        private var logHomePath = System.getProperty("user.home")
+        private val logHomeDir = logbackConfigManager.configs?.logHomeDir?.value
+        private var logHomePath = logHomeDir?.replace("\\\\", "\\") ?: System.getProperty("user.home")
         val logHomeField = JTextField(logHomePath)
 
         private val fileChooser = JFileChooser().apply {
@@ -193,21 +197,25 @@ class LogbackView(path: Path) : ToolPanel() {
     }
     inner class ScanForChangesPanel : JPanel(MigLayout("fill, hidemode 3, ins 0")) {
 
+        private val scanEnabled = logbackConfigManager.configs?.scan ?: false
+        private val scanPeriod = logbackConfigManager.configs?.scanPeriod?.filter(Char::isDigit)?.toLong() ?: 30
+
         val scanForChangesCheckbox = JCheckBox("Scan for config changes?").apply {
+            isSelected = scanEnabled
             addActionListener {
                 this@ScanForChangesPanel.customEntryPanel.isVisible = this.isSelected
                 updateData()
             }
         }
 
-        val scanPeriod = NumericEntryField(30).apply {
+        val scanPeriodField = NumericEntryField(scanPeriod).apply {
             addNumericChangeListener(::updateData)
         }
 
         private val customEntryPanel = JPanel(MigLayout("fill, ins 0")).apply {
             add(JLabel("Scan period (sec):"), "cell 0 0")
-            add(scanPeriod, "cell 0 0, w 100")
-            isVisible = false
+            add(scanPeriodField, "cell 0 0, w 100")
+            isVisible = scanEnabled
         }
 
         init {
@@ -241,9 +249,12 @@ class LogbackView(path: Path) : ToolPanel() {
                     (loggerComboBox.selectedItem as String) !in selectedLoggersList.map { logger -> logger.name }
                 ) {
                     selectedLoggersList.add(SelectedLogger((loggerComboBox.selectedItem as String)))
-                    selectedLoggersPanel.add(SelectedLoggerCard(
-                            selectedLoggersList.last()),
-                            "north, growx, shrinkx, wrap, gap 5 5 3 3")
+                    selectedLoggersPanel.add(
+                        SelectedLoggerCard(
+                            selectedLoggersList.last(),
+                        ),
+                        "north, growx, shrinkx, wrap, gap 5 5 3 3",
+                    )
                     revalidate()
                     updateData()
                     loggerComboBox.selectedIndex = -1
@@ -251,7 +262,11 @@ class LogbackView(path: Path) : ToolPanel() {
             }
         }
 
-        val selectedLoggersPanel = JPanel(MigLayout("fill, ins 5, hidemode 0"))
+        val selectedLoggersPanel = JPanel(MigLayout("fill, ins 5, hidemode 0")).apply{
+            selectedLoggersList.forEach{ selectedLogger ->
+                add(SelectedLoggerCard(selectedLogger), "north, growx, shrinkx, wrap, gap 5 5 3 3")
+            }
+        }
 
         private val scrollPane = JScrollPane(selectedLoggersPanel).apply {
             border = null
@@ -322,6 +337,23 @@ class LogbackView(path: Path) : ToolPanel() {
 
     inner class SelectedLoggerCard(logger: SelectedLogger) : JPanel(MigLayout("fill, ins 5, hidemode 3")) {
 
+//        private val loggerDescription = JLabel("<html>Description: <i>${logger.description}</i>")
+        private val loggingLevels = arrayOf("OFF", "ERROR", "WARN", "INFO", "DEBUG", "TRACE", "ALL")
+        val loggerLevelSelector = JComboBox(loggingLevels).apply {
+            selectedItem = logger.level
+            addActionListener {
+                updateData()
+            }
+        }
+
+        val loggerSeparateOutput = JCheckBox("Output to separate location?").apply {
+            this.isSelected = logger.separateOutput
+            addActionListener {
+                this@SelectedLoggerCard.separateOutputOptions.isVisible = this.isSelected
+                updateData()
+            }
+        }
+
         private val closeButton = JButton(FlatSVGIcon("icons/bx-x.svg")).apply {
             border = null
             background = null
@@ -332,15 +364,6 @@ class LogbackView(path: Path) : ToolPanel() {
                         loggerConfigPanel.selectedLoggersPanel.remove(index)
                     }
                 }
-                updateData()
-            }
-        }
-
-//        private val loggerDescription = JLabel("<html>Description: <i>${logger.description}</i>")
-        private val loggingLevels = arrayOf("OFF", "ERROR", "WARN", "INFO", "DEBUG", "TRACE", "ALL")
-        val loggerLevelSelector = JComboBox(loggingLevels).apply {
-            selectedItem = logger.level
-            addActionListener {
                 updateData()
             }
         }
@@ -386,13 +409,7 @@ class LogbackView(path: Path) : ToolPanel() {
             add(totalSizeCap, "grow, shrinkx")
             add(maxDays, "grow, shrinkx")
 
-            isVisible = false
-        }
-        val loggerSeparateOutput = JCheckBox("Output to separate location?").apply {
-            addActionListener {
-                this@SelectedLoggerCard.separateOutputOptions.isVisible = this.isSelected
-                updateData()
-            }
+            isVisible = logger.separateOutput
         }
 
         init {
@@ -422,7 +439,7 @@ class LogbackView(path: Path) : ToolPanel() {
 
 data class SelectedLogger(
     val name: String = "Logger name",
-    val description: String = " Logger description",
+    val description: String? = "Logger description",
     var level: String = "INFO",
     var separateOutput: Boolean = false,
     var outputFolder: String = "\${LOG_HOME}\\\\AdditionalLogs\\\\",

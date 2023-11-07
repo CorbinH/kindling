@@ -265,32 +265,29 @@ class LogbackConfigManager(
             selectedLogger.separateOutput
         }
 
-        println("Loggers with separate output:")
-        println(separateOutputLoggers)
-
-        val loggerElements = selectedLoggers.map {
+        val loggerElements = selectedLoggers.map { selectedLogger: SelectedLogger ->
             Logger(
-                name = it.name,
-                level = it.level,
+                name = selectedLogger.name,
+                level = selectedLogger.level,
                 additivity = false,
-                appenderRef = if (it.separateOutput) {
-                    mutableListOf(AppenderRef(it.name))
+                appenderRef = if (selectedLogger.separateOutput) {
+                    mutableListOf(AppenderRef(selectedLogger.name))
                 } else {
                     mutableListOf(AppenderRef("SysoutAsync"))
                 },
             )
         }
 
-        val appenderElements = separateOutputLoggers.map {
+        val appenderElements = separateOutputLoggers.map { separateOutputLogger: SelectedLogger ->
             Appender(
-                name = it.name,
+                name = separateOutputLogger.name,
                 className = "ch.qos.logback.core.rolling.RollingFileAppender",
                 rollingPolicy = RollingPolicy(
                     className = "ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy",
-                    fileNamePattern = it.outputFolder + it.filenamePattern,
-                    maxFileSize = it.maxFileSize.toString() + "MB",
-                    totalSizeCap = it.totalSizeCap.toString() + "MB",
-                    maxHistory = it.maxDaysHistory.toString(),
+                    fileNamePattern = separateOutputLogger.outputFolder + separateOutputLogger.filenamePattern,
+                    maxFileSize = separateOutputLogger.maxFileSize.toString() + "MB",
+                    totalSizeCap = separateOutputLogger.totalSizeCap.toString() + "MB",
+                    maxHistory = separateOutputLogger.maxDaysHistory.toString(),
                 ),
                 encoder = mutableListOf(
                     Encoder(
@@ -302,8 +299,33 @@ class LogbackConfigManager(
 
         configs?.logger = loggerElements
         configs?.appender = appenderElements.plus(DEFAULT_APPENDERS)
+    }
+    fun getLoggerConfigs(): MutableList<SelectedLogger> {
 
-        println(configs)
+        val selectedLoggers = mutableListOf<SelectedLogger>()
+
+       configs?.logger?.forEach { logger ->
+            configs?.appender?.forEach { appender ->
+                if (logger.name == appender.name) {
+                    val rollingPolicy = appender.rollingPolicy!!
+                    val pathSplit = rollingPolicy.fileNamePattern.split("\\\\")
+
+                    selectedLoggers.add(SelectedLogger(
+                        name = logger.name,
+                        description = null,
+                        level = logger.level ?: "INFO",
+                        separateOutput = true,
+                        outputFolder = pathSplit.minus(pathSplit.last()).joinToString(separator = "\\\\"),
+                        filenamePattern = pathSplit.last().toString(),
+                        maxFileSize = rollingPolicy.maxFileSize.filter(Char::isDigit).toLong(),
+                        totalSizeCap = rollingPolicy.totalSizeCap.filter(Char::isDigit).toLong(),
+                        maxDaysHistory = rollingPolicy.maxHistory.filter(Char::isDigit).toLong(),
+                    ))
+                }
+            }
+        }
+
+        return selectedLoggers
     }
     companion object {
         val DEFAULT_APPENDERS = listOf(
@@ -363,8 +385,6 @@ class LogbackConfigDeserializer {
         return try {
             val file = File(filePath)
             if (file.exists()) {
-                val xmlContent = file.readText()
-                println("XML Content: $xmlContent")
                 xmlMapper.readValue(file, LogbackConfigData::class.java)
             } else {
                 println("File not found: $filePath")
