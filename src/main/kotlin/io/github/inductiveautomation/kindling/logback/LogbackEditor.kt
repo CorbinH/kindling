@@ -6,6 +6,10 @@ import io.github.inductiveautomation.kindling.core.ToolPanel
 import io.github.inductiveautomation.kindling.utils.FileFilter
 import io.github.inductiveautomation.kindling.utils.NumericEntryField
 import io.github.inductiveautomation.kindling.utils.chooseFiles
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import net.miginfocom.swing.MigLayout
+import org.jdesktop.swingx.autocomplete.AutoCompleteDecorator
 import java.awt.Toolkit
 import java.awt.datatransfer.StringSelection
 import java.io.File
@@ -28,10 +32,6 @@ import javax.swing.event.DocumentEvent
 import javax.swing.event.DocumentListener
 import javax.swing.filechooser.FileNameExtensionFilter
 import kotlin.io.path.name
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
-import net.miginfocom.swing.MigLayout
-import org.jdesktop.swingx.autocomplete.AutoCompleteDecorator
 
 object LogbackEditor : Tool {
     override val title = "Logback Editor"
@@ -125,8 +125,11 @@ class LogbackView(path: Path) : ToolPanel() {
             directorySelectorPanel.logHomeField.text.replace("\\", "\\\\"),
         )
         logbackConfigManager.configs?.scan = if (scanForChangesPanel.scanForChangesCheckbox.isSelected) true else null
-        logbackConfigManager.configs?.scanPeriod = if (scanForChangesPanel.scanForChangesCheckbox.isSelected)
-            "${scanForChangesPanel.scanPeriodField.text} seconds" else null
+        logbackConfigManager.configs?.scanPeriod = if (scanForChangesPanel.scanForChangesCheckbox.isSelected) {
+            "${scanForChangesPanel.scanPeriodField.text} seconds"
+        } else {
+            null
+        }
 
         loggerConfigPanel.selectedLoggersPanel.components.forEachIndexed { index, selectedLoggerCard ->
             selectedLoggersList[index].level = (selectedLoggerCard as SelectedLoggerCard).loggerLevelSelector.selectedItem as String
@@ -262,8 +265,8 @@ class LogbackView(path: Path) : ToolPanel() {
             }
         }
 
-        val selectedLoggersPanel = JPanel(MigLayout("fill, ins 5, hidemode 0")).apply{
-            selectedLoggersList.forEach{ selectedLogger ->
+        val selectedLoggersPanel = JPanel(MigLayout("fill, ins 5, hidemode 0")).apply {
+            selectedLoggersList.forEach { selectedLogger ->
                 add(SelectedLoggerCard(selectedLogger), "north, growx, shrinkx, wrap, gap 5 5 3 3")
             }
         }

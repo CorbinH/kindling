@@ -301,26 +301,28 @@ class LogbackConfigManager(
         configs?.appender = appenderElements.plus(DEFAULT_APPENDERS)
     }
     fun getLoggerConfigs(): MutableList<SelectedLogger> {
-
         val selectedLoggers = mutableListOf<SelectedLogger>()
 
-       configs?.logger?.forEach { logger ->
+        configs?.logger?.forEach { logger ->
             configs?.appender?.forEach { appender ->
                 if (logger.name == appender.name) {
+                    // If there is a separate output appender, it is guaranteed to have a rolling policy
                     val rollingPolicy = appender.rollingPolicy!!
-                    val pathSplit = rollingPolicy.fileNamePattern.split("\\\\")
+                    val pathSplit = rollingPolicy.fileNamePattern.split("\\").filter { it.isNotBlank() }
 
-                    selectedLoggers.add(SelectedLogger(
-                        name = logger.name,
-                        description = null,
-                        level = logger.level ?: "INFO",
-                        separateOutput = true,
-                        outputFolder = pathSplit.minus(pathSplit.last()).joinToString(separator = "\\\\"),
-                        filenamePattern = pathSplit.last().toString(),
-                        maxFileSize = rollingPolicy.maxFileSize.filter(Char::isDigit).toLong(),
-                        totalSizeCap = rollingPolicy.totalSizeCap.filter(Char::isDigit).toLong(),
-                        maxDaysHistory = rollingPolicy.maxHistory.filter(Char::isDigit).toLong(),
-                    ))
+                    selectedLoggers.add(
+                        SelectedLogger(
+                            name = logger.name,
+                            description = null,
+                            level = logger.level ?: "INFO",
+                            separateOutput = true,
+                            outputFolder = pathSplit.minus(pathSplit.last()).joinToString(separator = "\\\\") + "\\\\",
+                            filenamePattern = pathSplit.last().toString(),
+                            maxFileSize = rollingPolicy.maxFileSize.filter(Char::isDigit).toLong(),
+                            totalSizeCap = rollingPolicy.totalSizeCap.filter(Char::isDigit).toLong(),
+                            maxDaysHistory = rollingPolicy.maxHistory.filter(Char::isDigit).toLong(),
+                        ),
+                    )
                 }
             }
         }
