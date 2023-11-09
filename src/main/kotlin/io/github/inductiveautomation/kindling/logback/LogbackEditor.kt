@@ -6,8 +6,9 @@ import io.github.inductiveautomation.kindling.core.ToolPanel
 import io.github.inductiveautomation.kindling.utils.FileFilter
 import io.github.inductiveautomation.kindling.utils.NumericEntryField
 import io.github.inductiveautomation.kindling.utils.chooseFiles
-import kotlinx.serialization.Serializable
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.decodeFromStream
 import net.miginfocom.swing.MigLayout
 import org.jdesktop.swingx.autocomplete.AutoCompleteDecorator
 import java.awt.Toolkit
@@ -226,11 +227,12 @@ class LogbackView(path: Path) : ToolPanel() {
     inner class LoggerSelectorPanel : JPanel(MigLayout("fill, ins 0")) {
         private val loggerItems = getLoggerList()
 
+        @OptIn(ExperimentalSerializationApi::class)
         private fun getLoggerList(): Array<String> {
             val filename = "src/main/resources/loggers.json"
-            val rawJsonString = File(filename).bufferedReader().readLines().joinToString(separator = "")
-            val obj = Json.decodeFromString<List<IgnitionLogger>>(rawJsonString)
-            return obj.map { it.name }.toTypedArray()
+            val stream = File(filename).inputStream()
+            val loggerList = Json.decodeFromStream<List<IgnitionLogger>>(stream)
+            return loggerList.map { it.name }.toTypedArray()
         }
 
         private val loggerComboBox = JComboBox(loggerItems).apply {
@@ -424,6 +426,7 @@ class LogbackView(path: Path) : ToolPanel() {
             }
         }
     }
+
     override val icon: Icon = LogbackEditor.icon
 }
 
@@ -436,9 +439,4 @@ data class SelectedLogger(
     var maxFileSize: Long = 10,
     var totalSizeCap: Long = 1000,
     var maxDaysHistory: Long = 5,
-)
-
-@Serializable
-data class IgnitionLogger(
-    val name: String,
 )

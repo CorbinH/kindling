@@ -13,6 +13,7 @@ import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlRootElement
 import com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator
 import com.fasterxml.jackson.module.kotlin.jacksonMapperBuilder
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import kotlinx.serialization.Serializable
 import java.io.File
 
 /*
@@ -397,3 +398,6 @@ class LogbackConfigDeserializer {
         }
     }
 }
+
+@Serializable
+data class IgnitionLogger(val name: String)
