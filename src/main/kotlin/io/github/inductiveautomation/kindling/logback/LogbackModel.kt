@@ -313,7 +313,6 @@ class LogbackConfigManager(
                     selectedLoggers.add(
                         SelectedLogger(
                             name = logger.name,
-                            description = null,
                             level = logger.level ?: "INFO",
                             separateOutput = true,
                             outputFolder = pathSplit.minus(pathSplit.last()).joinToString(separator = "\\\\") + "\\\\",
