@@ -6,10 +6,6 @@ import io.github.inductiveautomation.kindling.core.ToolPanel
 import io.github.inductiveautomation.kindling.utils.FileFilter
 import io.github.inductiveautomation.kindling.utils.NumericEntryField
 import io.github.inductiveautomation.kindling.utils.chooseFiles
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
-import net.miginfocom.swing.MigLayout
-import org.jdesktop.swingx.autocomplete.AutoCompleteDecorator
 import java.awt.Toolkit
 import java.awt.datatransfer.StringSelection
 import java.io.File
@@ -24,14 +20,18 @@ import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.JScrollPane
 import javax.swing.JSplitPane
-import javax.swing.JTextArea
 import javax.swing.JTextField
+import javax.swing.JTextPane
 import javax.swing.SwingConstants
 import javax.swing.UIManager
 import javax.swing.event.DocumentEvent
 import javax.swing.event.DocumentListener
 import javax.swing.filechooser.FileNameExtensionFilter
 import kotlin.io.path.name
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import net.miginfocom.swing.MigLayout
+import org.jdesktop.swingx.autocomplete.AutoCompleteDecorator
 
 object LogbackEditor : Tool {
     override val title = "Logback Editor"
@@ -44,8 +44,8 @@ object LogbackEditor : Tool {
 
 class LogbackView(path: Path) : ToolPanel() {
 
-    private val configsFromXml = LogbackConfigDeserializer().getObjectFromXML(path.toString())
-    private val logbackConfigManager = LogbackConfigManager(configs = configsFromXml)
+    private val configsFromXml = LogbackConfigDeserializer().getObjectFromXML(path.toString()) ?: LogbackConfigData()
+    private val logbackConfigManager = LogbackConfigManager(configsFromXml)
 
     val selectedLoggersList = logbackConfigManager.getLoggerConfigs()
 
@@ -75,11 +75,11 @@ class LogbackView(path: Path) : ToolPanel() {
 //    }
 
     private val xmlPreviewLabel = JLabel("XML Output Preview")
-    private val xmlOutputPreview = JTextArea().apply {
+    private val xmlOutputPreview = JTextPane().apply {
+        contentType = "text/xml"
         isEditable = false
-        lineWrap = true
         font = UIManager.getFont("monospaced.font")
-        text = logbackConfigManager.configString
+        text = logbackConfigManager.getXmlString()
         caretPosition = 0
     }
     private val copyXmlButton = JButton("Copy to clipboard").apply {
@@ -98,7 +98,6 @@ class LogbackView(path: Path) : ToolPanel() {
                 selectedFile = File("logback.xml")
 
                 val save = showSaveDialog(null)
-
                 if (save == JFileChooser.APPROVE_OPTION) {
                     logbackConfigManager.writeXmlFile(selectedFile.absolutePath)
                 }
@@ -120,12 +119,12 @@ class LogbackView(path: Path) : ToolPanel() {
         println("updateData()")
         val temp = xmlOutputPreview.caretPosition
 
-        logbackConfigManager.configs?.logHomeDir = LogHomeDirectory(
+        logbackConfigManager.configs.logHomeDir = LogHomeDirectory(
             "LOG_HOME",
             directorySelectorPanel.logHomeField.text.replace("\\", "\\\\"),
         )
-        logbackConfigManager.configs?.scan = if (scanForChangesPanel.scanForChangesCheckbox.isSelected) true else null
-        logbackConfigManager.configs?.scanPeriod = if (scanForChangesPanel.scanForChangesCheckbox.isSelected) {
+        logbackConfigManager.configs.scan = if (scanForChangesPanel.scanForChangesCheckbox.isSelected) true else null
+        logbackConfigManager.configs.scanPeriod = if (scanForChangesPanel.scanForChangesCheckbox.isSelected) {
             "${scanForChangesPanel.scanPeriodField.text} seconds"
         } else {
             null
@@ -142,13 +141,39 @@ class LogbackView(path: Path) : ToolPanel() {
         }
         logbackConfigManager.updateLoggerConfigs(selectedLoggersList)
 
-        xmlOutputPreview.text = logbackConfigManager.generateXmlString()
+        xmlOutputPreview.text = logbackConfigManager.getXmlString()
 
         if (temp > xmlOutputPreview.text.length) {
             xmlOutputPreview.caretPosition = xmlOutputPreview.text.length
         } else {
             xmlOutputPreview.caretPosition = temp
         }
+//        updateHighlights()
+//    }
+//
+//    private fun updateHighlights() {
+//        val parser = logbackConfigManager.getXmlParser()
+//        try {
+//            while (parser.nextToken() != null) {
+//                if (parser.currentToken == JsonToken.FIELD_NAME) {
+//                    val fieldName: String = parser.currentName
+//                    val stringValue: String? = parser.valueAsString
+//                    println("$fieldName: $stringValue : ${parser.currentLocation}")
+//
+//                    parser.nextToken()
+//                }
+//            }
+//        } catch (e: IOException) {
+//            e.printStackTrace()
+//        }
+
+//        with(xmlOutputPreview) {
+//            val highlightColor = UIManager.getColor("TextField.highlight")
+//            val painter = DefaultHighlighter.DefaultHighlightPainter(highlightColor)
+//            val startOffset = text.indexOf("test")
+//            val endOffset = startOffset + "test".length
+//            highlighter.addHighlight(startOffset, endOffset, painter)
+//        }
     }
 
     init {
@@ -171,7 +196,7 @@ class LogbackView(path: Path) : ToolPanel() {
 
     inner class DirectorySelectorPanel : JPanel(MigLayout("fill, ins 0")) {
 
-        private val logHomeDir = logbackConfigManager.configs?.logHomeDir?.value
+        private val logHomeDir = logbackConfigManager.configs.logHomeDir?.value
         private var logHomePath = logHomeDir?.replace("\\\\", "\\") ?: System.getProperty("user.home")
         val logHomeField = JTextField(logHomePath)
 
@@ -200,8 +225,8 @@ class LogbackView(path: Path) : ToolPanel() {
     }
     inner class ScanForChangesPanel : JPanel(MigLayout("fill, hidemode 3, ins 0")) {
 
-        private val scanEnabled = logbackConfigManager.configs?.scan ?: false
-        private val scanPeriod = logbackConfigManager.configs?.scanPeriod?.filter(Char::isDigit)?.toLong() ?: 30
+        private val scanEnabled = logbackConfigManager.configs.scan ?: false
+        private val scanPeriod = logbackConfigManager.configs.scanPeriod?.filter(Char::isDigit)?.toLong() ?: 30
 
         val scanForChangesCheckbox = JCheckBox("Scan for config changes?").apply {
             isSelected = scanEnabled
@@ -426,6 +451,7 @@ class LogbackView(path: Path) : ToolPanel() {
             add(separateOutputOptions, "growx, span 3")
         }
     }
+
 //    inner class SelectedLoggerPreviewCard(logger: SelectedLogger) : JPanel(MigLayout("fill")) {
 //
 //        private val loggerPreviewLabel = JLabel("Preview of ${logger.name} on ${logger.level}:")

@@ -2,6 +2,7 @@ package io.github.inductiveautomation.kindling.logback
 
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.annotation.JsonPropertyOrder
+import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.MapperFeature
 import com.fasterxml.jackson.databind.SerializationFeature
@@ -228,8 +229,7 @@ data class RollingPolicy(
 )
 
 class LogbackConfigManager(
-    var configs: LogbackConfigData?,
-    var configString: String? = null,
+    var configs: LogbackConfigData,
 ) {
 
     // Build XmlMapper with the parameters for serialization
@@ -246,13 +246,47 @@ class LogbackConfigManager(
     }
 
     // Convert LogbackConfigData data class to XML string (for UI and clipboard)
-    fun generateXmlString(): String {
+    fun getXmlString(): String {
         return xmlMapper.writeValueAsString(configs)
     }
 
     // Convert LogbackConfigData data class to XML file (serialization)
     fun writeXmlFile(filePathString: String) {
         xmlMapper.writeValue(File(filePathString), configs)
+    }
+
+    fun getXmlParser(): JsonParser {
+        return xmlMapper.factory.createParser(getXmlString())
+    }
+
+    fun getLoggerConfigs(): MutableList<SelectedLogger> {
+        val selectedLoggers = mutableListOf<SelectedLogger>()
+
+        configs.logger?.forEach { logger ->
+            configs.appender?.forEach { appender ->
+                if (logger.name == appender.name) {
+                    // If there is a separate output appender, it is guaranteed to have a rolling policy
+                    val rollingPolicy = appender.rollingPolicy!!
+                    val pathSplit = rollingPolicy.fileNamePattern.split("\\").filter { it.isNotBlank() }
+
+                    selectedLoggers.add(
+                        SelectedLogger(
+                            name = logger.name,
+                            description = null,
+                            level = logger.level ?: "INFO",
+                            separateOutput = true,
+                            outputFolder = pathSplit.minus(pathSplit.last()).joinToString(separator = "\\\\") + "\\\\",
+                            filenamePattern = pathSplit.last().toString(),
+                            maxFileSize = rollingPolicy.maxFileSize.filter(Char::isDigit).toLong(),
+                            totalSizeCap = rollingPolicy.totalSizeCap.filter(Char::isDigit).toLong(),
+                            maxDaysHistory = rollingPolicy.maxHistory.filter(Char::isDigit).toLong(),
+                        ),
+                    )
+                }
+            }
+        }
+
+        return selectedLoggers
     }
 
     /*
@@ -291,44 +325,16 @@ class LogbackConfigManager(
                 ),
                 encoder = mutableListOf(
                     Encoder(
-                        pattern = "%.-1p [%-30c{1}] [%d{MM:dd:YYYY HH:mm:ss, America/Los_Angeles}]: %m %X%n",
+                        pattern = "%p   | jvm 1    | %d{YYYY/MM/dd HH:mm:ss, America/Los_Angeles} | %.-1p [%-30c{1}] [%d{HH:mm:ss,SSS}]: %m %X%n",
                     ),
                 ),
             )
         }
 
-        configs?.logger = loggerElements
-        configs?.appender = appenderElements.plus(DEFAULT_APPENDERS)
+        configs.logger = loggerElements
+        configs.appender = appenderElements.plus(DEFAULT_APPENDERS)
     }
-    fun getLoggerConfigs(): MutableList<SelectedLogger> {
-        val selectedLoggers = mutableListOf<SelectedLogger>()
 
-        configs?.logger?.forEach { logger ->
-            configs?.appender?.forEach { appender ->
-                if (logger.name == appender.name) {
-                    // If there is a separate output appender, it is guaranteed to have a rolling policy
-                    val rollingPolicy = appender.rollingPolicy!!
-                    val pathSplit = rollingPolicy.fileNamePattern.split("\\").filter { it.isNotBlank() }
-
-                    selectedLoggers.add(
-                        SelectedLogger(
-                            name = logger.name,
-                            description = null,
-                            level = logger.level ?: "INFO",
-                            separateOutput = true,
-                            outputFolder = pathSplit.minus(pathSplit.last()).joinToString(separator = "\\\\") + "\\\\",
-                            filenamePattern = pathSplit.last().toString(),
-                            maxFileSize = rollingPolicy.maxFileSize.filter(Char::isDigit).toLong(),
-                            totalSizeCap = rollingPolicy.totalSizeCap.filter(Char::isDigit).toLong(),
-                            maxDaysHistory = rollingPolicy.maxHistory.filter(Char::isDigit).toLong(),
-                        ),
-                    )
-                }
-            }
-        }
-
-        return selectedLoggers
-    }
     companion object {
         val DEFAULT_APPENDERS = listOf(
             Appender(
@@ -360,10 +366,6 @@ class LogbackConfigManager(
                 appenderRef = mutableListOf(AppenderRef(ref = "DB")),
             ),
         )
-    }
-
-    init {
-        configString = generateXmlString()
     }
 }
 
