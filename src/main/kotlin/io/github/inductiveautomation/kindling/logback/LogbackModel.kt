@@ -14,6 +14,7 @@ import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlRootElement
 import com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator
 import com.fasterxml.jackson.module.kotlin.jacksonMapperBuilder
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import kotlinx.serialization.Serializable
 import java.io.File
 
 /*
@@ -272,7 +273,6 @@ class LogbackConfigManager(
                     selectedLoggers.add(
                         SelectedLogger(
                             name = logger.name,
-                            description = null,
                             level = logger.level ?: "INFO",
                             separateOutput = true,
                             outputFolder = pathSplit.minus(pathSplit.last()).joinToString(separator = "\\\\") + "\\\\",
@@ -325,7 +325,7 @@ class LogbackConfigManager(
                 ),
                 encoder = mutableListOf(
                     Encoder(
-                        pattern = "%p   | jvm 1    | %d{YYYY/MM/dd HH:mm:ss, America/Los_Angeles} | %.-1p [%-30c{1}] [%d{HH:mm:ss,SSS}]: %m %X%n",
+                        pattern = "%.-1p [%-30c{1}] [%d{MM:dd:YYYY HH:mm:ss, America/Los_Angeles}]: %m %X%n",
                     ),
                 ),
             )
@@ -400,3 +400,6 @@ class LogbackConfigDeserializer {
         }
     }
 }
+
+@Serializable
+data class IgnitionLogger(val name: String)
