@@ -65,7 +65,7 @@ class WrapperLogView(
         private val DEFAULT_WRAPPER_MESSAGE_FORMAT =
             "^[^|]+\\|(?<jvm>[^|]+)\\|(?<timestamp>[^|]+)\\|(?: (?<level>[TDIWE]) \\[(?<logger>[^]]++)] \\[(?<time>[^]]++)]: (?<message>.*)| (?<stack>.*))\$".toRegex()
         private val DEFAULT_LOGBACK_MESSAGE_FORMAT =
-            "^(?:(?<level>[TDIWE]) \\[(?<logger>.*)\\] \\[(?<timestamp>.*)\\]: (?<message>.*)|(?<stack>.*))\$".toRegex()
+            "^(?:(?<level>[TDIWE]) \\[(?<logger>.*)] \\[(?<timestamp>.*)]: (?<message>.*)|(?<stack>.*))\$".toRegex()
 
         fun parseLogs(lines: Sequence<String>): List<WrapperLogEvent> {
             val events = mutableListOf<WrapperLogEvent>()
