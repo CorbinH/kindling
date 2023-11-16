@@ -2,7 +2,6 @@ package io.github.inductiveautomation.kindling.logback
 
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.annotation.JsonPropertyOrder
-import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.MapperFeature
 import com.fasterxml.jackson.databind.SerializationFeature
@@ -14,8 +13,8 @@ import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlRootElement
 import com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator
 import com.fasterxml.jackson.module.kotlin.jacksonMapperBuilder
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
-import kotlinx.serialization.Serializable
 import java.io.File
+import kotlinx.serialization.Serializable
 
 /*
 The very basic structure of the configuration file can be described as, <configuration> element,
@@ -256,10 +255,6 @@ class LogbackConfigManager(
         xmlMapper.writeValue(File(filePathString), configs)
     }
 
-    fun getXmlParser(): JsonParser {
-        return xmlMapper.factory.createParser(getXmlString())
-    }
-
     fun getLoggerConfigs(): MutableList<SelectedLogger> {
         val selectedLoggers = mutableListOf<SelectedLogger>()
 
@@ -303,11 +298,11 @@ class LogbackConfigManager(
             Logger(
                 name = selectedLogger.name,
                 level = selectedLogger.level,
-                additivity = false,
+                additivity = !selectedLogger.separateOutput,
                 appenderRef = if (selectedLogger.separateOutput) {
                     mutableListOf(AppenderRef(selectedLogger.name))
                 } else {
-                    mutableListOf(AppenderRef("SysoutAsync"))
+                    mutableListOf(AppenderRef("SysoutAsync"), AppenderRef("DBAsync"))
                 },
             )
         }
@@ -325,7 +320,7 @@ class LogbackConfigManager(
                 ),
                 encoder = mutableListOf(
                     Encoder(
-                        pattern = "%.-1p [%-30c{1}] [%d{MM:dd:YYYY HH:mm:ss, America/Los_Angeles}]: %m %X%n",
+                        pattern = "%.-1p [%-30logger] [%d{YYYY/MM/dd HH:mm:ss, SSS}]: {%thread} %replace(%m){\"[\\r\\n]+\", \"\"} %X%n",
                     ),
                 ),
             )
