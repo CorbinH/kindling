@@ -46,8 +46,8 @@ object LogbackEditor : Tool {
 
 class LogbackView(path: Path) : ToolPanel() {
 
-    private val configsFromXml = LogbackConfigDeserializer().getObjectFromXML(path.toString())
-    private val logbackConfigManager = LogbackConfigManager(configs = configsFromXml)
+    private val configsFromXml = LogbackConfigDeserializer().getObjectFromXML(path.toString()) ?: LogbackConfigData()
+    private val logbackConfigManager = LogbackConfigManager(configsFromXml)
 
     private val selectedLoggersList = logbackConfigManager.getLoggerConfigs()
 
@@ -73,7 +73,8 @@ class LogbackView(path: Path) : ToolPanel() {
     private val xmlOutputPreview = JTextArea().apply {
         isEditable = false
         lineWrap = true
-        text = logbackConfigManager.configString
+        font = UIManager.getFont("monospaced.font")
+        text = logbackConfigManager.getXmlString()
         caretPosition = 0
     }
 
@@ -110,12 +111,12 @@ class LogbackView(path: Path) : ToolPanel() {
 
     fun updateData() {
         val temp = xmlOutputPreview.caretPosition
-        logbackConfigManager.configs?.logHomeDir = LogHomeDirectory(
+        logbackConfigManager.configs.logHomeDir = LogHomeDirectory(
             "LOG_HOME",
             directorySelectorPanel.logHomeField.text.replace("\\", "\\\\"),
         )
-        logbackConfigManager.configs?.scan = if (scanForChangesPanel.scanForChangesCheckbox.isSelected) true else null
-        logbackConfigManager.configs?.scanPeriod = if (scanForChangesPanel.scanForChangesCheckbox.isSelected) {
+        logbackConfigManager.configs.scan = if (scanForChangesPanel.scanForChangesCheckbox.isSelected) true else null
+        logbackConfigManager.configs.scanPeriod = if (scanForChangesPanel.scanForChangesCheckbox.isSelected) {
             "${scanForChangesPanel.scanPeriodField.text} seconds"
         } else {
             null
@@ -132,7 +133,8 @@ class LogbackView(path: Path) : ToolPanel() {
         }
 
         logbackConfigManager.updateLoggerConfigs(selectedLoggersList)
-        xmlOutputPreview.text = logbackConfigManager.generateXmlString()
+
+        xmlOutputPreview.text = logbackConfigManager.getXmlString()
 
         if (temp > xmlOutputPreview.text.length) {
             xmlOutputPreview.caretPosition = xmlOutputPreview.text.length
@@ -160,7 +162,7 @@ class LogbackView(path: Path) : ToolPanel() {
 
     inner class DirectorySelectorPanel : JPanel(MigLayout("fill, ins 0")) {
 
-        private val logHomeDir = logbackConfigManager.configs?.logHomeDir?.value
+        private val logHomeDir = logbackConfigManager.configs.logHomeDir?.value
         private var logHomePath = logHomeDir?.replace("\\\\", "\\") ?: System.getProperty("user.home")
         val logHomeField = JTextField(logHomePath)
 
@@ -197,8 +199,9 @@ class LogbackView(path: Path) : ToolPanel() {
     }
 
     inner class ScanForChangesPanel : JPanel(MigLayout("fill, hidemode 3, ins 0")) {
-        private val scanEnabled = logbackConfigManager.configs?.scan ?: false
-        private val scanPeriod = logbackConfigManager.configs?.scanPeriod?.filter(Char::isDigit)?.toLong() ?: 30
+
+        private val scanEnabled = logbackConfigManager.configs.scan ?: false
+        private val scanPeriod = logbackConfigManager.configs.scanPeriod?.filter(Char::isDigit)?.toLong() ?: 30
 
         val scanForChangesCheckbox = JCheckBox("Scan for config changes?").apply {
             isSelected = scanEnabled

@@ -13,8 +13,8 @@ import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlRootElement
 import com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator
 import com.fasterxml.jackson.module.kotlin.jacksonMapperBuilder
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
-import kotlinx.serialization.Serializable
 import java.io.File
+import kotlinx.serialization.Serializable
 
 /*
 The very basic structure of the configuration file can be described as, <configuration> element,
@@ -229,8 +229,7 @@ data class RollingPolicy(
 )
 
 class LogbackConfigManager(
-    var configs: LogbackConfigData?,
-    var configString: String? = null,
+    var configs: LogbackConfigData,
 ) {
 
     // Build XmlMapper with the parameters for serialization
@@ -247,7 +246,7 @@ class LogbackConfigManager(
     }
 
     // Convert LogbackConfigData data class to XML string (for UI and clipboard)
-    fun generateXmlString(): String {
+    fun getXmlString(): String {
         return xmlMapper.writeValueAsString(configs)
     }
 
@@ -256,56 +255,11 @@ class LogbackConfigManager(
         xmlMapper.writeValue(File(filePathString), configs)
     }
 
-    /*
-    Each selected logger will either output to a separate appender or use the default Sysout appender.
-    In either case, we need a <logger> element.
-    For those using a separate appender, we need to generate that <appender> element.
-    */
-    fun updateLoggerConfigs(selectedLoggers: MutableList<SelectedLogger>) {
-        val separateOutputLoggers = selectedLoggers.filter { selectedLogger: SelectedLogger ->
-            selectedLogger.separateOutput
-        }
-
-        val loggerElements = selectedLoggers.map { selectedLogger: SelectedLogger ->
-            Logger(
-                name = selectedLogger.name,
-                level = selectedLogger.level,
-                additivity = false,
-                appenderRef = if (selectedLogger.separateOutput) {
-                    mutableListOf(AppenderRef(selectedLogger.name))
-                } else {
-                    mutableListOf(AppenderRef("SysoutAsync"))
-                },
-            )
-        }
-
-        val appenderElements = separateOutputLoggers.map { separateOutputLogger: SelectedLogger ->
-            Appender(
-                name = separateOutputLogger.name,
-                className = "ch.qos.logback.core.rolling.RollingFileAppender",
-                rollingPolicy = RollingPolicy(
-                    className = "ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy",
-                    fileNamePattern = separateOutputLogger.outputFolder + separateOutputLogger.filenamePattern,
-                    maxFileSize = separateOutputLogger.maxFileSize.toString() + "MB",
-                    totalSizeCap = separateOutputLogger.totalSizeCap.toString() + "MB",
-                    maxHistory = separateOutputLogger.maxDaysHistory.toString(),
-                ),
-                encoder = mutableListOf(
-                    Encoder(
-                        pattern = "%.-1p [%-30c{1}] [%d{MM:dd:YYYY HH:mm:ss, America/Los_Angeles}]: %m %X%n",
-                    ),
-                ),
-            )
-        }
-
-        configs?.logger = loggerElements
-        configs?.appender = appenderElements.plus(DEFAULT_APPENDERS)
-    }
     fun getLoggerConfigs(): MutableList<SelectedLogger> {
         val selectedLoggers = mutableListOf<SelectedLogger>()
 
-        configs?.logger?.forEach { logger ->
-            configs?.appender?.forEach { appender ->
+        configs.logger?.forEach { logger ->
+            configs.appender?.forEach { appender ->
                 if (logger.name == appender.name) {
                     // If there is a separate output appender, it is guaranteed to have a rolling policy
                     val rollingPolicy = appender.rollingPolicy!!
@@ -329,6 +283,53 @@ class LogbackConfigManager(
 
         return selectedLoggers
     }
+
+    /*
+    Each selected logger will either output to a separate appender or use the default Sysout appender.
+    In either case, we need a <logger> element.
+    For those using a separate appender, we need to generate that <appender> element.
+    */
+    fun updateLoggerConfigs(selectedLoggers: MutableList<SelectedLogger>) {
+        val separateOutputLoggers = selectedLoggers.filter { selectedLogger: SelectedLogger ->
+            selectedLogger.separateOutput
+        }
+
+        val loggerElements = selectedLoggers.map { selectedLogger: SelectedLogger ->
+            Logger(
+                name = selectedLogger.name,
+                level = selectedLogger.level,
+                additivity = !selectedLogger.separateOutput,
+                appenderRef = if (selectedLogger.separateOutput) {
+                    mutableListOf(AppenderRef(selectedLogger.name))
+                } else {
+                    mutableListOf(AppenderRef("SysoutAsync"), AppenderRef("DBAsync"))
+                },
+            )
+        }
+
+        val appenderElements = separateOutputLoggers.map { separateOutputLogger: SelectedLogger ->
+            Appender(
+                name = separateOutputLogger.name,
+                className = "ch.qos.logback.core.rolling.RollingFileAppender",
+                rollingPolicy = RollingPolicy(
+                    className = "ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy",
+                    fileNamePattern = separateOutputLogger.outputFolder + separateOutputLogger.filenamePattern,
+                    maxFileSize = separateOutputLogger.maxFileSize.toString() + "MB",
+                    totalSizeCap = separateOutputLogger.totalSizeCap.toString() + "MB",
+                    maxHistory = separateOutputLogger.maxDaysHistory.toString(),
+                ),
+                encoder = mutableListOf(
+                    Encoder(
+                        pattern = "%.-1p [%-30logger] [%d{YYYY/MM/dd HH:mm:ss, SSS}]: {%thread} %replace(%m){\"[\\r\\n]+\", \"\"} %X%n",
+                    ),
+                ),
+            )
+        }
+
+        configs.logger = loggerElements
+        configs.appender = appenderElements.plus(DEFAULT_APPENDERS)
+    }
+
     companion object {
         val DEFAULT_APPENDERS = listOf(
             Appender(
@@ -360,10 +361,6 @@ class LogbackConfigManager(
                 appenderRef = mutableListOf(AppenderRef(ref = "DB")),
             ),
         )
-    }
-
-    init {
-        configString = generateXmlString()
     }
 }
 
