@@ -1,33 +1,13 @@
 package io.github.inductiveautomation.kindling.log
 
+import com.formdev.flatlaf.extras.FlatSVGIcon
+import io.github.inductiveautomation.kindling.core.*
 import io.github.inductiveautomation.kindling.core.Detail.BodyLine
-import io.github.inductiveautomation.kindling.core.DetailsPane
-import io.github.inductiveautomation.kindling.core.Filter
-import io.github.inductiveautomation.kindling.core.FilterPanel
 import io.github.inductiveautomation.kindling.core.Kindling.Preferences.Advanced.HyperlinkStrategy
 import io.github.inductiveautomation.kindling.core.Kindling.Preferences.General.ShowFullLoggerNames
 import io.github.inductiveautomation.kindling.core.Kindling.Preferences.General.UseHyperlinks
-import io.github.inductiveautomation.kindling.core.LinkHandlingStrategy
-import io.github.inductiveautomation.kindling.core.Timezone
-import io.github.inductiveautomation.kindling.core.ToolOpeningException
-import io.github.inductiveautomation.kindling.core.ToolPanel
+import io.github.inductiveautomation.kindling.utils.*
 import io.github.inductiveautomation.kindling.utils.Action
-import io.github.inductiveautomation.kindling.utils.ColorHighlighter
-import io.github.inductiveautomation.kindling.utils.EDT_SCOPE
-import io.github.inductiveautomation.kindling.utils.FilterSidebar
-import io.github.inductiveautomation.kindling.utils.FlatActionIcon
-import io.github.inductiveautomation.kindling.utils.FlatScrollPane
-import io.github.inductiveautomation.kindling.utils.HorizontalSplitPane
-import io.github.inductiveautomation.kindling.utils.MajorVersion
-import io.github.inductiveautomation.kindling.utils.ReifiedJXTable
-import io.github.inductiveautomation.kindling.utils.VerticalSplitPane
-import io.github.inductiveautomation.kindling.utils.attachPopupMenu
-import io.github.inductiveautomation.kindling.utils.configureCellRenderer
-import io.github.inductiveautomation.kindling.utils.debounce
-import io.github.inductiveautomation.kindling.utils.maxSelectedIndex
-import io.github.inductiveautomation.kindling.utils.minSelectedIndex
-import io.github.inductiveautomation.kindling.utils.selectedRowIndices
-import io.github.inductiveautomation.kindling.utils.toBodyLine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -37,19 +17,8 @@ import org.jdesktop.swingx.table.ColumnControlButton.COLUMN_CONTROL_MARKER
 import java.awt.BorderLayout
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
-import java.util.Vector
-import javax.swing.BorderFactory
-import javax.swing.Icon
-import javax.swing.JButton
-import javax.swing.JComboBox
-import javax.swing.JLabel
-import javax.swing.JPanel
-import javax.swing.JPopupMenu
-import javax.swing.JSeparator
-import javax.swing.JToggleButton
-import javax.swing.ListSelectionModel
-import javax.swing.SortOrder
-import javax.swing.UIManager
+import java.util.*
+import javax.swing.*
 import kotlin.time.Duration.Companion.milliseconds
 import io.github.inductiveautomation.kindling.core.Detail as DetailEvent
 
@@ -96,22 +65,46 @@ sealed class LogPanel<T : LogEvent>(
 
     protected fun addSidebar(sidebar: FilterSidebar<T>) {
         sidebarContainer.add(sidebar, BorderLayout.CENTER)
-
         filters.addAll(sidebar)
     }
 
     private val details = DetailsPane()
 
     protected val filters = mutableListOf<Filter<T>>(
-        object : Filter<T> {
-            override fun filter(item: T): Boolean {
-                val behavior = header.markedBehavior.selectedItem as MarkedBehavior
-                return when (behavior) {
-                    MarkedBehavior.ShowAll -> true
-                    MarkedBehavior.OnlyMarked -> item.marked
-                    MarkedBehavior.OnlyUnmarked -> !item.marked
-                    MarkedBehavior.AlwaysShowMarked -> true
-                }
+        Filter { item ->
+            val behavior = header.markedBehavior.selectedItem as MarkedBehavior
+            when (behavior) {
+                MarkedBehavior.ShowAll -> true
+                MarkedBehavior.OnlyMarked -> item.marked
+                MarkedBehavior.OnlyUnmarked -> !item.marked
+                MarkedBehavior.AlwaysShowMarked -> true
+            }
+        },
+        Filter { event ->
+            val matchCaseSelected = header.matchCase.isSelected
+            val matchWholeWordSelected = header.matchWholeWord.isSelected
+            val matchRegexSelected = header.matchRegex.isSelected
+            val text = header.search.text
+
+            val regexOptions = mutableSetOf<RegexOption>()
+            if (!matchCaseSelected) regexOptions.add(RegexOption.IGNORE_CASE)
+            if (!matchRegexSelected) regexOptions.add(RegexOption.LITERAL)
+
+            if (text.isNullOrEmpty()) {
+                true
+            } else if (header.markedBehavior.selectedItem == MarkedBehavior.AlwaysShowMarked && event.marked) {
+                true
+            } else {
+                val textRegex =
+                    if (matchWholeWordSelected) "\\b${text}\\b".toRegex(regexOptions)
+                    else text.toRegex(regexOptions)
+
+                textRegex.containsMatchIn(event.message) ||
+                        textRegex.containsMatchIn(event.logger) ||
+                        (if (event is SystemLogEvent) textRegex.containsMatchIn(event.thread) else false) ||
+                        event.stacktrace.any { stacktrace ->
+                            textRegex.containsMatchIn(stacktrace)
+                        }
             }
         },
     )
@@ -172,21 +165,23 @@ sealed class LogPanel<T : LogEvent>(
         bgSupplier = { UIManager.getColor("Table.cellFocusColor") },
         predicate = { _, adapter ->
             header.highlightMarked.isSelected &&
-                !table.isRowSelected(adapter.row) &&
-                table.model[table.convertRowIndexToModel(adapter.row)].marked
+                    !table.isRowSelected(adapter.row) &&
+                    table.model[table.convertRowIndexToModel(adapter.row)].marked
         },
     )
 
     init {
+        // Break out apply block to satisfy definite assignment analysis
+        val rightPanel = JPanel(MigLayout("ins 0, fill"))
+        rightPanel.add(header, "wrap, growx")
+        rightPanel.add(tableScrollPane, "grow, push")
+
         @Suppress("LeakingThis")
         add(
             VerticalSplitPane(
                 HorizontalSplitPane(
                     sidebarContainer,
-                    JPanel(MigLayout("ins 0, fill")).apply {
-                        add(header, "wrap, growx")
-                        add(tableScrollPane, "grow, push")
-                    },
+                    rightPanel,
                     resizeWeight = 0.1,
                 ),
                 details,
@@ -196,26 +191,26 @@ sealed class LogPanel<T : LogEvent>(
         @Suppress("LeakingThis")
         add(footer, "growx, spanx 2")
 
-        table.apply {
-            var lastMarkedRow: Int? = null
+        var lastMarkedRow: Int? = null
 
-            // Handle shift clicks in the mark column as multi-select events
-            addMouseListener(object : MouseAdapter() {
+        // Explicit direct calls without inline apply to fix compiler confusion
+        table.addMouseListener(
+            object : MouseAdapter() {
                 override fun mouseClicked(e: MouseEvent) {
-                    val viewCol = columnAtPoint(e.point)
-                    val viewRow = rowAtPoint(e.point)
+                    val viewCol = table.columnAtPoint(e.point)
+                    val viewRow = table.rowAtPoint(e.point)
                     if (viewRow == -1 || viewCol == -1) return
 
-                    val modelCol = convertColumnIndexToModel(viewCol)
-                    if (modelCol != model.markIndex) return
+                    val modelCol = table.convertColumnIndexToModel(viewCol)
+                    if (modelCol != table.model.markIndex) return
 
-                    val modelRow = convertRowIndexToModel(viewRow)
+                    val modelRow = table.convertRowIndexToModel(viewRow)
 
                     if (e.isShiftDown && lastMarkedRow != null) {
                         val anchor = lastMarkedRow!!
                         val range = minOf(anchor, modelRow)..maxOf(anchor, modelRow)
-                        val newValue = model.data[modelRow].marked
-                        model.markRows { i, _ ->
+                        val newValue = table.model.data[modelRow].marked
+                        table.model.markRows { i, _ ->
                             newValue.takeIf { i in range }
                         }
                         lastMarkedRow = null
@@ -223,85 +218,87 @@ sealed class LogPanel<T : LogEvent>(
                         lastMarkedRow = modelRow
                     }
                 }
-            })
+            },
+        )
 
-            selectionModel.addListSelectionListener { selectionEvent ->
-                if (!selectionEvent.valueIsAdjusting) {
-                    selectionModel.updateDetails()
-                }
-                footer.selectedRows = selectionModel.minSelectionIndex + 1..selectionModel.maxSelectionIndex + 1
+        table.selectionModel.addListSelectionListener { selectionEvent ->
+            if (!selectionEvent.valueIsAdjusting) {
+                table.selectionModel.updateDetails()
             }
-            addPropertyChangeListener("model") {
-                footer.displayedRows = model.rowCount
-            }
-
-            val clearAllMarks =
-                Action("Clear all marks") {
-                    model.markRows { false }
-                }
-            actionMap.put(
-                "$COLUMN_CONTROL_MARKER.clearAllMarks",
-                clearAllMarks,
-            )
-            attachPopupMenu { mouseEvent ->
-                val rowAtPoint = rowAtPoint(mouseEvent.point)
-                if (rowAtPoint != -1) {
-                    addRowSelectionInterval(rowAtPoint, rowAtPoint)
-                }
-                val colAtPoint = columnAtPoint(mouseEvent.point)
-                if (colAtPoint != -1) {
-                    JPopupMenu().apply {
-                        val column = model.columns[convertColumnIndexToModel(colAtPoint)]
-                        val event = model[convertRowIndexToModel(rowAtPoint)]
-                        for (filterPanel in sidebar) {
-                            filterPanel.customizePopupMenu(this, column, event)
-                        }
-
-                        if (colAtPoint == model.markIndex) {
-                            add(clearAllMarks)
-                        }
-
-                        if (column == SystemLogColumns.Message || column == WrapperLogColumns.Message) {
-                            add(
-                                Action("Mark all with same message") {
-                                    model.markRows { row ->
-                                        if (row.marked) {
-                                            null // Leave existing marked messages marked
-                                        } else {
-                                            row.message == event.message
-                                        }
-                                    }
-                                },
-                            )
-                        }
-
-                        if (event.stacktrace.isNotEmpty()) {
-                            add(
-                                Action("Mark all with same stacktrace") {
-                                    model.markRows { row ->
-                                        (row.stacktrace == event.stacktrace).takeIf { it }
-                                    }
-                                },
-                            )
-                        }
-
-                        if (column == SystemLogColumns.Thread && event is SystemLogEvent) {
-                            add(
-                                Action("Mark all ${event.thread} events") {
-                                    model.markRows { row ->
-                                        ((row as SystemLogEvent).thread == event.thread).takeIf { it }
-                                    }
-                                },
-                            )
-                        }
-                    }.takeIf { it.componentCount > 0 }
-                } else {
-                    null
-                }
-            }
-
-            addHighlighter(markHighlighter)
+            footer.selectedRows = table.selectionModel.minSelectionIndex + 1..table.selectionModel.maxSelectionIndex + 1
         }
+
+        table.addPropertyChangeListener("model") {
+            footer.displayedRows = table.model.rowCount
+        }
+
+        val clearAllMarks = Action("Clear all marks") {
+            table.model.markRows { false }
+        }
+
+        table.actionMap.put(
+            "$COLUMN_CONTROL_MARKER.clearAllMarks",
+            clearAllMarks,
+        )
+
+        table.attachPopupMenu { mouseEvent ->
+            val rowAtPoint = table.rowAtPoint(mouseEvent.point)
+            if (rowAtPoint != -1) {
+                table.addRowSelectionInterval(rowAtPoint, rowAtPoint)
+            }
+            val colAtPoint = table.columnAtPoint(mouseEvent.point)
+            if (colAtPoint != -1) {
+                JPopupMenu().apply {
+                    val column = table.model.columns[table.convertColumnIndexToModel(colAtPoint)]
+                    val event = table.model[table.convertRowIndexToModel(rowAtPoint)]
+                    for (filterPanel in sidebar) {
+                        filterPanel.customizePopupMenu(this, column, event)
+                    }
+
+                    if (colAtPoint == table.model.markIndex) {
+                        add(clearAllMarks)
+                    }
+
+                    if (column == SystemLogColumns.Message || column == WrapperLogColumns.Message) {
+                        add(
+                            Action("Mark all with same message") {
+                                table.model.markRows { row ->
+                                    if (row.marked) {
+                                        null // Leave existing marked messages marked
+                                    } else {
+                                        row.message == event.message
+                                    }
+                                }
+                            },
+                        )
+                    }
+
+                    if (event.stacktrace.isNotEmpty()) {
+                        add(
+                            Action("Mark all with same stacktrace") {
+                                table.model.markRows { row ->
+                                    (row.stacktrace == event.stacktrace).takeIf { it }
+                                }
+                            },
+                        )
+                    }
+
+                    if (column == SystemLogColumns.Thread && event is SystemLogEvent) {
+                        add(
+                            Action("Mark all ${event.thread} events") {
+                                table.model.markRows { row ->
+                                    ((row as SystemLogEvent).thread == event.thread).takeIf { it }
+                                }
+                            },
+                        )
+                    }
+                }.takeIf { it.componentCount > 0 }
+            } else {
+                null
+            }
+        }
+
+        table.addHighlighter(markHighlighter)
 
         header.apply {
             search.addActionListener {
@@ -311,6 +308,15 @@ sealed class LogPanel<T : LogEvent>(
                 table.selectionModel.updateDetails()
             }
             markedBehavior.addActionListener {
+                updateData()
+            }
+            matchCase.addActionListener {
+                updateData()
+            }
+            matchWholeWord.addActionListener {
+                updateData()
+            }
+            matchRegex.addActionListener {
                 updateData()
             }
             highlightMarked.addActionListener {
@@ -340,7 +346,6 @@ sealed class LogPanel<T : LogEvent>(
         }
 
         HyperlinkStrategy.addChangeListener {
-            // if the link strategy changes, we need to rebuild all the hyperlinks
             table.selectionModel.updateDetails()
         }
 
@@ -384,6 +389,24 @@ sealed class LogPanel<T : LogEvent>(
 
     protected class Header : JPanel(MigLayout("ins 0, fill, hidemode 3")) {
         val search = JXSearchField("")
+
+        val matchCase =
+            JToggleButton(FlatSVGIcon("icons/match-case.svg")).apply {
+                toolTipText = "Match Case"
+                isBorderPainted = false
+            }
+
+        val matchWholeWord =
+            JToggleButton(FlatSVGIcon("icons/match-whole-word.svg")).apply {
+                toolTipText = "Match Whole Word"
+                isBorderPainted = false
+            }
+
+        val matchRegex =
+            JToggleButton(FlatSVGIcon("icons/match-regex.svg")).apply {
+                toolTipText = "Use Regular Expression"
+                isBorderPainted = false
+            }
 
         val version: JComboBox<MajorVersion> =
             JComboBox(Vector(MajorVersion.entries)).apply {
@@ -433,7 +456,10 @@ sealed class LogPanel<T : LogEvent>(
 
         private val searchPanel = JPanel(MigLayout("fill, ins 0 2 0 2")).apply {
             border = BorderFactory.createTitledBorder("Search")
-            add(search, "grow")
+            add(search, "growx, growy, push")
+            add(matchCase, "align right")
+            add(matchWholeWord, "align right")
+            add(matchRegex, "align right")
         }
 
         private fun updateVersionVisibility() {
@@ -445,7 +471,7 @@ sealed class LogPanel<T : LogEvent>(
         init {
             add(markedPanel, "cell 0 0, growy")
             add(versionPanel, "cell 0 0, growy")
-            add(searchPanel, "cell 0 0, grow, push")
+            add(searchPanel, "cell 0 0, growx, growy")
             updateVersionVisibility()
             UseHyperlinks.addChangeListener { updateVersionVisibility() }
             HyperlinkStrategy.addChangeListener { updateVersionVisibility() }

@@ -13,6 +13,15 @@ repositories {
 }
 
 dependencies {
+    // Force patched versions for transitive vulnerabilities
+    constraints {
+        api("org.apache.commons:commons-lang3:3.17.0") {
+            because("Mend.io: CVE-2025-48924")
+        }
+        api("ch.qos.logback:logback-core:1.5.33") {
+            because("Mend.io: CVE-2025-11226, CVE-2026-1225")
+        }
+    }
     api(libs.serialization.json)
     api(libs.xerial.jdbc)
     api(libs.hsql)
