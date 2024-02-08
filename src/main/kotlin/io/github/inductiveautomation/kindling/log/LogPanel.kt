@@ -13,27 +13,31 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import net.miginfocom.swing.MigLayout
 import org.jdesktop.swingx.JXSearchField
+import org.jdesktop.swingx.decorator.ColorHighlighter
+import org.jdesktop.swingx.decorator.ComponentAdapter
 import org.jdesktop.swingx.table.ColumnControlButton.COLUMN_CONTROL_MARKER
 import java.awt.BorderLayout
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import java.util.*
+import java.util.regex.PatternSyntaxException
 import javax.swing.*
 import kotlin.time.Duration.Companion.milliseconds
 import io.github.inductiveautomation.kindling.core.Detail as DetailEvent
 
 typealias LogFilter = Filter<LogEvent>
 
-sealed class LogPanel<T : LogEvent>(
+abstract class LogPanel<T : LogEvent>(
     /**
      * Pass a **sorted** list of LogEvents, in ascending order.
      */
     rawData: List<T>,
     private val columnList: LogColumnList<T>,
 ) : ToolPanel("ins 0, fill, hidemode 3") {
+
     protected val rawData: MutableList<T> = rawData.sortedBy(LogEvent::timestamp).toMutableList()
 
-    protected var selectedData: List<T> = rawData
+    protected var selectedData: List<T> = this.rawData
         set(value) {
             field = value.sortedBy(LogEvent::timestamp)
             footer.totalRows = value.size
@@ -41,17 +45,18 @@ sealed class LogPanel<T : LogEvent>(
         }
 
     init {
-        if (rawData.isEmpty()) {
+        if (this.rawData.isEmpty()) {
             throw ToolOpeningException("Opening an empty log file is pointless")
         }
     }
 
     protected val header = Header()
+    private var invalidRegexPattern = false
 
     private val footer = Footer(selectedData.size)
 
     val table = run {
-        val initialModel = createModel(rawData)
+        val initialModel = createModel(this.rawData)
         ReifiedJXTable(initialModel, columnList).apply {
             setSortOrder(initialModel.columns.Timestamp, SortOrder.ASCENDING)
         }
@@ -70,8 +75,8 @@ sealed class LogPanel<T : LogEvent>(
 
     private val details = DetailsPane()
 
-    protected val filters = mutableListOf<Filter<T>>(
-        Filter { item ->
+    protected val filters: MutableList<Filter<T>> = mutableListOf(
+        Filter { item: T ->
             val behavior = header.markedBehavior.selectedItem as MarkedBehavior
             when (behavior) {
                 MarkedBehavior.ShowAll -> true
@@ -80,31 +85,40 @@ sealed class LogPanel<T : LogEvent>(
                 MarkedBehavior.AlwaysShowMarked -> true
             }
         },
-        Filter { event ->
-            val matchCaseSelected = header.matchCase.isSelected
-            val matchWholeWordSelected = header.matchWholeWord.isSelected
-            val matchRegexSelected = header.matchRegex.isSelected
+        Filter { event: T ->
             val text = header.search.text
-
-            val regexOptions = mutableSetOf<RegexOption>()
-            if (!matchCaseSelected) regexOptions.add(RegexOption.IGNORE_CASE)
-            if (!matchRegexSelected) regexOptions.add(RegexOption.LITERAL)
-
             if (text.isNullOrEmpty()) {
-                true
-            } else if (header.markedBehavior.selectedItem == MarkedBehavior.AlwaysShowMarked && event.marked) {
-                true
+                return@Filter true
+            }
+
+            if (header.markedBehavior.selectedItem == MarkedBehavior.AlwaysShowMarked && event.marked) {
+                return@Filter true
+            }
+
+            if (header.matchRegex.isSelected) {
+                try {
+                    val textRegex = text.toRegex()
+                    textRegex.containsMatchIn(event.message) ||
+                            textRegex.containsMatchIn(event.logger) ||
+                            (event is SystemLogEvent && textRegex.containsMatchIn(event.thread)) ||
+                            event.stacktrace.any { stacktrace -> textRegex.containsMatchIn(stacktrace) }
+                } catch (_: PatternSyntaxException) {
+                    invalidRegexPattern = true
+                    header.search.postActionEvent()
+                    false
+                }
             } else {
-                val textRegex =
-                    if (matchWholeWordSelected) "\\b${text}\\b".toRegex(regexOptions)
-                    else text.toRegex(regexOptions)
+                val regexOptions = mutableSetOf<RegexOption>()
+                if (!header.matchCase.isSelected) regexOptions.add(RegexOption.IGNORE_CASE)
+                if (!header.matchWholeWord.isSelected) regexOptions.add(RegexOption.LITERAL)
+
+                val textString = if (header.matchWholeWord.isSelected) "\\b${Regex.escape(text)}\\b" else text
+                val textRegex = textString.toRegex(regexOptions)
 
                 textRegex.containsMatchIn(event.message) ||
                         textRegex.containsMatchIn(event.logger) ||
-                        (if (event is SystemLogEvent) textRegex.containsMatchIn(event.thread) else false) ||
-                        event.stacktrace.any { stacktrace ->
-                            textRegex.containsMatchIn(stacktrace)
-                        }
+                        (event is SystemLogEvent && textRegex.containsMatchIn(event.thread)) ||
+                        event.stacktrace.any { stacktrace -> textRegex.containsMatchIn(stacktrace) }
             }
         },
     )
@@ -135,7 +149,7 @@ sealed class LogPanel<T : LogEvent>(
     protected fun updateData() = dataUpdater()
 
     fun reset() {
-        sidebar.forEach(FilterPanel<*>::reset)
+        sidebar.forEach { it.reset() }
         header.search.text = null
     }
 
@@ -147,10 +161,12 @@ sealed class LogPanel<T : LogEvent>(
         val viewRowCount = table.rowSorter.viewRowCount
 
         val indicesToSearch = if (forward) {
-            val startIndex = table.selectionModel.minSelectedIndex?.let { it + 1 } ?: 0
+            val minIdx = table.selectionModel.minSelectionIndex
+            val startIndex = if (minIdx >= 0) minIdx + 1 else 0
             startIndex until viewRowCount
         } else {
-            val startIndex = table.selectionModel.maxSelectedIndex?.let { it - 1 } ?: (viewRowCount - 1)
+            val maxIdx = table.selectionModel.maxSelectionIndex
+            val startIndex = if (maxIdx >= 0) maxIdx - 1 else (viewRowCount - 1)
             startIndex downTo 0
         }
 
@@ -161,17 +177,16 @@ sealed class LogPanel<T : LogEvent>(
     }
 
     private val markHighlighter = ColorHighlighter(
-        fgSupplier = { UIManager.getColor("Table.selectionForeground") },
-        bgSupplier = { UIManager.getColor("Table.cellFocusColor") },
-        predicate = { _, adapter ->
+        { _, adapter: ComponentAdapter ->
             header.highlightMarked.isSelected &&
                     !table.isRowSelected(adapter.row) &&
                     table.model[table.convertRowIndexToModel(adapter.row)].marked
         },
+        UIManager.getColor("Table.cellFocusColor"), // Background Color
+        UIManager.getColor("Table.selectionForeground"), // Foreground Color
     )
 
     init {
-        // Break out apply block to satisfy definite assignment analysis
         val rightPanel = JPanel(MigLayout("ins 0, fill"))
         rightPanel.add(header, "wrap, growx")
         rightPanel.add(tableScrollPane, "grow, push")
@@ -193,7 +208,6 @@ sealed class LogPanel<T : LogEvent>(
 
         var lastMarkedRow: Int? = null
 
-        // Explicit direct calls without inline apply to fix compiler confusion
         table.addMouseListener(
             object : MouseAdapter() {
                 override fun mouseClicked(e: MouseEvent) {
@@ -264,7 +278,7 @@ sealed class LogPanel<T : LogEvent>(
                             Action("Mark all with same message") {
                                 table.model.markRows { row ->
                                     if (row.marked) {
-                                        null // Leave existing marked messages marked
+                                        null
                                     } else {
                                         row.message == event.message
                                     }
@@ -302,8 +316,17 @@ sealed class LogPanel<T : LogEvent>(
 
         header.apply {
             search.addActionListener {
-                updateData()
+                if (invalidRegexPattern) {
+                    search.background = UIManager.getColor("Component.error.focusedBorderColor")
+                    search.setToolTipText("Invalid regular expression syntax!")
+                    invalidRegexPattern = false
+                } else {
+                    search.background = UIManager.getColor("TextField.background")
+                    search.setToolTipText(null)
+                    updateData()
+                }
             }
+
             version.addActionListener {
                 table.selectionModel.updateDetails()
             }
@@ -311,12 +334,16 @@ sealed class LogPanel<T : LogEvent>(
                 updateData()
             }
             matchCase.addActionListener {
+                if (matchRegex.isSelected) matchRegex.isSelected = false
                 updateData()
             }
             matchWholeWord.addActionListener {
+                if (matchRegex.isSelected) matchRegex.isSelected = false
                 updateData()
             }
             matchRegex.addActionListener {
+                if (matchCase.isSelected) matchCase.isSelected = false
+                if (matchWholeWord.isSelected) matchWholeWord.isSelected = false
                 updateData()
             }
             highlightMarked.addActionListener {
@@ -387,59 +414,57 @@ sealed class LogPanel<T : LogEvent>(
                 }
     }
 
-    protected class Header : JPanel(MigLayout("ins 0, fill, hidemode 3")) {
+    protected inner class Header : JPanel(MigLayout("ins 0, fill, hidemode 3")) {
+        val separator = JSeparator(SwingConstants.VERTICAL)
+
         val search = JXSearchField("")
 
-        val matchCase =
-            JToggleButton(FlatSVGIcon("icons/match-case.svg")).apply {
-                toolTipText = "Match Case"
-                isBorderPainted = false
-            }
+        val matchCase = JToggleButton(FlatSVGIcon("icons/match-case.svg")).apply {
+            toolTipText = "Match Case"
+            isBorderPainted = false
+        }
 
-        val matchWholeWord =
-            JToggleButton(FlatSVGIcon("icons/match-whole-word.svg")).apply {
-                toolTipText = "Match Whole Word"
-                isBorderPainted = false
-            }
+        val matchWholeWord = JToggleButton(FlatSVGIcon("icons/match-whole-word.svg")).apply {
+            toolTipText = "Match Whole Word"
+            isBorderPainted = false
+        }
 
-        val matchRegex =
-            JToggleButton(FlatSVGIcon("icons/match-regex.svg")).apply {
-                toolTipText = "Use Regular Expression"
-                isBorderPainted = false
-            }
+        val matchRegex = JToggleButton(FlatSVGIcon("icons/match-regex.svg")).apply {
+            toolTipText = "Use Regular Expression"
+            isBorderPainted = false
+        }
 
-        val version: JComboBox<MajorVersion> =
-            JComboBox(Vector(MajorVersion.entries)).apply {
-                selectedItem = MajorVersion.EightOne
-                configureCellRenderer { _, value, _, _, _ ->
-                    text = "${value?.version}.*"
-                }
+        val version: JComboBox<MajorVersion> = JComboBox(Vector(MajorVersion.entries)).apply {
+            selectedItem = MajorVersion.EightOne
+            configureCellRenderer { _, value, _, _, _ ->
+                text = "${value?.version}.*"
             }
+        }
+
         private val versionLabel = JLabel("Version")
 
-        private val versionPanel = JPanel(MigLayout("fill, ins 0 2 0 2")).apply {
-            border = BorderFactory.createTitledBorder("Stacktrace Links")
+        val versionPanel = JPanel(MigLayout("fill, ins 0 2 0 2")).apply {
+            border = BorderFactory.createTitledBorder("Hyperlink Strategy")
             add(versionLabel)
             add(version, "growy")
         }
 
-        val highlightMarked = JToggleButton(FlatActionIcon("icons/bx-highlight.svg")).apply {
+        val highlightMarked = JToggleButton(FlatSVGIcon("icons/bx-highlight.svg")).apply {
             toolTipText = "Highlight all marked log events"
         }
-        val clearMarked = JButton(FlatActionIcon("icons/bxs-eraser.svg")).apply {
+        val clearMarked = JButton(FlatSVGIcon("icons/bxs-eraser.svg")).apply {
             toolTipText = "Clear all visible marks"
         }
-        val prevMarked = JButton(FlatActionIcon("icons/bx-arrow-up.svg")).apply {
-            toolTipText = "Jump to previous marked event"
+        val prevMarked = JButton(FlatSVGIcon("icons/bx-arrow-up.svg")).apply {
+            toolTipText = "Jump to previous marked log event"
         }
-        val nextMarked = JButton(FlatActionIcon("icons/bx-arrow-down.svg")).apply {
-            toolTipText = "Jump to next marked event"
+        val nextMarked = JButton(FlatSVGIcon("icons/bx-arrow-down.svg")).apply {
+            toolTipText = "Jump to next marked log event"
         }
 
-        @Suppress("EnumValuesSoftDeprecate") // not a performance sensitive enum.values() call
+        @Suppress("EnumValuesSoftDeprecate")
         val markedBehavior = JComboBox(MarkedBehavior.values()).apply {
             selectedItem = MarkedBehavior.ShowAll
-
             configureCellRenderer { _, value, _, _, _ ->
                 text = value?.displayName.orEmpty()
             }
@@ -459,6 +484,7 @@ sealed class LogPanel<T : LogEvent>(
             add(search, "growx, growy, push")
             add(matchCase, "align right")
             add(matchWholeWord, "align right")
+            add(separator, "growy, align right")
             add(matchRegex, "align right")
         }
 
@@ -504,7 +530,7 @@ sealed class LogPanel<T : LogEvent>(
 
         init {
             add(events, "growx")
-            add(JSeparator(JSeparator.VERTICAL), "h 10!")
+            add(JSeparator(SwingConstants.VERTICAL), "h 10!")
             add(selectedRow, "growx, pushx")
         }
     }
