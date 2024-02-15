@@ -29,6 +29,7 @@ import io.github.inductiveautomation.kindling.utils.isSortedBy
 import io.github.inductiveautomation.kindling.utils.selectedRowIndices
 import io.github.inductiveautomation.kindling.utils.toBodyLine
 import java.util.Vector
+import java.util.regex.PatternSyntaxException
 import javax.swing.BorderFactory
 import javax.swing.Icon
 import javax.swing.JButton
@@ -36,10 +37,12 @@ import javax.swing.JComboBox
 import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.JPopupMenu
+import javax.swing.JSeparator
 import javax.swing.JToggleButton
 import javax.swing.ListSelectionModel
 import javax.swing.SortOrder
 import javax.swing.SwingConstants
+import javax.swing.UIManager
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -65,6 +68,8 @@ class LogPanel(
             throw ToolOpeningException("Input data must be sorted by timestamp, ascending")
         }
     }
+
+    private var invalidRegexPattern = false
 
     private val totalRows: Int = rawData.size
 
@@ -119,35 +124,42 @@ class LogPanel(
                     panel.filter(event) ||
                         (header.markedBehavior.selectedItem == "Always Show Marked" && event.marked)
                 }
-            }
-            add { event ->
-                header.markedBehavior.selectedItem != "Only Show Marked" || event.marked
-            }
-            add { event ->
-                val matchCaseSelected = header.matchCase.isSelected
-                val matchWholeWordSelected = header.matchWholeWord.isSelected
-//                val matchRegexSelected = header.matchRegex.isSelected
-                val text = header.search.text
-
-                val regexOptions = mutableSetOf<RegexOption>()
-                if (!matchCaseSelected) regexOptions.add(RegexOption.IGNORE_CASE)
-//                if (!matchRegexSelected) regexOptions.add(RegexOption.LITERAL)
-
-                if (text.isNullOrEmpty()) {
-                    true
-                } else if (header.markedBehavior.selectedItem == "Always Show Marked" && event.marked) {
-                    true
-                } else {
-                    val textRegex =
-                            if (matchWholeWordSelected) "\\b${text}\\b".toRegex(regexOptions)
-                            else text.toRegex(regexOptions)
-
-                    textRegex.containsMatchIn(event.message) ||
+                add { event ->
+                    header.markedBehavior.selectedItem != "Only Show Marked" || event.marked
+                }
+                add { event ->
+                    val text = header.search.text
+                    if (text.isNullOrEmpty()) {
+                        true
+                    } else if (header.markedBehavior.selectedItem == "Always Show Marked" && event.marked) {
+                        true
+                    } else if (header.matchRegex.isSelected) {
+                        try {
+                            val textRegex = text.toRegex()
+                            textRegex.containsMatchIn(event.message) ||
+                                textRegex.containsMatchIn(event.logger) ||
+                                (if (event is SystemLogEvent) textRegex.containsMatchIn(event.thread) else false) ||
+                                event.stacktrace.any { stacktrace ->
+                                    textRegex.containsMatchIn(stacktrace)
+                                }
+                        } catch (e: Exception) {
+                            if (e is PatternSyntaxException) invalidRegexPattern = true
+                            header.search.postActionEvent()
+                            false
+                        }
+                    } else {
+                        val regexOptions = mutableSetOf<RegexOption>()
+                        if (!header.matchCase.isSelected) regexOptions.add(RegexOption.IGNORE_CASE)
+                        if (!header.matchWholeWord.isSelected) regexOptions.add(RegexOption.LITERAL)
+                        val textString = if (header.matchWholeWord.isSelected) "\\b${Regex.escape(text)}\\b" else text
+                        val textRegex = textString.toRegex(regexOptions)
+                        textRegex.containsMatchIn(event.message) ||
                             textRegex.containsMatchIn(event.logger) ||
                             (if (event is SystemLogEvent) textRegex.containsMatchIn(event.thread) else false) ||
                             event.stacktrace.any { stacktrace ->
                                 textRegex.containsMatchIn(stacktrace)
                             }
+                    }
                 }
             }
         }
@@ -344,9 +356,19 @@ class LogPanel(
         }
 
         header.apply {
+
             search.addActionListener {
-                updateData()
+                if (invalidRegexPattern) {
+                    search.background = UIManager.getLookAndFeel().defaults.getColor("Component.error.focusedBorderColor")
+                    search.setToolTipText("Invalid regular expression syntax!")
+                    invalidRegexPattern = false
+                } else {
+                    search.background = UIManager.getLookAndFeel().defaults.getColor("TextField.background")
+                    search.setToolTipText(null)
+                    updateData()
+                }
             }
+
             version.addActionListener {
                 table.selectionModel.updateDetails()
             }
@@ -354,12 +376,16 @@ class LogPanel(
                 updateData()
             }
             matchCase.addActionListener {
+                if (matchRegex.isSelected) matchRegex.isSelected = false
                 updateData()
             }
             matchWholeWord.addActionListener {
+                if (matchRegex.isSelected) matchRegex.isSelected = false
                 updateData()
             }
             matchRegex.addActionListener {
+                if (matchCase.isSelected) matchCase.isSelected = false
+                if (matchWholeWord.isSelected) matchWholeWord.isSelected = false
                 updateData()
             }
 
@@ -434,24 +460,31 @@ class LogPanel(
     }
 
     private class Header : JPanel(MigLayout("ins 0, fill, hidemode 3")) {
-        val search = JXSearchField("")
+        val separator = JSeparator(SwingConstants.VERTICAL)
 
-        val matchCase =
-            JToggleButton (FlatSVGIcon("icons/match-case.svg").derive(Kindling.SECONDARY_ACTION_ICON_SCALE)).apply {
-                toolTipText = "Match Case"
-                isBorderPainted = false
+        val prevMarked =
+            JButton(FlatSVGIcon("icons/bx-arrow-up.svg").derive(Kindling.SECONDARY_ACTION_ICON_SCALE)).apply {
+                toolTipText = "Jump to previous marked log event"
+            }
+        val nextMarked =
+            JButton(FlatSVGIcon("icons/bx-arrow-down.svg").derive(Kindling.SECONDARY_ACTION_ICON_SCALE)).apply {
+                toolTipText = "Jump to next marked log event"
+            }
+        val markedBehavior =
+            JComboBox(arrayOf("Normal", "Only Show Marked", "Always Show Marked"))
+
+        val clearMarked =
+            JButton(FlatSVGIcon("icons/bxs-eraser.svg").derive(Kindling.SECONDARY_ACTION_ICON_SCALE)).apply {
+                toolTipText = "Clear all visible marks"
             }
 
-        val matchWholeWord =
-            JToggleButton(FlatSVGIcon("icons/match-whole-word.svg").derive(Kindling.SECONDARY_ACTION_ICON_SCALE)).apply {
-                toolTipText = "Match Whole Word"
-                isBorderPainted = false
-            }
-
-        val matchRegex =
-            JToggleButton(FlatSVGIcon("icons/match-regex.svg").derive(Kindling.SECONDARY_ACTION_ICON_SCALE)).apply {
-                toolTipText = "Use Regular Expression"
-                isBorderPainted = false
+        val markedPanel =
+            JPanel(MigLayout("fill, ins 0 2 0 2")).apply {
+                border = BorderFactory.createTitledBorder("Marking")
+                add(prevMarked)
+                add(nextMarked)
+                add(markedBehavior, "growy")
+                add(clearMarked)
             }
 
         val version: JComboBox<MajorVersion> =
@@ -470,29 +503,25 @@ class LogPanel(
                 add(version, "growy")
             }
 
-        val clearMarked =
-            JButton(FlatSVGIcon("icons/bxs-eraser.svg").derive(Kindling.SECONDARY_ACTION_ICON_SCALE)).apply {
-                toolTipText = "Clear all visible marks"
-            }
-        val prevMarked =
-            JButton(FlatSVGIcon("icons/bx-arrow-up.svg").derive(Kindling.SECONDARY_ACTION_ICON_SCALE)).apply {
-                toolTipText = "Jump to previous marked log event"
-            }
-        val nextMarked =
-            JButton(FlatSVGIcon("icons/bx-arrow-down.svg").derive(Kindling.SECONDARY_ACTION_ICON_SCALE)).apply {
-                toolTipText = "Jump to next marked log event"
-            }
-        val markedBehavior =
-            JComboBox(arrayOf("Normal", "Only Show Marked", "Always Show Marked"))
+        val search = JXSearchField("")
 
-        val markedPanel =
-            JPanel(MigLayout("fill, ins 0 2 0 2")).apply {
-                border = BorderFactory.createTitledBorder("Marking")
-                add(prevMarked)
-                add(nextMarked)
-                add(markedBehavior, "growy")
-                add(clearMarked)
-            }
+        val matchCase =
+            JToggleButton(FlatSVGIcon("icons/match-case.svg").derive(Kindling.SECONDARY_ACTION_ICON_SCALE))
+                .apply {
+                    toolTipText = "Match Case"
+                }
+
+        val matchWholeWord =
+            JToggleButton(FlatSVGIcon("icons/match-whole-word.svg").derive(Kindling.SECONDARY_ACTION_ICON_SCALE))
+                .apply {
+                    toolTipText = "Match Whole Word"
+                }
+
+        val matchRegex =
+            JToggleButton(FlatSVGIcon("icons/match-regex.svg").derive(Kindling.SECONDARY_ACTION_ICON_SCALE))
+                .apply {
+                    toolTipText = "Use Regular Expression"
+                }
 
         val searchPanel =
             JPanel(MigLayout("fill, ins 0 2 0 2")).apply {
@@ -500,6 +529,7 @@ class LogPanel(
                 add(search, "growx, growy, push")
                 add(matchCase, "align right")
                 add(matchWholeWord, "align right")
+                add(separator, "growy, align right")
                 add(matchRegex, "align right")
             }
 
