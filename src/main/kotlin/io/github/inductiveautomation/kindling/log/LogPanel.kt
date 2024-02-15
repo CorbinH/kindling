@@ -28,12 +28,6 @@ import io.github.inductiveautomation.kindling.utils.debounce
 import io.github.inductiveautomation.kindling.utils.isSortedBy
 import io.github.inductiveautomation.kindling.utils.selectedRowIndices
 import io.github.inductiveautomation.kindling.utils.toBodyLine
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import net.miginfocom.swing.MigLayout
-import org.jdesktop.swingx.JXSearchField
-import org.jdesktop.swingx.table.ColumnControlButton.COLUMN_CONTROL_MARKER
 import java.util.Vector
 import java.util.regex.PatternSyntaxException
 import javax.swing.BorderFactory
@@ -50,6 +44,12 @@ import javax.swing.SortOrder
 import javax.swing.SwingConstants
 import javax.swing.UIManager
 import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import net.miginfocom.swing.MigLayout
+import org.jdesktop.swingx.JXSearchField
+import org.jdesktop.swingx.table.ColumnControlButton.COLUMN_CONTROL_MARKER
 import io.github.inductiveautomation.kindling.core.Detail as DetailEvent
 
 typealias LogFilter = Filter<LogEvent>
@@ -148,9 +148,11 @@ class LogPanel(
                             false
                         }
                     } else {
-                        val regexOptions = mutableSetOf<RegexOption>()
-                        if (!header.matchCase.isSelected) regexOptions.add(RegexOption.IGNORE_CASE)
-                        if (!header.matchWholeWord.isSelected) regexOptions.add(RegexOption.LITERAL)
+                        val regexOptions =
+                            buildSet<RegexOption> {
+                                if (!header.matchCase.isSelected) this.add(RegexOption.IGNORE_CASE)
+                                if (!header.matchWholeWord.isSelected) this.add(RegexOption.LITERAL)
+                            }
                         val textString = if (header.matchWholeWord.isSelected) "\\b${Regex.escape(text)}\\b" else text
                         val textRegex = textString.toRegex(regexOptions)
                         textRegex.containsMatchIn(event.message) ||
