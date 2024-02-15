@@ -7,11 +7,7 @@ import io.github.inductiveautomation.kindling.core.Kindling.Preferences.General.
 import io.github.inductiveautomation.kindling.core.MultiTool
 import io.github.inductiveautomation.kindling.core.ToolPanel
 import io.github.inductiveautomation.kindling.log.WrapperLogEvent.Companion.STDOUT
-import io.github.inductiveautomation.kindling.utils.FileFilter
-import io.github.inductiveautomation.kindling.utils.FileFilterSidebar
-import io.github.inductiveautomation.kindling.utils.TabStrip
-import io.github.inductiveautomation.kindling.utils.getValue
-import io.github.inductiveautomation.kindling.utils.transferTo
+import io.github.inductiveautomation.kindling.utils.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -46,17 +42,6 @@ class WrapperLogPanel(
         name = "Wrapper Logs [${fileData.size}]"
         toolTipText = paths.joinToString("\n") { it.absolutePathString() }
 
-        filters.add { event ->
-            val text = header.search.text
-            if (text.isNullOrEmpty()) {
-                true
-            } else {
-                text in event.message ||
-                    event.logger.contains(text, ignoreCase = true) ||
-                    event.stacktrace.any { stacktrace -> stacktrace.contains(text, ignoreCase = true) }
-            }
-        }
-
         addSidebar(sidebar)
 
         sidebar.forEach { filterPanel ->
@@ -67,7 +52,7 @@ class WrapperLogPanel(
 
         if (paths.size > 1) {
             sidebar.addFileFilterChangeListener {
-                selectedData = sidebar.selectedFiles.flatMap { it.items }
+                updateSelectedData(sidebar.selectedFiles.flatMap { it.items })
 
                 val mainTabbedPane = SwingUtilities.getAncestorNamed("MainTabStrip", this) as? TabStrip
 
@@ -156,7 +141,7 @@ class WrapperLogPanel(
                     } else {
                         val stack by match.groups
 
-                        if (lastEventTimestamp == time) {
+                        if (lastEventTimestamp?.equals(time) == true) {
                             // same timestamp - must be attached stacktrace
                             currentStack += stack.value
                         } else {

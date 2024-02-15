@@ -1,13 +1,7 @@
 package io.github.inductiveautomation.kindling.log
 
 import io.github.inductiveautomation.kindling.idb.IdbView
-import io.github.inductiveautomation.kindling.utils.FileFilterSidebar
-import io.github.inductiveautomation.kindling.utils.SQLiteConnection
-import io.github.inductiveautomation.kindling.utils.TabStrip
-import io.github.inductiveautomation.kindling.utils.executeQuery
-import io.github.inductiveautomation.kindling.utils.get
-import io.github.inductiveautomation.kindling.utils.toList
-import io.github.inductiveautomation.kindling.utils.toMap
+import io.github.inductiveautomation.kindling.utils.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -35,20 +29,6 @@ class SystemLogPanel(
     )
 
     init {
-        filters.add { event ->
-            val text = header.search.text
-            if (text.isNullOrEmpty()) {
-                true
-            } else {
-                text in event.message ||
-                    event.logger.contains(text, ignoreCase = true) ||
-                    event.thread.contains(text, ignoreCase = true) ||
-                    event.stacktrace.any { stacktrace ->
-                        stacktrace.contains(text, ignoreCase = true)
-                    }
-            }
-        }
-
         addSidebar(sidebar)
 
         sidebar.forEach { filterPanel ->
@@ -59,7 +39,7 @@ class SystemLogPanel(
 
         if (paths.size > 1) {
             sidebar.addFileFilterChangeListener {
-                selectedData = sidebar.selectedFiles.flatMap { it.items }
+                updateSelectedData(sidebar.selectedFiles.flatMap { it.items })
 
                 // Since this toolPanel is not a direct child of MainPanel's tabstrip, this is what must be done.
 

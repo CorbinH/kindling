@@ -22,41 +22,44 @@ import java.awt.event.MouseEvent
 import java.util.*
 import java.util.regex.PatternSyntaxException
 import javax.swing.*
+import javax.swing.event.DocumentEvent
+import javax.swing.event.DocumentListener
 import kotlin.time.Duration.Companion.milliseconds
 import io.github.inductiveautomation.kindling.core.Detail as DetailEvent
 
 typealias LogFilter = Filter<LogEvent>
 
 abstract class LogPanel<T : LogEvent>(
-    /**
-     * Pass a **sorted** list of LogEvents, in ascending order.
-     */
     rawData: List<T>,
     private val columnList: LogColumnList<T>,
 ) : ToolPanel("ins 0, fill, hidemode 3") {
 
-    protected val rawData: MutableList<T> = rawData.sortedBy(LogEvent::timestamp).toMutableList()
-
-    protected var selectedData: List<T> = this.rawData
-        set(value) {
-            field = value.sortedBy(LogEvent::timestamp)
-            footer.totalRows = value.size
-            updateData()
-        }
-
     init {
-        if (this.rawData.isEmpty()) {
+        if (rawData.isEmpty()) {
             throw ToolOpeningException("Opening an empty log file is pointless")
         }
     }
 
+    abstract val sidebar: FilterSidebar<T>
+    override val icon: Icon = LogViewer.icon
+
+    protected val rawData: MutableList<T> = rawData.sortedBy(LogEvent::timestamp).toMutableList()
+
+    protected var selectedData: List<T> = this.rawData
+        private set
+
+    @Volatile
+    private var currentQuery: SearchQuery? = null
+
+    @Volatile
+    private var currentMarkedBehavior = MarkedBehavior.ShowAll
+
     protected val header = Header()
-    private var invalidRegexPattern = false
-
     private val footer = Footer(selectedData.size)
+    private val details = DetailsPane()
+    private val sidebarContainer = JPanel(BorderLayout())
 
-    val table = run {
-        val initialModel = createModel(this.rawData)
+    val table = createModel(this.rawData).let { initialModel ->
         ReifiedJXTable(initialModel, columnList).apply {
             setSortOrder(initialModel.columns.Timestamp, SortOrder.ASCENDING)
         }
@@ -64,21 +67,9 @@ abstract class LogPanel<T : LogEvent>(
 
     private val tableScrollPane = FlatScrollPane(table)
 
-    abstract val sidebar: FilterSidebar<T>
-
-    private val sidebarContainer = JPanel(BorderLayout())
-
-    protected fun addSidebar(sidebar: FilterSidebar<T>) {
-        sidebarContainer.add(sidebar, BorderLayout.CENTER)
-        filters.addAll(sidebar)
-    }
-
-    private val details = DetailsPane()
-
     protected val filters: MutableList<Filter<T>> = mutableListOf(
         Filter { item: T ->
-            val behavior = header.markedBehavior.selectedItem as MarkedBehavior
-            when (behavior) {
+            when (currentMarkedBehavior) {
                 MarkedBehavior.ShowAll -> true
                 MarkedBehavior.OnlyMarked -> item.marked
                 MarkedBehavior.OnlyUnmarked -> !item.marked
@@ -86,48 +77,20 @@ abstract class LogPanel<T : LogEvent>(
             }
         },
         Filter { event: T ->
-            val text = header.search.text
-            if (text.isNullOrEmpty()) {
-                return@Filter true
-            }
+            if (currentMarkedBehavior == MarkedBehavior.AlwaysShowMarked && event.marked) return@Filter true
 
-            if (header.markedBehavior.selectedItem == MarkedBehavior.AlwaysShowMarked && event.marked) {
-                return@Filter true
-            }
+            val query = currentQuery ?: return@Filter true
+            if (!query.isValid) return@Filter false
 
-            if (header.matchRegex.isSelected) {
-                try {
-                    val textRegex = text.toRegex()
-                    textRegex.containsMatchIn(event.message) ||
-                            textRegex.containsMatchIn(event.logger) ||
-                            (event is SystemLogEvent && textRegex.containsMatchIn(event.thread)) ||
-                            event.stacktrace.any { stacktrace -> textRegex.containsMatchIn(stacktrace) }
-                } catch (_: PatternSyntaxException) {
-                    invalidRegexPattern = true
-                    header.search.postActionEvent()
-                    false
-                }
-            } else {
-                val regexOptions = mutableSetOf<RegexOption>()
-                if (!header.matchCase.isSelected) regexOptions.add(RegexOption.IGNORE_CASE)
-                if (!header.matchWholeWord.isSelected) regexOptions.add(RegexOption.LITERAL)
-
-                val textString = if (header.matchWholeWord.isSelected) "\\b${Regex.escape(text)}\\b" else text
-                val textRegex = textString.toRegex(regexOptions)
-
-                textRegex.containsMatchIn(event.message) ||
-                        textRegex.containsMatchIn(event.logger) ||
-                        (event is SystemLogEvent && textRegex.containsMatchIn(event.thread)) ||
-                        event.stacktrace.any { stacktrace -> textRegex.containsMatchIn(stacktrace) }
-            }
+            event.matches(query)
         },
     )
 
     private val dataUpdater = debounce(50.milliseconds, BACKGROUND) {
         val selectedEvents = table.selectedRowIndices().map { row -> table.model[row].hashCode() }
-        val behavior = header.markedBehavior.selectedItem as? MarkedBehavior ?: MarkedBehavior.ShowAll
+
         val filteredData = selectedData.filter { event ->
-            filters.all { it.filter(event) } || (behavior == MarkedBehavior.AlwaysShowMarked && event.marked)
+            filters.all { it.filter(event) } || (currentMarkedBehavior == MarkedBehavior.AlwaysShowMarked && event.marked)
         }
 
         EDT_SCOPE.launch {
@@ -146,47 +109,8 @@ abstract class LogPanel<T : LogEvent>(
         }
     }
 
-    protected fun updateData() = dataUpdater()
-
-    fun reset() {
-        sidebar.forEach { it.reset() }
-        header.search.text = null
-    }
-
-    private fun createModel(rawData: List<T>): LogsModel<out T> = LogsModel(rawData, columnList)
-
-    override val icon: Icon = LogViewer.icon
-
-    private fun getNextMarkedIndex(forward: Boolean): Int? {
-        val viewRowCount = table.rowSorter.viewRowCount
-
-        val indicesToSearch = if (forward) {
-            val minIdx = table.selectionModel.minSelectionIndex
-            val startIndex = if (minIdx >= 0) minIdx + 1 else 0
-            startIndex until viewRowCount
-        } else {
-            val maxIdx = table.selectionModel.maxSelectionIndex
-            val startIndex = if (maxIdx >= 0) maxIdx - 1 else (viewRowCount - 1)
-            startIndex downTo 0
-        }
-
-        return indicesToSearch.find { viewIndex ->
-            val modelIndex = table.convertRowIndexToModel(viewIndex)
-            table.model.data[modelIndex].marked
-        }
-    }
-
-    private val markHighlighter = ColorHighlighter(
-        { _, adapter: ComponentAdapter ->
-            header.highlightMarked.isSelected &&
-                    !table.isRowSelected(adapter.row) &&
-                    table.model[table.convertRowIndexToModel(adapter.row)].marked
-        },
-        UIManager.getColor("Table.cellFocusColor"), // Background Color
-        UIManager.getColor("Table.selectionForeground"), // Foreground Color
-    )
-
     init {
+        // Layout Construction
         val rightPanel = JPanel(MigLayout("ins 0, fill"))
         rightPanel.add(header, "wrap, growx")
         rightPanel.add(tableScrollPane, "grow, push")
@@ -194,11 +118,7 @@ abstract class LogPanel<T : LogEvent>(
         @Suppress("LeakingThis")
         add(
             VerticalSplitPane(
-                HorizontalSplitPane(
-                    sidebarContainer,
-                    rightPanel,
-                    resizeWeight = 0.1,
-                ),
+                HorizontalSplitPane(sidebarContainer, rightPanel, resizeWeight = 0.1),
                 details,
             ),
             "wrap, push, grow",
@@ -248,107 +168,51 @@ abstract class LogPanel<T : LogEvent>(
 
         val clearAllMarks = Action("Clear all marks") {
             table.model.markRows { false }
+            updateData()
         }
 
-        table.actionMap.put(
-            "$COLUMN_CONTROL_MARKER.clearAllMarks",
-            clearAllMarks,
+        val markHighlighter = ColorHighlighter(
+            { _, adapter: ComponentAdapter ->
+                header.highlightMarked.isSelected &&
+                        !table.isRowSelected(adapter.row) &&
+                        table.model[table.convertRowIndexToModel(adapter.row)].marked
+            },
+            UIManager.getColor("Table.cellFocusColor"),
+            UIManager.getColor("Table.selectionForeground"),
         )
 
-        table.attachPopupMenu { mouseEvent ->
-            val rowAtPoint = table.rowAtPoint(mouseEvent.point)
-            if (rowAtPoint != -1) {
-                table.addRowSelectionInterval(rowAtPoint, rowAtPoint)
-            }
-            val colAtPoint = table.columnAtPoint(mouseEvent.point)
-            if (colAtPoint != -1) {
-                JPopupMenu().apply {
-                    val column = table.model.columns[table.convertColumnIndexToModel(colAtPoint)]
-                    val event = table.model[table.convertRowIndexToModel(rowAtPoint)]
-                    for (filterPanel in sidebar) {
-                        filterPanel.customizePopupMenu(this, column, event)
-                    }
-
-                    if (colAtPoint == table.model.markIndex) {
-                        add(clearAllMarks)
-                    }
-
-                    if (column == SystemLogColumns.Message || column == WrapperLogColumns.Message) {
-                        add(
-                            Action("Mark all with same message") {
-                                table.model.markRows { row ->
-                                    if (row.marked) {
-                                        null
-                                    } else {
-                                        row.message == event.message
-                                    }
-                                }
-                            },
-                        )
-                    }
-
-                    if (event.stacktrace.isNotEmpty()) {
-                        add(
-                            Action("Mark all with same stacktrace") {
-                                table.model.markRows { row ->
-                                    (row.stacktrace == event.stacktrace).takeIf { it }
-                                }
-                            },
-                        )
-                    }
-
-                    if (column == SystemLogColumns.Thread && event is SystemLogEvent) {
-                        add(
-                            Action("Mark all ${event.thread} events") {
-                                table.model.markRows { row ->
-                                    ((row as SystemLogEvent).thread == event.thread).takeIf { it }
-                                }
-                            },
-                        )
-                    }
-                }.takeIf { it.componentCount > 0 }
-            } else {
-                null
-            }
-        }
-
+        table.actionMap.put("$COLUMN_CONTROL_MARKER.clearAllMarks", clearAllMarks)
+        table.attachLogPopupMenu(clearAllMarks)
         table.addHighlighter(markHighlighter)
 
         header.apply {
-            search.addActionListener {
-                if (invalidRegexPattern) {
-                    search.background = UIManager.getColor("Component.error.focusedBorderColor")
-                    search.setToolTipText("Invalid regular expression syntax!")
-                    invalidRegexPattern = false
-                } else {
-                    search.background = UIManager.getColor("TextField.background")
-                    search.setToolTipText(null)
-                    updateData()
+            search.document.addDocumentListener(
+                object : DocumentListener {
+                    override fun insertUpdate(e: DocumentEvent?) = updateData()
+                    override fun removeUpdate(e: DocumentEvent?) = updateData()
+                    override fun changedUpdate(e: DocumentEvent?) = updateData()
+                },
+            )
+
+            version.addActionListener { table.selectionModel.updateDetails() }
+            markedBehavior.addActionListener { updateData() }
+
+            val toggleListener = java.awt.event.ActionListener { e ->
+                val source = e.source as JToggleButton
+                if (source == matchRegex && matchRegex.isSelected) {
+                    matchCase.isSelected = false
+                    matchWholeWord.isSelected = false
+                } else if ((source == matchCase || source == matchWholeWord) && source.isSelected) {
+                    matchRegex.isSelected = false
                 }
+                updateData()
             }
 
-            version.addActionListener {
-                table.selectionModel.updateDetails()
-            }
-            markedBehavior.addActionListener {
-                updateData()
-            }
-            matchCase.addActionListener {
-                if (matchRegex.isSelected) matchRegex.isSelected = false
-                updateData()
-            }
-            matchWholeWord.addActionListener {
-                if (matchRegex.isSelected) matchRegex.isSelected = false
-                updateData()
-            }
-            matchRegex.addActionListener {
-                if (matchCase.isSelected) matchCase.isSelected = false
-                if (matchWholeWord.isSelected) matchWholeWord.isSelected = false
-                updateData()
-            }
-            highlightMarked.addActionListener {
-                table.repaint()
-            }
+            matchCase.addActionListener(toggleListener)
+            matchWholeWord.addActionListener(toggleListener)
+            matchRegex.addActionListener(toggleListener)
+
+            highlightMarked.addActionListener { table.repaint() }
 
             fun updateSelection(viewIndex: Int) {
                 if (viewIndex < 0 || viewIndex >= table.rowCount) return
@@ -356,67 +220,190 @@ abstract class LogPanel<T : LogEvent>(
                 val cellRect = table.getCellRect(viewIndex, 0, true)
                 table.scrollRectToVisible(cellRect)
             }
+
             clearMarked.addActionListener {
                 table.model.markRows { false }
                 updateData()
             }
-            prevMarked.addActionListener {
-                getNextMarkedIndex(forward = false)?.let(::updateSelection)
-            }
-            nextMarked.addActionListener {
-                getNextMarkedIndex(forward = true)?.let(::updateSelection)
-            }
+            prevMarked.addActionListener { getNextMarkedIndex(forward = false)?.let(::updateSelection) }
+            nextMarked.addActionListener { getNextMarkedIndex(forward = true)?.let(::updateSelection) }
         }
 
-        ShowFullLoggerNames.addChangeListener {
-            table.model.fireTableDataChanged()
-        }
-
-        HyperlinkStrategy.addChangeListener {
-            table.selectionModel.updateDetails()
-        }
-
+        ShowFullLoggerNames.addChangeListener { table.model.fireTableDataChanged() }
+        HyperlinkStrategy.addChangeListener { table.selectionModel.updateDetails() }
         Timezone.Default.addChangeListener {
             table.model.fireTableDataChanged()
+            updateData()
         }
+    }
+
+    protected fun updateSelectedData(newData: List<T>) {
+        selectedData = newData.sortedBy(LogEvent::timestamp)
+        footer.totalRows = selectedData.size
+        updateData()
+    }
+
+    protected fun addSidebar(sidebar: FilterSidebar<T>) {
+        sidebarContainer.add(sidebar, BorderLayout.CENTER)
+        filters.addAll(sidebar)
+    }
+
+    protected fun updateData() {
+        val text = header.search.text ?: ""
+
+        currentQuery = if (text.isEmpty()) {
+            header.search.background = UIManager.getColor("TextField.background")
+            header.search.setToolTipText(null)
+            null
+        } else {
+            val query = SearchQuery(
+                text = text,
+                isRegex = header.matchRegex.isSelected,
+                isWholeWord = header.matchWholeWord.isSelected,
+                isMatchCase = header.matchCase.isSelected,
+            )
+
+            if (query.isValid) {
+                header.search.background = UIManager.getColor("TextField.background")
+                header.search.setToolTipText(null)
+            } else {
+                header.search.background = UIManager.getColor("Component.error.focusedBorderColor")
+                header.search.setToolTipText("Invalid regular expression syntax!")
+            }
+            query
+        }
+
+        currentMarkedBehavior = header.markedBehavior.selectedItem as? MarkedBehavior ?: MarkedBehavior.ShowAll
+        dataUpdater()
+    }
+
+    fun reset() {
+        sidebar.forEach { it.reset() }
+        header.search.text = null
     }
 
     override fun customizePopupMenu(menu: JPopupMenu) {
-        menu.add(
-            exportMenu { table.model },
-        )
+        menu.add(exportMenu { table.model })
+    }
+
+    private fun createModel(rawData: List<T>): LogsModel<out T> = LogsModel(rawData, columnList)
+
+    private fun getNextMarkedIndex(forward: Boolean): Int? {
+        val viewRowCount = table.rowSorter.viewRowCount
+
+        val indicesToSearch = if (forward) {
+            val minIdx = table.selectionModel.minSelectionIndex
+            val startIndex = if (minIdx >= 0) minIdx + 1 else 0
+            startIndex until viewRowCount
+        } else {
+            val maxIdx = table.selectionModel.maxSelectionIndex
+            val startIndex = if (maxIdx >= 0) maxIdx - 1 else (viewRowCount - 1)
+            startIndex downTo 0
+        }
+
+        return indicesToSearch.find { viewIndex ->
+            val modelIndex = table.convertRowIndexToModel(viewIndex)
+            table.model.data[modelIndex].marked
+        }
+    }
+
+    private fun T.matches(query: SearchQuery): Boolean {
+        fun searchString(target: String?): Boolean {
+            if (target.isNullOrEmpty()) return false
+            return if (query.regex == null) {
+                if (!query.isMatchCase) target.lowercase().contains(query.lowerText) else target.contains(query.text)
+            } else {
+                query.regex.containsMatchIn(target)
+            }
+        }
+
+        if (searchString(message) || searchString(logger) || searchString(level?.name) || searchString(
+                Timezone.Default.format(
+                    timestamp,
+                ),
+            )
+        ) return true
+        if (stacktrace.any(::searchString)) return true
+        if (this is SystemLogEvent) {
+            if (searchString(thread) || mdc.any { (k, v) -> searchString(k) || searchString(v) }) return true
+        }
+
+        return false
     }
 
     private fun ListSelectionModel.updateDetails() {
-        details.events =
-            selectedIndices.filter { isSelectedIndex(it) }
-                .map { table.convertRowIndexToModel(it) }
-                .map { row -> table.model[row] }
-                .map { event ->
-                    DetailEvent(
-                        title = when (event) {
-                            is SystemLogEvent -> "${Timezone.Default.format(event.timestamp)} ${event.thread}"
-                            else -> Timezone.Default.format(event.timestamp)
-                        },
-                        message = event.message,
-                        body = event.stacktrace.map { element ->
-                            if (UseHyperlinks.currentValue) {
-                                element.toBodyLine((header.version.selectedItem as MajorVersion).version + ".0")
-                            } else {
-                                BodyLine(element)
-                            }
-                        },
-                        details = when (event) {
-                            is SystemLogEvent -> event.mdc.associate { (key, value) -> key to value }
-                            else -> emptyMap()
+        details.events = selectedIndices.asSequence()
+            .filter { isSelectedIndex(it) }
+            .map { table.model[table.convertRowIndexToModel(it)] }
+            .map { event ->
+                DetailEvent(
+                    title = when (event) {
+                        is SystemLogEvent -> "${Timezone.Default.format(event.timestamp)} ${event.thread}"
+                        else -> Timezone.Default.format(event.timestamp)
+                    },
+                    message = event.message,
+                    body = event.stacktrace.map { element ->
+                        if (UseHyperlinks.currentValue) {
+                            element.toBodyLine((header.version.selectedItem as MajorVersion).version + ".0")
+                        } else {
+                            BodyLine(element)
+                        }
+                    },
+                    details = when (event) {
+                        is SystemLogEvent -> event.mdc.associate { (key, value) -> key to value }
+                        else -> emptyMap()
+                    },
+                )
+            }.toList()
+    }
+
+    private fun ReifiedJXTable<LogsModel<out T>>.attachLogPopupMenu(clearAllMarks: javax.swing.Action) {
+        attachPopupMenu { mouseEvent ->
+            val rowAtPoint = rowAtPoint(mouseEvent.point)
+            if (rowAtPoint != -1) addRowSelectionInterval(rowAtPoint, rowAtPoint)
+
+            val colAtPoint = columnAtPoint(mouseEvent.point)
+            if (colAtPoint == -1) return@attachPopupMenu null
+
+            JPopupMenu().apply {
+                val column = model.columns[convertColumnIndexToModel(colAtPoint)]
+                val event = model[convertRowIndexToModel(rowAtPoint)]
+
+                for (filterPanel in sidebar) {
+                    filterPanel.customizePopupMenu(this, column, event)
+                }
+
+                if (colAtPoint == model.markIndex) add(clearAllMarks)
+
+                if (column == SystemLogColumns.Message || column == WrapperLogColumns.Message) {
+                    add(
+                        Action("Mark all with same message") {
+                            model.markRows { row -> if (row.marked) null else row.message == event.message }
                         },
                     )
                 }
+
+                if (event.stacktrace.isNotEmpty()) {
+                    add(
+                        Action("Mark all with same stacktrace") {
+                            model.markRows { row -> (row.stacktrace == event.stacktrace).takeIf { it } }
+                        },
+                    )
+                }
+
+                if (column == SystemLogColumns.Thread && event is SystemLogEvent) {
+                    add(
+                        Action("Mark all ${event.thread} events") {
+                            model.markRows { row -> ((row as SystemLogEvent).thread == event.thread).takeIf { it } }
+                        },
+                    )
+                }
+            }.takeIf { it.componentCount > 0 }
+        }
     }
 
     protected inner class Header : JPanel(MigLayout("ins 0, fill, hidemode 3")) {
         val separator = JSeparator(SwingConstants.VERTICAL)
-
         val search = JXSearchField("")
 
         val matchCase = JToggleButton(FlatSVGIcon("icons/match-case.svg")).apply {
@@ -535,8 +522,30 @@ abstract class LogPanel<T : LogEvent>(
         }
     }
 
-    companion object {
-        private val BACKGROUND = CoroutineScope(Dispatchers.Default)
+    private class SearchQuery(
+        val text: String,
+        val isRegex: Boolean,
+        val isWholeWord: Boolean,
+        val isMatchCase: Boolean,
+    ) {
+        val lowerText = text.lowercase()
+
+        val regex: Regex? = try {
+            if (!isRegex && !isWholeWord) {
+                null
+            } else {
+                var pattern = if (isRegex) text else Regex.escape(text)
+                if (isWholeWord) pattern = "\\b$pattern\\b"
+                if (!isMatchCase && !pattern.startsWith("(?i)")) pattern = "(?i)$pattern"
+
+                val options = if (!isMatchCase) setOf(RegexOption.IGNORE_CASE) else emptySet()
+                pattern.toRegex(options)
+            }
+        } catch (_: PatternSyntaxException) {
+            null
+        }
+
+        val isValid = regex != null || (!isRegex && !isWholeWord)
     }
 
     protected enum class MarkedBehavior(val displayName: String) {
@@ -544,5 +553,9 @@ abstract class LogPanel<T : LogEvent>(
         OnlyMarked("Only Show Marked"),
         OnlyUnmarked("Only Show Unmarked"),
         AlwaysShowMarked("Always Show Marked"),
+    }
+
+    companion object {
+        private val BACKGROUND = CoroutineScope(Dispatchers.Default)
     }
 }
