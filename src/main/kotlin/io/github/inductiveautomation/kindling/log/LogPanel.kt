@@ -123,7 +123,7 @@ class LogPanel(
             for (panel in sidebar.filterPanels) {
                 add { event ->
                     panel.filter(event) ||
-                        (header.markedBehavior.selectedItem == "Always Show Marked" && event.marked)
+                            (header.markedBehavior.selectedItem == "Always Show Marked" && event.marked)
                 }
                 add { event ->
                     header.markedBehavior.selectedItem != "Only Show Marked" || event.marked
@@ -138,11 +138,11 @@ class LogPanel(
                         try {
                             val textRegex = text.toRegex()
                             textRegex.containsMatchIn(event.message) ||
-                                textRegex.containsMatchIn(event.logger) ||
-                                (if (event is SystemLogEvent) textRegex.containsMatchIn(event.thread) else false) ||
-                                event.stacktrace.any { stacktrace ->
-                                    textRegex.containsMatchIn(stacktrace)
-                                }
+                                    textRegex.containsMatchIn(event.logger) ||
+                                    (if (event is SystemLogEvent) textRegex.containsMatchIn(event.thread) else false) ||
+                                    event.stacktrace.any { stacktrace ->
+                                        textRegex.containsMatchIn(stacktrace)
+                                    }
                         } catch (e: Exception) {
                             if (e is PatternSyntaxException) invalidRegexPattern = true
                             header.search.postActionEvent()
@@ -157,11 +157,11 @@ class LogPanel(
                         val textString = if (header.matchWholeWord.isSelected) "\\b${Regex.escape(text)}\\b" else text
                         val textRegex = textString.toRegex(regexOptions)
                         textRegex.containsMatchIn(event.message) ||
-                            textRegex.containsMatchIn(event.logger) ||
-                            (if (event is SystemLogEvent) textRegex.containsMatchIn(event.thread) else false) ||
-                            event.stacktrace.any { stacktrace ->
-                                textRegex.containsMatchIn(stacktrace)
-                            }
+                                textRegex.containsMatchIn(event.logger) ||
+                                (if (event is SystemLogEvent) textRegex.containsMatchIn(event.thread) else false) ||
+                                event.stacktrace.any { stacktrace ->
+                                    textRegex.containsMatchIn(stacktrace)
+                                }
                     }
                 }
             }
@@ -438,55 +438,49 @@ class LogPanel(
             }.map { event ->
                 DetailEvent(
                     title =
-                        when (event) {
-                            is SystemLogEvent -> "${TimeStampFormatter.format(event.timestamp)} ${event.thread}"
-                            else -> TimeStampFormatter.format(event.timestamp)
-                        },
+                    when (event) {
+                        is SystemLogEvent -> "${TimeStampFormatter.format(event.timestamp)} ${event.thread}"
+                        else -> TimeStampFormatter.format(event.timestamp)
+                    },
                     message = event.message,
                     body =
-                        event.stacktrace.map { element ->
-                            if (UseHyperlinks.currentValue) {
-                                element.toBodyLine((header.version.selectedItem as MajorVersion).version + ".0")
-                            } else {
-                                BodyLine(element)
-                            }
-                        },
+                    event.stacktrace.map { element ->
+                        if (UseHyperlinks.currentValue) {
+                            element.toBodyLine((header.version.selectedItem as MajorVersion).version + ".0")
+                        } else {
+                            BodyLine(element)
+                        }
+                    },
                     details =
-                        when (event) {
-                            is SystemLogEvent -> event.mdc.associate { (key, value) -> key to value }
-                            is WrapperLogEvent -> emptyMap()
-                        },
+                    when (event) {
+                        is SystemLogEvent -> event.mdc.associate { (key, value) -> key to value }
+                        is WrapperLogEvent -> emptyMap()
+                    },
                 )
             }
     }
 
     private class Header : JPanel(MigLayout("ins 0, fill, hidemode 3")) {
         val separator = JSeparator(SwingConstants.VERTICAL)
+        val search = JXSearchField("")
 
-        val prevMarked =
-            JButton(FlatSVGIcon("icons/bx-arrow-up.svg").derive(Kindling.SECONDARY_ACTION_ICON_SCALE)).apply {
-                toolTipText = "Jump to previous marked log event"
-            }
-        val nextMarked =
-            JButton(FlatSVGIcon("icons/bx-arrow-down.svg").derive(Kindling.SECONDARY_ACTION_ICON_SCALE)).apply {
-                toolTipText = "Jump to next marked log event"
-            }
-        val markedBehavior =
-            JComboBox(arrayOf("Normal", "Only Show Marked", "Always Show Marked"))
+        val matchCase =
+            JToggleButton(FlatSVGIcon("icons/match-case.svg").asActionIcon())
+                .apply {
+                    toolTipText = "Match Case"
+                }
 
-        val clearMarked =
-            JButton(FlatSVGIcon("icons/bxs-eraser.svg").derive(Kindling.SECONDARY_ACTION_ICON_SCALE)).apply {
-                toolTipText = "Clear all visible marks"
-            }
+        val matchWholeWord =
+            JToggleButton(FlatSVGIcon("icons/match-whole-word.svg").asActionIcon())
+                .apply {
+                    toolTipText = "Match Whole Word"
+                }
 
-        val markedPanel =
-            JPanel(MigLayout("fill, ins 0 2 0 2")).apply {
-                border = BorderFactory.createTitledBorder("Marking")
-                add(prevMarked)
-                add(nextMarked)
-                add(markedBehavior, "growy")
-                add(clearMarked)
-            }
+        val matchRegex =
+            JToggleButton(FlatSVGIcon("icons/match-regex.svg").asActionIcon())
+                .apply {
+                    toolTipText = "Use Regular Expression"
+                }
 
         val version: JComboBox<MajorVersion> =
             JComboBox(Vector(MajorVersion.entries)).apply {
@@ -497,42 +491,39 @@ class LogPanel(
             }
         private val versionLabel = JLabel("Version")
 
-        val versionPanel =
-            JPanel(MigLayout("fill, ins 0 2 0 2")).apply {
-                border = BorderFactory.createTitledBorder("Hyperlink Strategy")
-                add(versionLabel)
-                add(version, "growy")
-            }
+        val versionPanel = JPanel(MigLayout("fill, ins 0 2 0 2")).apply {
+            border = BorderFactory.createTitledBorder("Hyperlink Strategy")
+            add(versionLabel)
+            add(version, "growy")
+        }
 
-        val search = JXSearchField("")
+        val clearMarked = JButton(FlatSVGIcon("icons/bxs-eraser.svg").asActionIcon()).apply {
+            toolTipText = "Clear all visible marks"
+        }
+        val prevMarked = JButton(FlatSVGIcon("icons/bx-arrow-up.svg").asActionIcon()).apply {
+            toolTipText = "Jump to previous marked log event"
+        }
+        val nextMarked = JButton(FlatSVGIcon("icons/bx-arrow-down.svg").asActionIcon()).apply {
+            toolTipText = "Jump to next marked log event"
+        }
+        val markedBehavior = JComboBox(arrayOf("Show All Events", "Only Show Marked", "Always Show Marked"))
 
-        val matchCase =
-            JToggleButton(FlatSVGIcon("icons/match-case.svg").derive(Kindling.SECONDARY_ACTION_ICON_SCALE))
-                .apply {
-                    toolTipText = "Match Case"
-                }
+        val markedPanel = JPanel(MigLayout("fill, ins 0 2 0 2")).apply {
+            border = BorderFactory.createTitledBorder("Marking")
+            add(prevMarked)
+            add(nextMarked)
+            add(markedBehavior, "growy")
+            add(clearMarked)
+        }
 
-        val matchWholeWord =
-            JToggleButton(FlatSVGIcon("icons/match-whole-word.svg").derive(Kindling.SECONDARY_ACTION_ICON_SCALE))
-                .apply {
-                    toolTipText = "Match Whole Word"
-                }
-
-        val matchRegex =
-            JToggleButton(FlatSVGIcon("icons/match-regex.svg").derive(Kindling.SECONDARY_ACTION_ICON_SCALE))
-                .apply {
-                    toolTipText = "Use Regular Expression"
-                }
-
-        val searchPanel =
-            JPanel(MigLayout("fill, ins 0 2 0 2")).apply {
-                border = BorderFactory.createTitledBorder("Search")
-                add(search, "growx, growy, push")
-                add(matchCase, "align right")
-                add(matchWholeWord, "align right")
-                add(separator, "growy, align right")
-                add(matchRegex, "align right")
-            }
+        val searchPanel = JPanel(MigLayout("fill, ins 0 2 0 2")).apply {
+            border = BorderFactory.createTitledBorder("Search")
+            add(search, "growx, growy, push")
+            add(matchCase, "align right")
+            add(matchWholeWord, "align right")
+            add(separator, "growy, align right")
+            add(matchRegex, "align right")
+        }
 
         private fun updateVersionVisibility() {
             val isVisible = UseHyperlinks.currentValue && HyperlinkStrategy.currentValue == LinkHandlingStrategy.OpenInBrowser
