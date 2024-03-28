@@ -1,5 +1,9 @@
+@file:Suppress("FunctionName") // ktlint is dumb and doesn't understand this
+
 package io.github.inductiveautomation.kindling.utils
 
+import com.formdev.flatlaf.FlatClientProperties.MACOS_WINDOW_BUTTONS_SPACING
+import com.formdev.flatlaf.FlatClientProperties.MACOS_WINDOW_BUTTONS_SPACING_LARGE
 import com.formdev.flatlaf.extras.components.FlatScrollPane
 import com.formdev.flatlaf.util.SystemInfo
 import com.jidesoft.swing.StyledLabel
@@ -7,6 +11,8 @@ import com.jidesoft.swing.StyledLabelBuilder
 import io.github.inductiveautomation.kindling.core.Kindling
 import net.miginfocom.swing.MigLayout
 import java.awt.Component
+import java.awt.event.ComponentAdapter
+import java.awt.event.ComponentEvent
 import javax.swing.ButtonGroup
 import javax.swing.JFrame
 import javax.swing.JPanel
@@ -17,9 +23,11 @@ import javax.swing.border.EmptyBorder
 inline fun FlatScrollPane(
     component: Component,
     block: FlatScrollPane.() -> Unit = {},
-) = FlatScrollPane().apply {
-    setViewportView(component)
-    block(this)
+): FlatScrollPane {
+    return FlatScrollPane().apply {
+        setViewportView(component)
+        block(this)
+    }
 }
 
 /**
@@ -39,6 +47,7 @@ inline fun jFrame(
         rootPane.putClientProperty("apple.awt.windowTitleVisible", false)
         rootPane.putClientProperty("apple.awt.fullWindowContent", true)
         rootPane.putClientProperty("apple.awt.transparentTitleBar", true)
+        rootPane.putClientProperty(MACOS_WINDOW_BUTTONS_SPACING, MACOS_WINDOW_BUTTONS_SPACING_LARGE)
     }
 
     iconImages = Kindling.frameIcons
@@ -65,7 +74,6 @@ inline fun StyledLabel.style(block: StyledLabelBuilder.() -> Unit) {
 
 fun EmptyBorder(): EmptyBorder = EmptyBorder(0, 0, 0, 0)
 
-@Suppress("FunctionName")
 fun HorizontalSplitPane(
     left: Component,
     right: Component,
@@ -74,11 +82,17 @@ fun HorizontalSplitPane(
 ) = JSplitPane(SwingConstants.VERTICAL, left, right).apply {
     isOneTouchExpandable = true
     this.resizeWeight = resizeWeight
+    addComponentListener(
+        object : ComponentAdapter() {
+            override fun componentShown(e: ComponentEvent?) {
+                setDividerLocation(resizeWeight)
+            }
+        },
+    )
 
     block()
 }
 
-@Suppress("FunctionName")
 fun VerticalSplitPane(
     top: Component,
     bottom: Component,
@@ -94,11 +108,12 @@ fun VerticalSplitPane(
 /**
  * Constructs a MigLayout JPanel containing each element of [group] in the first row.
  */
-@Suppress("FunctionName")
-fun ButtonPanel(group: ButtonGroup) = JPanel(MigLayout("ins 2 0, fill")).apply {
-    val sortGroupEnumeration = group.elements
-    add(sortGroupEnumeration.nextElement(), "split ${group.buttonCount}, flowx")
-    for (element in sortGroupEnumeration) {
-        add(element, "gapx 2")
+fun ButtonPanel(group: ButtonGroup) =
+    JPanel(MigLayout("ins 3 0, fill")).apply {
+        border = EmptyBorder()
+        val sortGroupEnumeration = group.elements
+        add(sortGroupEnumeration.nextElement(), "split ${group.buttonCount}, flowx, align right, gapbottom 3")
+        for (element in sortGroupEnumeration) {
+            add(element, "gapx 2, align right, gapbottom 3")
+        }
     }
-}

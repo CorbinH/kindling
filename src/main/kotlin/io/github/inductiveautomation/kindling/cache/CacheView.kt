@@ -2,15 +2,7 @@ package io.github.inductiveautomation.kindling.cache
 
 import com.formdev.flatlaf.extras.FlatSVGIcon
 import com.formdev.flatlaf.extras.components.FlatPopupMenu
-import com.inductiveautomation.ignition.gateway.history.BasicHistoricalRecord
-import com.inductiveautomation.ignition.gateway.history.ScanclassHistorySet
 import com.jidesoft.swing.JideButton
-import io.github.inductiveautomation.kindling.cache.model.AbstractDataset
-import io.github.inductiveautomation.kindling.cache.model.AlarmJournalData
-import io.github.inductiveautomation.kindling.cache.model.AlarmJournalSFGroup
-import io.github.inductiveautomation.kindling.cache.model.AuditProfileData
-import io.github.inductiveautomation.kindling.cache.model.BasicDataset
-import io.github.inductiveautomation.kindling.cache.model.ScriptedSFData
 import io.github.inductiveautomation.kindling.core.Detail
 import io.github.inductiveautomation.kindling.core.DetailsPane
 import io.github.inductiveautomation.kindling.core.Tool
@@ -22,11 +14,17 @@ import io.github.inductiveautomation.kindling.utils.FileFilter
 import io.github.inductiveautomation.kindling.utils.FlatScrollPane
 import io.github.inductiveautomation.kindling.utils.HorizontalSplitPane
 import io.github.inductiveautomation.kindling.utils.ReifiedJXTable
+import io.github.inductiveautomation.kindling.utils.ReifiedListTableModel
+import io.github.inductiveautomation.kindling.utils.TRANSACTION_GROUP_DATA
 import io.github.inductiveautomation.kindling.utils.VerticalSplitPane
+import io.github.inductiveautomation.kindling.utils.deserializeStoreAndForward
+import io.github.inductiveautomation.kindling.utils.executeQuery
+import io.github.inductiveautomation.kindling.utils.get
 import io.github.inductiveautomation.kindling.utils.getLogger
 import io.github.inductiveautomation.kindling.utils.getValue
 import io.github.inductiveautomation.kindling.utils.jFrame
 import io.github.inductiveautomation.kindling.utils.selectedRowIndices
+import io.github.inductiveautomation.kindling.utils.toDetail
 import io.github.inductiveautomation.kindling.utils.toList
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -35,7 +33,6 @@ import org.hsqldb.jdbc.JDBCDataSource
 import org.intellij.lang.annotations.Language
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
-import java.io.Serializable
 import java.nio.file.FileSystems
 import java.nio.file.Files
 import java.nio.file.Path
@@ -52,14 +49,12 @@ import kotlin.io.path.extension
 import kotlin.io.path.name
 import kotlin.io.path.nameWithoutExtension
 
-private const val TRANSACTION_GROUP_DATA = "Transaction Group Data"
-
 @OptIn(ExperimentalPathApi::class)
-class CacheView(private val path: Path) : ToolPanel() {
+class CacheView(path: Path) : ToolPanel() {
     private val tempDirectory: Path = Files.createTempDirectory(path.nameWithoutExtension)
 
     private val dbName = when (path.extension) {
-        "zip" -> run {
+        "zip" -> {
             LOGGER.debug("Exploding to {}", tempDirectory)
             var dbName: String? = null
             FileSystems.newFileSystem(path).use { zip ->
@@ -83,7 +78,7 @@ class CacheView(private val path: Path) : ToolPanel() {
             dbName ?: throw ToolOpeningException("Unable to find an HSQL DB inside zip file")
         }
 
-        in CacheViewer.extensions -> run {
+        in CacheViewer.extensions -> {
             path.parent.copyToRecursively(
                 target = tempDirectory,
                 followLinks = false,
@@ -139,26 +134,24 @@ class CacheView(private val path: Path) : ToolPanel() {
     }
 
     @Suppress("SqlNoDataSourceInspection", "SqlResolve")
-    @Language("HSQLDB")
-    private val schemaRecords = connection.prepareStatement(
+    private val schemaRecords = connection.executeQuery(
         """
-            SELECT
-                schema.id,
-                schema.signature,
-                errors.message
-            FROM datastore_schema schema
-                LEFT JOIN datastore_errors errors
-                ON errors.schemaid = schema.id
+        SELECT
+            schema.id,
+            schema.signature,
+            errors.message
+        FROM datastore_schema schema
+            LEFT JOIN datastore_errors errors
+            ON errors.schemaid = schema.id
         """.trimMargin(),
-    ).use { statement ->
-        statement.executeQuery().toList { rs ->
+    )
+        .toList { rs ->
             SchemaRow(
-                rs.getInt("id"),
-                rs.getString("signature"),
-                rs.getString("message"),
+                rs["id"],
+                rs["signature"],
+                rs["message"],
             )
         }
-    }
         .groupBy(SchemaRow::id)
         .map { (id, rows) ->
             SchemaRecord(
@@ -169,47 +162,42 @@ class CacheView(private val path: Path) : ToolPanel() {
         }
 
     @Suppress("SqlNoDataSourceInspection", "SqlResolve")
-    @Language("HSQLDB")
-    private val data: List<CacheEntry> = connection.prepareStatement(
+    private val data: List<CacheEntry> = connection.executeQuery(
         """
-            SELECT
-                data.id,
-                data.schemaid,
-                schema.signature AS name,
-                data.t_stamp,
-                data.attemptcount,
-                data.data_count
-            FROM
-                datastore_data data
-                LEFT JOIN datastore_schema schema ON schema.id = data.schemaid
+        SELECT
+            data.id,
+            data.schemaid,
+            schema.signature AS name,
+            data.t_stamp,
+            data.attemptcount,
+            data.data_count
+        FROM
+            datastore_data data
+            LEFT JOIN datastore_schema schema ON schema.id = data.schemaid
         """.trimIndent(),
-    ).use { statement ->
-        statement.executeQuery().toList { resultSet ->
-            CacheEntry(
-                id = resultSet.getInt("id"),
-                schemaId = resultSet.getInt("schemaid"),
-                schemaName = resultSet.getString("name") ?: "null",
-                timestamp = resultSet.getString("t_stamp"),
-                attemptCount = resultSet.getInt("attemptcount"),
-                dataCount = resultSet.getInt("data_count"),
-            )
-        }
-    }
-
-    private fun SchemaRecord.toDetail(): Detail {
-        return Detail(
-            title = name,
-            body = errors.ifEmpty { listOf("No errors associated with this schema.") },
-            details = mapOf(
-                "ID" to id.toString(),
-            ),
+    ).toList { resultSet ->
+        CacheEntry(
+            id = resultSet["id"],
+            schemaId = resultSet["schemaid"],
+            schemaName = resultSet["name"] ?: "null",
+            timestamp = resultSet["t_stamp"],
+            attemptCount = resultSet["attemptcount"],
+            dataCount = resultSet["data_count"],
         )
     }
 
+    private fun SchemaRecord.toDetail() = Detail(
+        title = name,
+        body = errors.ifEmpty { listOf("No errors associated with this schema.") },
+        details = mapOf(
+            "ID" to id.toString(),
+        ),
+    )
+
     private val details = DetailsPane()
     private val deserializedCache = mutableMapOf<Int, Detail>()
-    private val model = CacheModel(data)
-    private val table = ReifiedJXTable(model, CacheModel)
+    private val model = ReifiedListTableModel(data, CacheColumns)
+    private val table = ReifiedJXTable(model)
     private val schemaList = SchemaFilterList(schemaRecords)
 
     private val settingsMenu = FlatPopupMenu().apply {
@@ -243,94 +231,6 @@ class CacheView(private val path: Path) : ToolPanel() {
         resizeWeight = 0.75,
     )
 
-    private fun Serializable.toDetail(): Detail = when (this) {
-        is BasicHistoricalRecord -> toDetail()
-        is ScanclassHistorySet -> toDetail()
-        is AuditProfileData -> toDetail()
-        is AlarmJournalData -> toDetail()
-        is AlarmJournalSFGroup -> toDetail()
-        is ScriptedSFData -> toDetail()
-        is Array<*> -> {
-            // 2D array
-            if (firstOrNull()?.javaClass?.isArray == true) {
-                Detail(
-                    title = TRANSACTION_GROUP_DATA,
-                    body = map { row ->
-                        (row as Array<*>).contentToString()
-                    },
-                )
-            } else {
-                Detail(
-                    title = "Java Array",
-                    body = map(Any?::toString),
-                )
-            }
-        }
-
-        else -> Detail(
-            title = this::class.java.name,
-            message = toString(),
-        )
-    }
-
-    /**
-     * @throws ClassNotFoundException
-     */
-    private fun ByteArray.deserialize(): Serializable {
-        return AliasingObjectInputStream(inputStream()) {
-            put("com.inductiveautomation.ignition.gateway.audit.AuditProfileData", AuditProfileData::class.java)
-            put("com.inductiveautomation.ignition.gateway.script.ialabs.IALabsDatasourceFunctions\$QuerySFData", ScriptedSFData::class.java)
-            put("com.inductiveautomation.ignition.common.AbstractDataset", AbstractDataset::class.java)
-            put("com.inductiveautomation.ignition.common.BasicDataset", BasicDataset::class.java)
-//            put("com.inductiveautomation.ignition.gateway.alarming.journal.DatabaseAlarmJournal\$AlarmJournalSFData", AlarmJournalData::class.java)
-//            put("com.inductiveautomation.ignition.gateway.alarming.journal.DatabaseAlarmJournal\$AlarmJournalSFGroup", AlarmJournalSFGroup::class.java)
-        }.readObject() as Serializable
-    }
-
-    private fun ScanclassHistorySet.toDetail(): Detail {
-        return Detail(
-            title = this::class.java.simpleName,
-            body = this.map { historicalTagValue ->
-                buildString {
-                    append(historicalTagValue.source.toStringFull())
-                    append(", ")
-                    append(historicalTagValue.typeClass.name)
-                    append(", ")
-                    append(historicalTagValue.value)
-                    append(", ")
-                    append(historicalTagValue.interpolationMode.name)
-                    append(", ")
-                    append(historicalTagValue.timestampSource.name)
-                }
-            },
-            details = mapOf(
-                "gatewayName" to gatewayName,
-                "provider" to providerName,
-                "setName" to setName,
-                "execRate" to execRate.toString(),
-                "execTime" to executionTime.time.toString(), // TODO date format?
-            ),
-        )
-    }
-
-    private fun BasicHistoricalRecord.toDetail(): Detail {
-        return Detail(
-            title = "BasicHistoricalRecord",
-            message = "INSERT INTO $tablename",
-            body = columns.map { column ->
-                buildString {
-                    append(column.name).append(": ")
-                    (0..dataCount).joinTo(buffer = this, prefix = "(", postfix = ")") { row ->
-                        column.getValue(row).toString()
-                    }
-                }
-            },
-            details = mapOf(
-                "quoteColumnNames" to quoteColumnNames().toString(),
-            ),
-        )
-    }
-
     private val columnNameRegex = """(?<tableName>.*)\{(?<columnsString>.*)}""".toRegex()
 
     private val openArrayFrame = Action(
@@ -338,25 +238,26 @@ class CacheView(private val path: Path) : ToolPanel() {
         icon = FlatSVGIcon("icons/bx-detail.svg"),
     ) {
         /*
-            * A few assumptions are made:
-            * 1. The currently selected table row matches the entry in the Details pane.
-            * 2. There is only row selected
-            *
-            * We need the ID to get the table data and the schemaName to get the table columns and table name
-        */
-        val id = table.model[table.selectedRow, CacheModel.Id]
-        val raw = queryForData(id).deserialize()
+         * A few assumptions are made:
+         * 1. The currently selected table row matches the entry in the Details pane.
+         * 2. There is only row selected
+         *
+         * We need the ID to get the table data and the schemaName to get the table columns and table name
+         */
+        val id = table.model[table.selectedRow, CacheColumns.Id]
+        val raw = queryForData(id).deserializeStoreAndForward()
         val originalData = raw as Array<*>
         val cols = (originalData[0] as Array<*>).size
         val rows = originalData.size
-        val data = Array(cols) { j ->
-            Array(rows) { i ->
-                (originalData[i] as Array<*>)[j]
+        val data =
+            Array(cols) { j ->
+                Array(rows) { i ->
+                    (originalData[i] as Array<*>)[j]
+                }
             }
-        }
 
         // Get table name and column names with schemaName
-        val schemaName = table.model[table.selectedRow, CacheModel.SchemaName]
+        val schemaName = table.model[table.selectedRow, CacheColumns.SchemaName]
         val matcher = columnNameRegex.find(schemaName) ?: return@Action
         val tableName by matcher.groups
         val columnsString by matcher.groups
@@ -393,7 +294,7 @@ class CacheView(private val path: Path) : ToolPanel() {
                         deserializedCache.getOrPut(id) {
                             val bytes = queryForData(id)
                             try {
-                                val deserialized = bytes.deserialize()
+                                val deserialized = bytes.deserializeStoreAndForward()
                                 deserialized.toDetail()
                             } catch (e: Exception) {
                                 // It's not serialized with a class in the public API, or some other problem;
@@ -422,7 +323,7 @@ class CacheView(private val path: Path) : ToolPanel() {
                 schemaRecords.find { it.id == entry.schemaId } in schemaList.checkBoxListSelectedValues
             }
             EDT_SCOPE.launch {
-                table.model = CacheModel(filteredData)
+                table.model = ReifiedListTableModel(filteredData, CacheColumns)
             }
         }
     }
@@ -436,11 +337,13 @@ class CacheView(private val path: Path) : ToolPanel() {
     }
 }
 
-object CacheViewer : Tool {
-    override val title = "Cache Dump"
-    override val description = "S&F Cache data/script files"
+data object CacheViewer : Tool {
+    override val serialKey = "sf-cache"
+    override val title = "Store & Forward Cache"
+    override val description = "S&F Cache (.data, .script, .zip)"
     override val icon = FlatSVGIcon("icons/bx-data.svg")
     internal val extensions = arrayOf("data", "script", "zip")
     override val filter = FileFilter(description, *extensions)
+
     override fun open(path: Path): ToolPanel = CacheView(path)
 }

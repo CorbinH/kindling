@@ -622,27 +622,14 @@ class MultiThreadView(
 }
 
 data object MultiThreadViewer : MultiTool, ClipboardTool, PreferenceCategory {
-    override val title = "Thread Viewer"
-    override val description = "Thread dump (.json or .txt) files"
-    override val icon = FlatSVGIcon("icons/bx-file.svg")
-    override val filter = FileFilter(
-        description = description,
-        predicate = { file ->
-            file.extension in listOf("json", "txt") &&
-                run {
-                    val firstTwoLines = buildString {
-                        file.bufferedReader().use { br ->
-                            append(br.readLine())
-                            append(br.readLine())
-                        }
-                    }
-                    "Ignition" in firstTwoLines || "version" in firstTwoLines
-                }
-        },
-    )
+    override val serialKey = "threadview"
+    override val title = "Thread Dump"
+    override val description = "Thread Dump (.json, .txt)"
+    override val icon = FlatSVGIcon("icons/bx-chip.svg")
+    override val filter = FileFilter(description, "json", "txt")
 
-    override val respectsEncoding: Boolean = true
-    override fun open(path: Path): ToolPanel = open(listOf(path))
+    override val respectsEncoding = true
+    override fun open(path: Path) = open(listOf(path))
     override fun open(paths: List<Path>): ToolPanel {
         return MultiThreadView(paths.sortedWith(compareBy(AlphanumComparator(), Path::name)))
     }
@@ -669,7 +656,6 @@ data object MultiThreadViewer : MultiTool, ClipboardTool, PreferenceCategory {
         },
     )
 
-    override val displayName: String = "Thread View"
-    override val key: String = "threadview"
+    override val displayName = "Thread View"
     override val preferences = listOf(ShowNullThreads, ShowEmptyValues)
 }

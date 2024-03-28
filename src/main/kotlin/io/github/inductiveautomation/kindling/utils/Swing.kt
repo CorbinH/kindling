@@ -6,7 +6,7 @@ import com.github.weisj.jsvg.attributes.ViewBox
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.swing.Swing
-import java.awt.Color
+import org.jdesktop.swingx.prompt.BuddySupport
 import java.awt.Component
 import java.awt.Container
 import java.awt.RenderingHints
@@ -19,7 +19,11 @@ import java.util.EventListener
 import javax.swing.JComponent
 import javax.swing.JFileChooser
 import javax.swing.JPopupMenu
+import javax.swing.JTextField
 import javax.swing.SwingUtilities
+import javax.swing.UIManager
+import javax.swing.event.DocumentEvent
+import javax.swing.event.DocumentListener
 import javax.swing.event.EventListenerList
 import javax.swing.text.Document
 
@@ -56,9 +60,11 @@ inline fun <T : Component> T.attachPopupMenu(
     )
 }
 
-fun FlatSVGIcon.derive(colorer: (Color) -> Color): FlatSVGIcon {
-    return FlatSVGIcon(name, scale).apply {
-        colorFilter = FlatSVGIcon.ColorFilter(colorer)
+fun FlatSVGIcon.asActionIcon(selected: Boolean = false): FlatSVGIcon {
+    return FlatSVGIcon(name, 0.75F).apply {
+        if (selected) {
+            colorFilter = FlatSVGIcon.ColorFilter { UIManager.getColor("Tree.selectionForeground") }
+        }
     }
 }
 
@@ -99,4 +105,27 @@ fun SVGDocument.render(width: Int, height: Int, x: Int = 0, y: Int = 0): Buffere
 
 inline fun <reified C> Component.getAncestorOfClass(): C? {
     return SwingUtilities.getAncestorOfClass(C::class.java, this) as? C
+}
+
+var JTextField.leftBuddy: JComponent?
+    get() {
+        return BuddySupport.getLeft(this)?.firstOrNull() as? JComponent
+    }
+    set(buddy) {
+        BuddySupport.addLeft(buddy, this)
+    }
+
+var JTextField.rightBuddy: JComponent?
+    get() {
+        return BuddySupport.getRight(this)?.firstOrNull() as? JComponent
+    }
+    set(buddy) {
+        BuddySupport.addRight(buddy, this)
+    }
+
+@Suppress("FunctionName")
+fun DocumentAdapter(block: (e: DocumentEvent) -> Unit): DocumentListener = object : DocumentListener {
+    override fun changedUpdate(e: DocumentEvent) = block(e)
+    override fun insertUpdate(e: DocumentEvent) = block(e)
+    override fun removeUpdate(e: DocumentEvent) = block(e)
 }

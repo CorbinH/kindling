@@ -38,10 +38,15 @@ dependencies {
         isTransitive = true
     }
     api(libs.bundles.ktor)
-    api(libs.excelkt)
+    api(libs.poi)
+    api(libs.excelkt) {
+        // bringing in POI manually, since this wrapper appears unmaintained
+        isTransitive = false
+    }
     api(libs.jfreechart)
     api(libs.rsyntaxtextarea)
     api(libs.jpmml)
+    api(libs.bundles.jackson)
     runtimeOnly(libs.bundles.ia.transitive)
 
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.15.0")
