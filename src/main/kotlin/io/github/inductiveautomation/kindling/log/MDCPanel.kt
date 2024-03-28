@@ -363,12 +363,11 @@ class MDCTableModel : AbstractTableModel(), LogFilter {
         )
         val Inclusive by column(
             column = {
-                cellRenderer =
-                    DefaultTableRenderer(
-                        CheckBoxProvider {
-                            if (it as Boolean) "Inclusive" else "Exclusive"
-                        },
-                    )
+                cellRenderer = DefaultTableRenderer(
+                    CheckBoxProvider {
+                        if (it as Boolean) "Inclusive" else "Exclusive"
+                    },
+                )
             },
             value = MDCTableRow::inclusive,
         )
