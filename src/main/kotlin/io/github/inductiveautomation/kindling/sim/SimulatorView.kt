@@ -58,7 +58,9 @@ class SimulatorView(path: Path) : ToolPanel() {
     private var numberOfOpcTags: Int by Delegates.observable(tagParser.programItems.size) { _, _, newValue ->
         countLabel.text = buildString {
             tag("html") {
-                tag("b", "Number of OPC Tags: $newValue")
+                tag("b") {
+                    append("Number of OPC Tags: $newValue")
+                }
             }
         }
     }
@@ -66,7 +68,9 @@ class SimulatorView(path: Path) : ToolPanel() {
     private val countLabel = JLabel(
         buildString {
             tag("html") {
-                tag("b", "Number of OPC Tags: ${tagParser.programItems.size}")
+                tag("b") {
+                    append("Number of OPC Tags: ${tagParser.programItems.size}")
+                }
             }
         },
     )
@@ -325,6 +329,7 @@ class SimulatorView(path: Path) : ToolPanel() {
 }
 
 object SimulatorViewer : Tool {
+    override val serialKey = "simview"
     override val description = "Tag Export (json)"
     override val icon: FlatSVGIcon = FlatSVGIcon("icons/bx-tag.svg")
     override val title = "Tag Export (Device Sim)"
