@@ -79,7 +79,7 @@ data class LogbackConfigData(
                     className = "ch.qos.logback.core.ConsoleAppender",
                     encoder = listOf(
                         Encoder(
-                            pattern = "%.-1p [%-30c{1}] [%d{HH:mm:ss,SSS}]: %m %X%n",
+                            pattern = "%.-1p [%-30c{1}] [%d{HH:mm:ss.SSS}]: %m %X%n",
                         ),
                     ),
                 ),

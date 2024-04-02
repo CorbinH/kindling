@@ -35,7 +35,6 @@ import io.github.inductiveautomation.kindling.utils.ReifiedJXTable
 import io.github.inductiveautomation.kindling.utils.VerticalSplitPane
 import io.github.inductiveautomation.kindling.utils.attachPopupMenu
 import io.github.inductiveautomation.kindling.utils.escapeHtml
-import io.github.inductiveautomation.kindling.utils.rowIndices
 import io.github.inductiveautomation.kindling.utils.selectedRowIndices
 import io.github.inductiveautomation.kindling.utils.toBodyLine
 import io.github.inductiveautomation.kindling.utils.transferTo
@@ -60,8 +59,6 @@ import javax.swing.ListSelectionModel
 import javax.swing.SortOrder
 import javax.swing.SwingUtilities
 import javax.swing.UIManager
-import kotlin.io.path.bufferedReader
-import kotlin.io.path.extension
 import kotlin.io.path.inputStream
 import kotlin.io.path.name
 import kotlin.io.path.nameWithoutExtension
@@ -511,11 +508,14 @@ class MultiThreadView(
         threadsOfInterest = if (enableMachineLearning.currentValue) {
             buildList {
                 val threads = mainTable.model.threadData
-
                 threads.flatten().filterNotNull().forEach { thread ->
                     val evaluation = evaluator.evaluate(
                         evaluator.inputFields.associate { field ->
-                            field.name to field.prepare(thread.getPmmlProperty(field.name))
+                            try {
+                                field.name to field.prepare(thread.getPmmlProperty(field.name))
+                            } catch(e: Exception) {
+                                field.name to null
+                            }
                         },
                     )
                     val result = (evaluation["marked"] as? ProbabilityDistribution<*>)?.result as? Int ?: 0

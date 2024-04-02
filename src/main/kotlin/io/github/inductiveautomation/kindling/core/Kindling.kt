@@ -57,7 +57,7 @@ data object Kindling {
     val homepage = URI("https://github.com/inductiveautomation/kindling")
     val forumThread = URI("https://forum.inductiveautomation.com/t/54689")
 
-    const val BETA_VERSION = "1.3.0"
+    const val BETA_VERSION = "1.4.0"
 
     data object Preferences {
         data object General : PreferenceCategory {

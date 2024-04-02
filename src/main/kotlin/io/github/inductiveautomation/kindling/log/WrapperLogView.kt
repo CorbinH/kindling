@@ -92,7 +92,7 @@ class WrapperLogView(
                 if (match != null) {
                     val time = if (match.groups["timestamp"] != null) {
                         val timestamp by match.groups
-                        DEFAULT_WRAPPER_LOG_TIME_FORMAT.parse(timestamp.value.trim(), Instant::from)
+                        DEFAULT_WRAPPER_LOG_TIME_FORMAT.parse(timestamp.value.trim().split(".").first(), Instant::from)
                     } else {
                         previousTime
                     }

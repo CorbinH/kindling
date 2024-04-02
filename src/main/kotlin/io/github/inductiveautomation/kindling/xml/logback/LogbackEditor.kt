@@ -69,6 +69,7 @@ class LogbackEditor(file: List<String>) : JPanel(MigLayout("ins 6, fill, hidemod
                 selectedLoggersPanel.remove(this)
                 updateData()
                 selectedLoggersPanel.revalidate()
+                selectedLoggersPanel.repaint()
             }
         }
     }
