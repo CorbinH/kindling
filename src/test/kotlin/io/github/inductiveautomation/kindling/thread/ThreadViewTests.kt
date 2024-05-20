@@ -1,6 +1,6 @@
 package io.github.inductiveautomation.kindling.thread
 
-import io.github.inductiveautomation.kindling.thread.model.Thread.Companion.extractPool
+import io.github.inductiveautomation.kindling.thread.model.Thread.Companion.parseThreadPool
 import io.github.inductiveautomation.kindling.thread.model.ThreadDump
 import io.kotest.assertions.asClue
 import io.kotest.core.spec.style.FunSpec
@@ -52,29 +52,29 @@ class ThreadViewTests : FunSpec(
 
         test("Thread Pool Parsing Tests") {
             forAll(
-                row("gateway-logging-sqlite-appender", null),
+                row("gateway-logging-sqlite-appender", "gateway-logging-sqlite-appender"),
                 row("gateway-performance-metric-history-1", "gateway-performance-metric-history"),
                 row("gateway-performance-metric-history-2", "gateway-performance-metric-history"),
                 row("gateway-shared-exec-engine-11", "gateway-shared-exec-engine"),
-                row("gateway-storeforward-pipeline[postgres]-engine[PrimarySFEngine]", null),
+                row("gateway-storeforward-pipeline[postgres]-engine[PrimarySFEngine]", "gateway-storeforward-pipeline"),
                 row("gateway.tags.subscriptionmodel-1", "gateway.tags.subscriptionmodel"),
-                row("HSQLDB Timer @32c91059", null),
-                row("HttpClient-1-SelectorManager", null),
-                row("HttpClient@25d4330e-1129", "HttpClient@25d4330e"),
-                row("HttpClient@25d4330e-1315", "HttpClient@25d4330e"),
+                row("HSQLDB Timer @32c91059", "HSQLDB Timer"),
+                row("HttpClient-1-SelectorManager", "HttpClient-1-SelectorManager"),
+                row("HttpClient@25d4330e-1129", "HttpClient"),
+                row("HttpClient@25d4330e-1315", "HttpClient"),
                 row("milo-netty-event-loop-0", "milo-netty-event-loop"),
                 row("opc-ua-executor-18", "opc-ua-executor"),
                 row("opc-ua-executor-19", "opc-ua-executor"),
-                row("Session-Scheduler-782a4fff-1", "Session-Scheduler-782a4fff"),
+                row("Session-Scheduler-782a4fff-1", "Session-Scheduler"),
                 row("webserver-1114", "webserver"),
                 row(
                     // maybe someday
                     "webserver-43-acceptor-0@25cd7918-ServerConnector@1d7f7be7{SSL, (ssl, http/1.1)}{0.0.0.0:8060}",
-                    null,
+                    "webserver-acceptor",
                 ),
-                row("AsyncSocketIOSession[I/O]-1", "AsyncSocketIOSession[I/O]"),
+                row("AsyncSocketIOSession[I/O]-1", "AsyncSocketIOSession"),
             ) { name, pool ->
-                extractPool(name) shouldBe pool
+                parseThreadPool(name) shouldBe pool
             }
         }
     },
