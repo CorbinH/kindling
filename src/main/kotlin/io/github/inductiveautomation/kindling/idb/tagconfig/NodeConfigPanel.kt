@@ -1,6 +1,6 @@
 package io.github.inductiveautomation.kindling.idb.tagconfig
 
-import io.github.inductiveautomation.kindling.idb.tagconfig.TagConfigView.Companion.toTagPath
+import io.github.inductiveautomation.kindling.idb.tagconfig.TagBrowseTree.Companion.toTagPath
 import io.github.inductiveautomation.kindling.idb.tagconfig.model.MinimalTagConfigSerializer
 import io.github.inductiveautomation.kindling.idb.tagconfig.model.Node
 import io.github.inductiveautomation.kindling.utils.FloatableComponent
@@ -18,24 +18,15 @@ import javax.swing.tree.TreePath
 class NodeConfigPanel(
     private val node: Node,
     override val icon: Icon? = null,
-    override val tabName: String = node.name ?: node.config.name!!,
+    override val tabName: String = node.actualName,
     override val tabTooltip: String = tabName,
 ) : JPanel(MigLayout("fill, ins 0")),
     FloatableComponent,
     PopupMenuCustomizer {
-    constructor(treePath: TreePath) : this(treePath, treePath.lastPathComponent as LazyTreeNode)
-    private constructor(
-        treePath: TreePath,
-        treeNode: LazyTreeNode,
-    ) : this(
-        treeNode.originalNode,
-        null,
-        treeNode.name,
-        treePath.toTagPath(),
-    )
 
     private val idbInfo = JPanel(MigLayout("fill, ins 0")).apply {
         with(node) {
+            // TODO make a real table model
             val rows = arrayOf(
                 arrayOf("id", id),
                 arrayOf("folderid", folderId.toString()),
@@ -65,5 +56,17 @@ class NodeConfigPanel(
     init {
         add(idbInfo, "north")
         add(JScrollPane(textArea), "push, grow, span")
+    }
+
+    companion object {
+        operator fun invoke(treePath: TreePath): NodeConfigPanel {
+            val treeNode = treePath.lastPathComponent as Node
+            return NodeConfigPanel(
+                treeNode,
+                null,
+                treeNode.actualName,
+                treePath.toTagPath(),
+            )
+        }
     }
 }

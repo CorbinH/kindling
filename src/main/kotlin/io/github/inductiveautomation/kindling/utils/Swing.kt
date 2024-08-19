@@ -80,6 +80,10 @@ inline fun <reified T : EventListener> EventListenerList.add(listener: T) {
     add(T::class.java, listener)
 }
 
+inline fun <reified T : EventListener> EventListenerList.remove(listener: T) {
+    remove(T::class.java, listener)
+}
+
 inline fun <reified T : EventListener> EventListenerList.getAll(): Array<T> {
     return getListeners(T::class.java)
 }
@@ -98,7 +102,7 @@ fun SVGDocument.render(width: Int, height: Int, x: Int = 0, y: Int = 0): Buffere
     return BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB).apply {
         val g = createGraphics()
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
-        render(null, g, ViewBox(x.toFloat(), y.toFloat(), width.toFloat(), height.toFloat()))
+        render(null as Component?, g, ViewBox(x.toFloat(), y.toFloat(), width.toFloat(), height.toFloat()))
         g.dispose()
     }
 }
