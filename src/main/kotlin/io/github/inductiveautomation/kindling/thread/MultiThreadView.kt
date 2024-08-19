@@ -6,6 +6,7 @@ import io.github.inductiveautomation.kindling.core.ClipboardTool
 import io.github.inductiveautomation.kindling.core.Detail
 import io.github.inductiveautomation.kindling.core.Detail.BodyLine
 import io.github.inductiveautomation.kindling.core.Filter
+import io.github.inductiveautomation.kindling.core.Kindling.Preferences.Experimental.enableMachineLearning
 import io.github.inductiveautomation.kindling.core.MultiTool
 import io.github.inductiveautomation.kindling.core.Preference
 import io.github.inductiveautomation.kindling.core.Preference.Companion.PreferenceCheckbox
@@ -14,6 +15,8 @@ import io.github.inductiveautomation.kindling.core.PreferenceCategory
 import io.github.inductiveautomation.kindling.core.ToolOpeningException
 import io.github.inductiveautomation.kindling.core.ToolPanel
 import io.github.inductiveautomation.kindling.core.add
+import io.github.inductiveautomation.kindling.thread.model.MachineLearningModel
+import io.github.inductiveautomation.kindling.thread.model.MachineLearningModel.evaluator
 import io.github.inductiveautomation.kindling.thread.model.Thread
 import io.github.inductiveautomation.kindling.thread.model.ThreadDump
 import io.github.inductiveautomation.kindling.thread.model.ThreadLifespan
@@ -35,6 +38,8 @@ import io.github.inductiveautomation.kindling.utils.escapeHtml
 import io.github.inductiveautomation.kindling.utils.selectedRowIndices
 import io.github.inductiveautomation.kindling.utils.toBodyLine
 import io.github.inductiveautomation.kindling.utils.transferTo
+import io.github.inductiveautomation.kindling.utils.uploadMultipleToWeb
+import java.awt.Color
 import java.awt.Desktop
 import java.awt.Rectangle
 import java.nio.file.Files
@@ -45,16 +50,20 @@ import javax.swing.JMenuBar
 import javax.swing.JPopupMenu
 import javax.swing.ListSelectionModel
 import javax.swing.SortOrder
+import javax.swing.SwingUtilities
 import javax.swing.UIManager
 import kotlin.io.path.inputStream
 import kotlin.io.path.name
 import kotlin.io.path.nameWithoutExtension
 import kotlin.io.path.outputStream
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.jdesktop.swingx.JXSearchField
 import org.jdesktop.swingx.decorator.ColorHighlighter
 import org.jdesktop.swingx.table.ColumnControlButton.COLUMN_CONTROL_MARKER
+import org.jpmml.evaluator.ProbabilityDistribution
 
 class MultiThreadView(
     val paths: List<Path>,
@@ -486,7 +495,7 @@ class MultiThreadView(
                 }
             }
 
-            BACKGROUND.launch {
+            CoroutineScope(Dispatchers.Default).launch {
                 updateThreadsOfInterest()
 
                 EDT_SCOPE.launch {
@@ -519,7 +528,7 @@ class MultiThreadView(
         }
     }
 
-    private fun markThreadsOfInterest() = BACKGROUND.launch {
+    private fun markThreadsOfInterest() = CoroutineScope(Dispatchers.Default).launch {
         val model = mainTable.model.threadData
 
         model.flatten().filterNotNull().forEach { thread ->

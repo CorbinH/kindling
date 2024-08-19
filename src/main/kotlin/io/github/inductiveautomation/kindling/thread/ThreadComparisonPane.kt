@@ -11,6 +11,7 @@ import io.github.inductiveautomation.kindling.core.Kindling.Preferences.General.
 import io.github.inductiveautomation.kindling.thread.MultiThreadView.Companion.toDetail
 import io.github.inductiveautomation.kindling.thread.MultiThreadViewer.ShowEmptyValues
 import io.github.inductiveautomation.kindling.thread.MultiThreadViewer.ShowNullThreads
+import io.github.inductiveautomation.kindling.thread.ThreadComparisonPane.Companion.threadHighlightColor
 import io.github.inductiveautomation.kindling.thread.model.Thread
 import io.github.inductiveautomation.kindling.thread.model.ThreadLifespan
 import io.github.inductiveautomation.kindling.utils.EDT_SCOPE
@@ -177,39 +178,6 @@ class ThreadComparisonPane(
         }
     }
 
-    private class HeaderPanel : JPanel(MigLayout("fill, ins 3")) {
-        private val nameLabel = StyledLabel().apply {
-            isLineWrap = false
-        }
-
-        init {
-            add(nameLabel, "pushx, growx")
-        }
-
-        fun setThread(thread: Thread) {
-            nameLabel.style {
-                add(thread.name, Font.BOLD)
-                add("\n")
-                add("ID: ", Font.BOLD)
-                add(thread.id.toString())
-                add(" | ")
-                add("Daemon: ", Font.BOLD)
-                add(thread.isDaemon.toString())
-                add(" | ")
-
-                if (thread.system != null) {
-                    add("System: ", Font.BOLD)
-                    add(thread.system)
-                    add(" | ")
-                }
-                if (thread.scope != null) {
-                    add("Scope: ", Font.BOLD)
-                    add(thread.scope)
-                }
-            }
-        }
-    }
-
     inner class FooterPanel : JPanel(MigLayout("fill, ins 3")) {
         private val nextButton = JButton(nextIcon).apply {
             addActionListener { selectNext() }
@@ -285,260 +253,298 @@ class ThreadComparisonPane(
         }
     }
 
-    private class BlockerButton : FlatButton() {
-        var blocker: Int? = null
-            set(value) {
-                isVisible = value != null
-                text = value?.toString()
-                field = value
-            }
 
-        init {
-            icon = blockedIcon
-            toolTipText = "Jump to blocking thread"
-            isVisible = false
-        }
+    companion object {
+        internal val threadHighlightColor: Color
+            get() = UIManager.getColor("Component.warning.focusedBorderColor")
+
+        private val nextIcon = FlatSVGIcon("icons/bx-chevron-right.svg")
+        private val previousIcon = FlatSVGIcon("icons/bx-chevron-left.svg")
+    }
+}
+
+private class HeaderPanel : JPanel(MigLayout("fill, ins 3")) {
+    private val nameLabel = StyledLabel().apply {
+        isLineWrap = false
     }
 
-    private class DetailContainer(
-        val prefix: String,
-        collapsed: Boolean = true,
-    ) : JPanel(MigLayout("ins 0, fill, flowy, hidemode 3")) {
-        var isCollapsed: Boolean = collapsed
-            set(value) {
-                field = value
-                scrollPane.isVisible = !value
-                headerButton.icon = if (value) expandIcon else collapseIcon
-
-                // Preferred size needs to be recalculated or something like that
-                EDT_SCOPE.launch {
-                    revalidate()
-                    repaint()
-                }
-            }
-
-        var itemCount = 0
-            set(value) {
-                headerButton.text = "$prefix: $value"
-                field = value
-            }
-
-        var isHightlighted: Boolean = false
-            set(value) {
-                field = value
-                if (value) {
-                    headerButton.foreground = threadHighlightColor
-                } else {
-                    headerButton.foreground = UIManager.getColor("Button.foreground")
-                }
-            }
-
-        private val headerButton = object : JButton(prefix, if (collapsed) expandIcon else collapseIcon) {
-            init {
-                horizontalTextPosition = LEFT
-                horizontalAlignment = LEFT
-
-                addActionListener { isCollapsed = !isCollapsed }
-            }
-
-            // This effectively right-aligns the icon
-            override fun getIconTextGap(): Int {
-                val fm = getFontMetrics(font)
-                return size.width - insets.left - insets.right - icon.iconWidth - fm.stringWidth(text)
-            }
-        }
-
-        private val textArea = JTextPane().apply {
-            isEditable = false
-            contentType = "text/html"
-
-            addHyperlinkListener { event ->
-                if (event.eventType == HyperlinkEvent.EventType.ACTIVATED) {
-                    HyperlinkStrategy.currentValue.handleEvent(event)
-                }
-            }
-        }
-
-        private val scrollPane = FlatScrollPane(textArea) {
-            horizontalScrollBar.preferredSize = Dimension(0, 10)
-            verticalScrollBar.preferredSize = Dimension(10, 0)
-
-            isVisible = !collapsed
-        }
-
-        var text: String?
-            get() = textArea.text
-            set(value) {
-                textArea.text = value
-            }
-
-        init {
-            add(headerButton, "growx, top, wmax 100%")
-            add(scrollPane, "push, grow, top, wmax 100%")
-        }
-
-        companion object {
-            private val collapseIcon = FlatSVGIcon("icons/bx-chevrons-up.svg")
-            private val expandIcon = FlatSVGIcon("icons/bx-chevrons-down.svg")
-        }
+    init {
+        add(nameLabel, "pushx, growx")
     }
 
-    private class ThreadContainer(
-        private val version: String
-    ) : JPanel(MigLayout("fill, flowy, hidemode 3, gapy 5, ins 0")) {
-        var thread: Thread? by Delegates.observable(null) { _, _, _ ->
-            updateThreadInfo()
-        }
+    fun setThread(thread: Thread) {
+        nameLabel.style {
+            add(thread.name, Font.BOLD)
+            add("\n")
+            add("ID: ", Font.BOLD)
+            add(thread.id.toString())
+            add(" | ")
+            add("Daemon: ", Font.BOLD)
+            add(thread.isDaemon.toString())
+            add(" | ")
 
-        var highlightCpu: Boolean = false
-        var highlightStacktrace: Boolean = true
-
-        val isViewable: Boolean
-            get() = thread != null || ShowNullThreads.currentValue
-
-        var isSelected: Boolean = true
-            set(value) {
-                field = value
-                isVisible = isViewable && value
+            if (thread.system != null) {
+                add("System: ", Font.BOLD)
+                add(thread.system)
+                add(" | ")
             }
-
-        private val titleLabel = FlatLabel()
-        private val markedCheckbox = FlatCheckBox()
-        private val detailsButton = FlatButton().apply {
-            icon = detailIcon
-            toolTipText = "Open in details popup"
-            addActionListener {
-                thread?.let {
-                    jFrame("Thread ${it.id} Details", 900, 500) {
-                        contentPane = DetailsPane(listOf(it.toDetail(version)))
-                    }
-                }
+            if (thread.scope != null) {
+                add("Scope: ", Font.BOLD)
+                add(thread.scope)
             }
         }
+    }
+}
 
-        val blockerButton = BlockerButton()
-
-        private val monitors = DetailContainer("Locked Monitors")
-        private val synchronizers = DetailContainer("Synchronizers")
-        private val stacktrace = DetailContainer("Stacktrace", false)
-
-        init {
-            markedCheckbox.addItemListener { event ->
-                val value = event.stateChange == ItemEvent.SELECTED
-                thread?.marked = value
-                firePropertyChange("threadMarked", !value, value)
-            }
-
-            add(
-                JPanel(MigLayout("fill, ins 5, hidemode 3")).apply {
-                    add(detailsButton)
-                    add(titleLabel, "push, grow, gapleft 8")
-                    add(markedCheckbox)
-                    add(blockerButton)
-                }, "wmax 100%"
-            )
-
-            // Ensure that the top two don't get pushed below their preferred size.
-            add(monitors, "grow, h pref:pref:300, top, wmax 100%")
-            add(synchronizers, "grow, h pref:pref:300, top, wmax 100%")
-            add(stacktrace, "push, grow, top, wmax 100%")
+private class BlockerButton : FlatButton() {
+    var blocker: Int? = null
+        set(value) {
+            isVisible = value != null
+            text = value?.toString()
+            field = value
         }
 
-        fun updateThreadInfo() {
-            isVisible = isViewable && isSelected
+    init {
+        icon = blockedIcon
+        toolTipText = "Jump to blocking thread"
+        isVisible = false
+    }
 
-            markedCheckbox.isSelected = thread?.marked ?: false
+    companion object {
+        private val blockedIcon = FlatSVGIcon("icons/bx-block.svg").derive(12, 12)
+    }
+}
 
-            titleLabel.text = buildString {
-                tag("html") {
-                    tag("div") {
-                        tag("b", content = (thread?.state?.toString() ?: "NO THREAD"))
-                        append(" - ")
-                        append(percent.format(thread?.cpuUsage ?: 0.0))
-                    }
-                }
+private class DetailContainer(
+    val prefix: String,
+    collapsed: Boolean = true,
+) : JPanel(MigLayout("ins 0, fill, flowy, hidemode 3")) {
+    var isCollapsed: Boolean = collapsed
+        set(value) {
+            field = value
+            scrollPane.isVisible = !value
+            headerButton.icon = if (value) expandIcon else collapseIcon
+
+            // Preferred size needs to be recalculated or something like that
+            EDT_SCOPE.launch {
+                revalidate()
+                repaint()
             }
+        }
 
-            titleLabel.foreground = if (highlightCpu) {
-                threadHighlightColor
+    var itemCount = 0
+        set(value) {
+            headerButton.text = "$prefix: $value"
+            field = value
+        }
+
+    var isHighlighted: Boolean = false
+        set(value) {
+            field = value
+            if (value) {
+                headerButton.foreground = threadHighlightColor
             } else {
-                UIManager.getColor("Label.foreground")
+                headerButton.foreground = UIManager.getColor("Button.foreground")
             }
+        }
 
-            blockerButton.blocker = thread?.blocker?.owner
-            detailsButton.isVisible = thread != null
+    private val headerButton = object : JButton(prefix, if (collapsed) expandIcon else collapseIcon) {
+        init {
+            horizontalTextPosition = LEFT
+            horizontalAlignment = LEFT
 
-            monitors.apply {
-                isVisible = ShowEmptyValues.currentValue || thread?.lockedMonitors?.isNotEmpty() == true
-                if (isVisible) {
-                    itemCount = thread?.lockedMonitors?.size ?: 0
-                    text = thread?.lockedMonitors
-                        ?.joinToString(
-                            separator = "\n",
-                            prefix = "<html><pre>",
-                            postfix = "</pre></html>",
-                        ) { monitor ->
-                            if (monitor.frame == null) {
-                                "lock: ${monitor.lock}"
-                            } else {
-                                "lock: ${monitor.lock}\n${monitor.frame}"
-                            }
+            addActionListener { isCollapsed = !isCollapsed }
+        }
+
+        // This effectively right-aligns the icon
+        override fun getIconTextGap(): Int {
+            val fm = getFontMetrics(font)
+            return size.width - insets.left - insets.right - icon.iconWidth - fm.stringWidth(text)
+        }
+    }
+
+    private val textArea = JTextPane().apply {
+        isEditable = false
+        contentType = "text/html"
+
+        addHyperlinkListener { event ->
+            if (event.eventType == HyperlinkEvent.EventType.ACTIVATED) {
+                HyperlinkStrategy.currentValue.handleEvent(event)
+            }
+        }
+    }
+
+    private val scrollPane = FlatScrollPane(textArea) {
+        horizontalScrollBar.preferredSize = Dimension(0, 10)
+        verticalScrollBar.preferredSize = Dimension(10, 0)
+
+        isVisible = !collapsed
+    }
+
+    var text: String?
+        get() = textArea.text
+        set(value) {
+            textArea.text = value
+        }
+
+    init {
+        add(headerButton, "growx, top, wmax 100%")
+        add(scrollPane, "push, grow, top, wmax 100%")
+    }
+
+    companion object {
+        private val collapseIcon = FlatSVGIcon("icons/bx-chevrons-up.svg")
+        private val expandIcon = FlatSVGIcon("icons/bx-chevrons-down.svg")
+    }
+}
+
+private class ThreadContainer(
+    private val version: String
+) : JPanel(MigLayout("fill, flowy, hidemode 3, gapy 5, ins 0")) {
+    var thread: Thread? by Delegates.observable(null) { _, _, _ ->
+        updateThreadInfo()
+    }
+
+    var highlightCpu: Boolean = false
+    var highlightStacktrace: Boolean = true
+
+    val isViewable: Boolean
+        get() = thread != null || ShowNullThreads.currentValue
+
+    var isSelected: Boolean = true
+        set(value) {
+            field = value
+            isVisible = isViewable && value
+        }
+
+    private val titleLabel = FlatLabel()
+    private val markedCheckbox = FlatCheckBox()
+    private val detailsButton = FlatButton().apply {
+        icon = detailIcon
+        toolTipText = "Open in details popup"
+        addActionListener {
+            thread?.let {
+                jFrame("Thread ${it.id} Details", 900, 500) {
+                    contentPane = DetailsPane(listOf(it.toDetail(version)))
+                }
+            }
+        }
+    }
+
+    val blockerButton = BlockerButton()
+
+    private val monitors = DetailContainer("Locked Monitors")
+    private val synchronizers = DetailContainer("Synchronizers")
+    private val stacktrace = DetailContainer("Stacktrace", false)
+
+    init {
+        markedCheckbox.addItemListener { event ->
+            val value = event.stateChange == ItemEvent.SELECTED
+            thread?.marked = value
+            firePropertyChange("threadMarked", !value, value)
+        }
+
+        add(
+            JPanel(MigLayout("fill, ins 5, hidemode 3")).apply {
+                add(detailsButton)
+                add(titleLabel, "push, grow, gapleft 8")
+                add(markedCheckbox)
+                add(blockerButton)
+            }, "wmax 100%"
+        )
+
+        // Ensure that the top two don't get pushed below their preferred size.
+        add(monitors, "grow, h pref:pref:300, top, wmax 100%")
+        add(synchronizers, "grow, h pref:pref:300, top, wmax 100%")
+        add(stacktrace, "push, grow, top, wmax 100%")
+    }
+
+    fun updateThreadInfo() {
+        isVisible = isViewable && isSelected
+
+        markedCheckbox.isSelected = thread?.marked ?: false
+
+        titleLabel.text = buildString {
+            tag("html") {
+                tag("div") {
+                    tag("b", content = (thread?.state?.toString() ?: "NO THREAD"))
+                    append(" - ")
+                    append(percent.format(thread?.cpuUsage ?: 0.0))
+                }
+            }
+        }
+
+        titleLabel.foreground = if (highlightCpu) {
+            threadHighlightColor
+        } else {
+            UIManager.getColor("Label.foreground")
+        }
+
+        blockerButton.blocker = thread?.blocker?.owner
+        detailsButton.isVisible = thread != null
+
+        monitors.apply {
+            isVisible = ShowEmptyValues.currentValue || thread?.lockedMonitors?.isNotEmpty() == true
+            if (isVisible) {
+                itemCount = thread?.lockedMonitors?.size ?: 0
+                text = thread?.lockedMonitors
+                    ?.joinToString(
+                        separator = "\n",
+                        prefix = "<html><pre>",
+                        postfix = "</pre></html>",
+                    ) { monitor ->
+                        if (monitor.frame == null) {
+                            "lock: ${monitor.lock}"
+                        } else {
+                            "lock: ${monitor.lock}\n${monitor.frame}"
                         }
-                }
+                    }
             }
+        }
 
-            synchronizers.apply {
-                isVisible = ShowEmptyValues.currentValue || thread?.lockedSynchronizers?.isNotEmpty() == true
-                if (isVisible) {
-                    itemCount = thread?.lockedSynchronizers?.size ?: 0
-                    text = thread?.lockedSynchronizers
-                        ?.joinToString(
-                            separator = "\n",
-                            prefix = "<html><pre>",
-                            postfix = "</pre></html>",
-                            transform = String::escapeHtml,
-                        )
-                }
+        synchronizers.apply {
+            isVisible = ShowEmptyValues.currentValue || thread?.lockedSynchronizers?.isNotEmpty() == true
+            if (isVisible) {
+                itemCount = thread?.lockedSynchronizers?.size ?: 0
+                text = thread?.lockedSynchronizers
+                    ?.joinToString(
+                        separator = "\n",
+                        prefix = "<html><pre>",
+                        postfix = "</pre></html>",
+                        transform = String::escapeHtml,
+                    )
             }
+        }
 
-            stacktrace.apply {
-                isVisible = ShowEmptyValues.currentValue || thread?.stacktrace?.isNotEmpty() == true
-                if (isVisible) {
-                    itemCount = thread?.stacktrace?.size ?: 0
-                    text = thread?.stacktrace
-                        ?.joinToString(
-                            separator = "\n",
-                            prefix = "<html><pre>",
-                            postfix = "</pre></html>",
-                        ) { stackLine ->
-                            if (UseHyperlinks.currentValue) {
-                                stackLine.toBodyLine(version).let { (text, link) ->
-                                    if (link != null) {
-                                        """<a href="$link">$text</a>"""
-                                    } else {
-                                        text
-                                    }
+        stacktrace.apply {
+            isVisible = ShowEmptyValues.currentValue || thread?.stacktrace?.isNotEmpty() == true
+            if (isVisible) {
+                itemCount = thread?.stacktrace?.size ?: 0
+                text = thread?.stacktrace
+                    ?.joinToString(
+                        separator = "\n",
+                        prefix = "<html><pre>",
+                        postfix = "</pre></html>",
+                    ) { stackLine ->
+                        if (UseHyperlinks.currentValue) {
+                            stackLine.toBodyLine(version).let { (text, link) ->
+                                if (link != null) {
+                                    """<a href="$link">$text</a>"""
+                                } else {
+                                    text
                                 }
-                            } else {
-                                stackLine
                             }
+                        } else {
+                            stackLine
                         }
-                    isHightlighted = highlightStacktrace
-                }
+                    }
+                isHighlighted = highlightStacktrace
             }
         }
     }
 
     companion object {
-        private val blockedIcon = FlatSVGIcon("icons/bx-block.svg").derive(12, 12)
-        private val detailIcon = FlatSVGIcon("icons/bx-link-external.svg").derive(12, 12)
-
         private val percent = DecimalFormat("0.000'%'")
-
-        private val threadHighlightColor: Color
-            get() = UIManager.getColor("Component.warning.focusedBorderColor")
-
-        private val nextIcon = FlatSVGIcon("icons/bx-chevron-right.svg")
-        private val previousIcon = FlatSVGIcon("icons/bx-chevron-left.svg")
+        private val detailIcon = FlatSVGIcon("icons/bx-link-external.svg").derive(12, 12)
     }
 }
