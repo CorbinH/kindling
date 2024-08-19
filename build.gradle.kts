@@ -75,72 +75,11 @@ tasks {
     test {
         useJUnitPlatform()
     }
-
-    val cleanupJDeploy by registering(Delete::class) {
-        delete("jdeploy", "jdeploy-bundle")
-    }
-    clean {
-        finalizedBy(cleanupJDeploy)
-    }
-
-    shadowJar {
-        manifest {
-            attributes["Main-Class"] = "io.github.inductiveautomation.kindling.MainPanel"
-        }
-        archiveBaseName.set("kindling-bundle")
-        archiveClassifier.set("")
-        archiveVersion.set("")
-        isZip64 = true
-        mergeServiceFiles()
-    }
-
-    register("printVersion") {
-        doLast { // add a task action
-            println(project.version)
-        }
-    }
-}
-
-kotlin {
-    jvmToolchain {
-        languageVersion = libs.versions.java.map(JavaLanguageVersion::of)
-        vendor = JvmVendorSpec.AMAZON
     val createDirectory by registering(Task::class) {
         doFirst {
             javadocDirectory.get().asFile.mkdirs()
         }
     }
-    sourceSets {
-        main {
-            resources.srcDirs(
-                tasks.register<DownloadJavadocs>("download79") {
-                    version = "7.9"
-                    urls =
-                        listOf(
-                            "https://files.inductiveautomation.com/sdk/javadoc/ignition79/7921/allclasses-noframe.html",
-                            "https://docs.oracle.com/javase/8/docs/api/allclasses-noframe.html",
-                            "https://www.javadoc.io/static/org.python/jython-standalone/2.5.3/allclasses-noframe.html",
-                        )
-                },
-                tasks.register<DownloadJavadocs>("download80") {
-                    version = "8.0"
-                    urls =
-                        listOf(
-                            "https://files.inductiveautomation.com/sdk/javadoc/ignition80/8.0.14/allclasses.html",
-                            "https://docs.oracle.com/en/java/javase/11/docs/api/allclasses.html",
-                            "https://www.javadoc.io/static/org.python/jython-standalone/2.7.1/allclasses-noframe.html",
-                        )
-                },
-                tasks.register<DownloadJavadocs>("download81") {
-                    version = "8.1"
-                    urls =
-                        listOf(
-                            "https://files.inductiveautomation.com/sdk/javadoc/ignition81/8.1.38/allclasses-index.html",
-                            "https://docs.oracle.com/en/java/javase/17/docs/api/allclasses-index.html",
-                            "https://www.javadoc.io/static/org.python/jython-standalone/2.7.3/allclasses-noframe.html",
-                        )
-                },
-            )
     val download79 by registering(DownloadJavadocs::class) {
         version = "7.9"
         urls = listOf(
@@ -174,6 +113,30 @@ kotlin {
     processResources {
         duplicatesStrategy = DuplicatesStrategy.WARN
         dependsOn(download79, download80, download81)
+    }
+
+    val cleanupJDeploy by registering(Delete::class) {
+        delete("jdeploy", "jdeploy-bundle")
+    }
+    clean {
+        finalizedBy(cleanupJDeploy)
+    }
+
+    shadowJar {
+        manifest {
+            attributes["Main-Class"] = "io.github.inductiveautomation.kindling.MainPanel"
+        }
+        archiveBaseName.set("kindling-bundle")
+        archiveClassifier.set("")
+        archiveVersion.set("")
+        isZip64 = true
+        mergeServiceFiles()
+    }
+
+    register("printVersion") {
+        doLast { // add a task action
+            println(project.version)
+        }
     }
 }
 
