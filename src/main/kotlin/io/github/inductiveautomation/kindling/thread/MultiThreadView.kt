@@ -101,7 +101,6 @@ class MultiThreadView(
     private var threadsOfInterest: List<Thread> = emptyList()
 
     private val totalCPULabel = object : JLabel() {
-
         var threadDump = threadDumps[0]
 
         var totalCPU = threadDump.threads.sumOf { it.cpuUsage ?: 0.0 }
