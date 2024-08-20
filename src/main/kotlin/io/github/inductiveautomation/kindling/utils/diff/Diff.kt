@@ -115,11 +115,16 @@ class DiffUtil private constructor(
         ): DiffUtil {
             val lcs = LongestCommonSequence.calculate(original, modified, equalizer)
 
+            var lcsTemp = lcs.toMutableList()
             val additions = modified.mapIndexedNotNull { index, item ->
-                if (item in lcs) null else Diff.Addition(item, index)
+                val removedItem = lcsTemp.remove(item)
+                if (removedItem) null else Diff.Addition(item, index)
             }
+
+            lcsTemp = lcs.toMutableList()
             val deletions = original.mapIndexedNotNull { index, item ->
-                if (item in lcs) null else Diff.Deletion(item, index)
+                val removedItem = lcsTemp.remove(item)
+                if (removedItem) null else Diff.Deletion(item, index)
             }
 
             return DiffUtil(original, modified, additions, deletions)

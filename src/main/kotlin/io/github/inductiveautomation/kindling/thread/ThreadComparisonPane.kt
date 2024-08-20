@@ -44,7 +44,9 @@ import javax.swing.UIManager
 import javax.swing.event.EventListenerList
 import javax.swing.event.HyperlinkEvent
 import kotlin.properties.Delegates
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import net.miginfocom.swing.MigLayout
 
 class ThreadComparisonPane(
@@ -58,11 +60,6 @@ class ThreadComparisonPane(
     }
 
     private val threadContainers: List<ThreadContainer> = List(totalThreadDumps) { i ->
-    private val header = HeaderPanel()
-    private val body = JPanel((MigLayout("fill, ins 0, hidemode 3")))
-    private val footer = if (totalThreadDumps > 3) FooterPanel() else null
-
-    private val threadContainers: List<ThreadContainer> = List(totalThreadDumps) {
         ThreadContainer(version).apply {
             blockerButton.addActionListener {
                 blockerButton.blocker?.let {
@@ -91,6 +88,9 @@ class ThreadComparisonPane(
     }
 
     private val diffCheckBoxList = threadContainers.map { it.diffCheckBox }
+    private val header = HeaderPanel()
+    private val body = JPanel((MigLayout("fill, ins 0, hidemode 3")))
+    private val footer = if (totalThreadDumps > 3) FooterPanel() else null
 
     init {
         for (checkBox in diffCheckBoxList) {
@@ -216,6 +216,79 @@ class ThreadComparisonPane(
         }
     }
 
+    inner class HeaderPanel : JPanel(MigLayout("fill, ins 3")) {
+        private val nameLabel = StyledLabel().apply {
+            isLineWrap = false
+        }
+
+        private val diffSelection = JButton(
+            Action("Compare Diffs") {
+                val selectedIndices = diffCheckBoxList.mapIndexedNotNull { index, jCheckBox ->
+                    if (jCheckBox.isSelected) index else null
+                }
+
+                // Should never happen but might as well check
+                if (selectedIndices.size != 2) {
+                    JOptionPane.showMessageDialog(
+                        null,
+                        "Please Select 2 Thread Dumps",
+                        "Unable to show Diff",
+                        JOptionPane.ERROR_MESSAGE,
+                    )
+                } else {
+                    val thread1 = threads[selectedIndices[0]]!!
+                    val thread2 = threads[selectedIndices[1]]!!
+
+                    val i1 = selectedIndices[0] + 1
+                    val i2 = selectedIndices[1] + 1
+
+                    jFrame(
+                        title = "Comparing stacks for ${thread1.name} from thread dumps $i1 and $i2",
+                        width = 1000,
+                        height = 600,
+                    ) {
+                        add(DiffView(thread1.stacktrace, thread2.stacktrace))
+                    }
+                }
+            },
+        ).apply {
+            isEnabled = false
+            diffCheckBoxList.forEach { checkBox ->
+                checkBox.addItemListener { _ ->
+                    isEnabled = diffCheckBoxList.count { it.isSelected } == 2
+                }
+            }
+        }
+
+        init {
+            add(nameLabel, "pushx, growx")
+            add(diffSelection, "east")
+        }
+
+        fun setThread(thread: Thread) {
+            nameLabel.style {
+                add(thread.name, Font.BOLD)
+                add("\n")
+                add("ID: ", Font.BOLD)
+                add(thread.id.toString())
+                add(" | ")
+                add("Daemon: ", Font.BOLD)
+                add(thread.isDaemon.toString())
+                add(" | ")
+
+                if (thread.system != null) {
+                    add("System: ", Font.BOLD)
+                    add(thread.system)
+                    add(" | ")
+                }
+                if (thread.scope != null) {
+                    add("Scope: ", Font.BOLD)
+                    add(thread.scope)
+                }
+            }
+        }
+    }
+
     inner class FooterPanel : JPanel(MigLayout("fill, ins 3")) {
         private val nextButton = JButton(nextIcon).apply {
             addActionListener { selectNext() }
@@ -298,78 +371,6 @@ class ThreadComparisonPane(
 
         private val nextIcon = FlatSVGIcon("icons/bx-chevron-right.svg")
         private val previousIcon = FlatSVGIcon("icons/bx-chevron-left.svg")
-    }
-}
-
-private class HeaderPanel : JPanel(MigLayout("fill, ins 3")) {
-    private val nameLabel = StyledLabel().apply {
-        isLineWrap = false
-    }
-
-    private val diffSelection = JButton(
-        Action("Compare Diffs") {
-            val selectedIndices = diffCheckBoxList.mapIndexedNotNull { index, jCheckBox ->
-                if (jCheckBox.isSelected) index else null
-            }
-
-            // Should never happen but might as well check
-            if (selectedIndices.size != 2) {
-                JOptionPane.showMessageDialog(
-                    null,
-                    "Please Select 2 Thread Dumps",
-                    "Unable to show Diff",
-                    JOptionPane.ERROR_MESSAGE,
-                )
-            } else {
-                val thread1 = threads[selectedIndices[0]]!!
-                val thread2 = threads[selectedIndices[1]]!!
-
-                val i1 = selectedIndices[0] + 1
-                val i2 = selectedIndices[1] + 1
-
-                jFrame(
-                    title = "Comparing stacks for ${thread1.name} from thread dumps $i1 and $i2",
-                    width = 1000,
-                    height = 600,
-                ) {
-                    add(DiffView(thread1.stacktrace, thread2.stacktrace))
-                }
-            }
-        },
-    ).apply {
-        isEnabled = false
-        diffCheckBoxList.forEach { checkBox ->
-            checkBox.addItemListener { _ ->
-                isEnabled = diffCheckBoxList.count { it.isSelected } == 2
-            }
-        }
-    }
-
-    init {
-        add(nameLabel, "pushx, growx")
-    }
-
-    fun setThread(thread: Thread) {
-        nameLabel.style {
-            add(thread.name, Font.BOLD)
-            add("\n")
-            add("ID: ", Font.BOLD)
-            add(thread.id.toString())
-            add(" | ")
-            add("Daemon: ", Font.BOLD)
-            add(thread.isDaemon.toString())
-            add(" | ")
-
-            if (thread.system != null) {
-                add("System: ", Font.BOLD)
-                add(thread.system)
-                add(" | ")
-            }
-            if (thread.scope != null) {
-                add("Scope: ", Font.BOLD)
-                add(thread.scope)
-            }
-        }
     }
 }
 
@@ -462,6 +463,7 @@ private class DetailContainer(
         get() = textArea.text
         set(value) {
             textArea.text = value
+            scrollPane.scrollToTop()
         }
 
     init {
@@ -525,11 +527,11 @@ private class ThreadContainer(
         add(
             JPanel(MigLayout("fill, ins 5, hidemode 3")).apply {
                 add(detailsButton)
-                add(titleLabel, "push, grow, gapleft 8")
                 add(markedCheckbox)
+                add(titleLabel, "push, grow, gapleft 8")
                 add(diffCheckBox)
                 add(blockerButton)
-            }, "wmax 100%"
+            }, "growx, wmax 100%"
         )
 
         // Ensure that the top two don't get pushed below their preferred size.
