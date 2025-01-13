@@ -18,9 +18,12 @@ import java.awt.RenderingHints
 import java.awt.Toolkit
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
+import java.awt.event.MouseListener
+import java.awt.event.MouseMotionListener
 import java.awt.image.BufferedImage
 import java.io.File
 import java.util.EventListener
+import javax.swing.InputVerifier
 import javax.swing.JComponent
 import javax.swing.JFileChooser
 import javax.swing.JPopupMenu
@@ -31,6 +34,10 @@ import javax.swing.event.DocumentEvent
 import javax.swing.event.DocumentListener
 import javax.swing.event.EventListenerList
 import javax.swing.text.Document
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.swing.Swing
+import org.jdesktop.swingx.prompt.BuddySupport
 
 /**
  * A common CoroutineScope bound to the event dispatch thread (see [Dispatchers.Swing]).
@@ -93,12 +100,12 @@ inline fun <reified T : EventListener> EventListenerList.getAll(): Array<T> {
     return getListeners(T::class.java)
 }
 
-fun Component.traverseChildren(): Sequence<Component> = sequence {
+fun Component.traverseChildren(recursive: Boolean = true): Sequence<Component> = sequence {
     if (this@traverseChildren is Container) {
         val childComponents = synchronized(treeLock) { components.copyOf() }
         for (component in childComponents) {
             yield(component)
-            yieldAll(component.traverseChildren())
+            if (recursive) yieldAll(component.traverseChildren())
         }
     }
 }
@@ -185,4 +192,59 @@ fun Color.toHexString(alpha: Boolean = false): String {
             hexString.substring(2)
         }
     }"
+}
+
+inline fun <reified T : JComponent> InputVerifier(
+    crossinline verify: (T) -> Boolean
+): InputVerifier {
+    return object : InputVerifier() {
+        override fun verify(input: JComponent?): Boolean {
+            return input is T && verify(input)
+        }
+    }
+}
+
+@Suppress("unused")
+class MouseListenerBuilder : MouseListener {
+    fun mouseClicked(block: (e: MouseEvent) -> Unit) { this.mouseClicked = block }
+    fun mousePressed(block: (e: MouseEvent) -> Unit) { this.mousePressed = block }
+    fun mouseReleased(block: (e: MouseEvent) -> Unit) { this.mouseReleased = block }
+    fun mouseEntered(block: (e: MouseEvent) -> Unit) { this.mouseEntered = block }
+    fun mouseExited(block: (e: MouseEvent) -> Unit) { this.mouseExited = block }
+
+    private var mouseClicked: (e: MouseEvent) -> Unit = {}
+    private var mousePressed: (e: MouseEvent) -> Unit = {}
+    private var mouseReleased: (e: MouseEvent) -> Unit = {}
+    private var mouseEntered: (e: MouseEvent) -> Unit = {}
+    private var mouseExited: (e: MouseEvent) -> Unit = {}
+
+    override fun mouseClicked(e: MouseEvent?) = e?.let(mouseClicked::invoke) ?: Unit
+    override fun mousePressed(e: MouseEvent?) = e?.let(mousePressed::invoke) ?: Unit
+    override fun mouseReleased(e: MouseEvent?) = e?.let(mouseReleased::invoke) ?: Unit
+    override fun mouseEntered(e: MouseEvent?) = e?.let(mouseEntered::invoke) ?: Unit
+    override fun mouseExited(e: MouseEvent?) = e?.let(mouseExited::invoke) ?: Unit
+
+    companion object {
+        fun Component.addMouseListener(block: MouseListenerBuilder.() -> Unit) {
+            addMouseListener(MouseListenerBuilder().apply(block))
+        }
+    }
+}
+
+@Suppress("unused")
+class MouseMotionListenerBuilder : MouseMotionListener {
+    fun mouseDragged(block: (e: MouseEvent) -> Unit) { this.mouseDragged = block }
+    fun mouseMoved(block: (e: MouseEvent) -> Unit) { this.mouseMoved = block }
+
+    private var mouseDragged: (e: MouseEvent) -> Unit = {}
+    private var mouseMoved: (e: MouseEvent) -> Unit = {}
+
+    override fun mouseDragged(e: MouseEvent?) = e?.let(mouseDragged::invoke) ?: Unit
+    override fun mouseMoved(e: MouseEvent?) = e?.let(mouseMoved::invoke) ?: Unit
+
+    companion object {
+        fun JComponent.addMouseMotionListener(block: MouseMotionListenerBuilder.() -> Unit) {
+            addMouseMotionListener(MouseMotionListenerBuilder().apply(block))
+        }
+    }
 }
