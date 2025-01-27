@@ -10,12 +10,12 @@ import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 
-object CommandLineArgumentListSerializer : KSerializer<MutableSet<CliArgument>> {
-    override fun deserialize(decoder: Decoder): MutableSet<CliArgument> {
-        val set = mutableSetOf<CliArgument>()
+object CommandLineArgumentListSerializer : KSerializer<MutableList<CliArgument>> {
+    override fun deserialize(decoder: Decoder): MutableList<CliArgument> {
+        val l = mutableListOf<CliArgument>()
         val strValue = decoder.decodeString()
 
-        return CLI_REGEX.findAll(strValue).mapTo(set, MatchResult::value)
+        return CLI_REGEX.findAll(strValue).mapTo(l, MatchResult::value)
     }
 
     override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor(
@@ -23,7 +23,7 @@ object CommandLineArgumentListSerializer : KSerializer<MutableSet<CliArgument>> 
         kind = PrimitiveKind.STRING,
     )
 
-    override fun serialize(encoder: Encoder, value: MutableSet<CliArgument>) {
+    override fun serialize(encoder: Encoder, value: MutableList<CliArgument>) {
         for (arg in value) {
             if (!arg.isValid()) {
                 error("Invalid command line argument: $arg")

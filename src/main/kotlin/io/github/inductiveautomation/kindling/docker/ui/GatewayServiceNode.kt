@@ -1,18 +1,21 @@
 package io.github.inductiveautomation.kindling.docker.ui
 
 import com.formdev.flatlaf.extras.FlatSVGIcon
+import io.github.inductiveautomation.kindling.docker.model.DockerNetwork
+import io.github.inductiveautomation.kindling.docker.model.DockerVolume
 import io.github.inductiveautomation.kindling.docker.model.GatewayServiceModel
 import io.github.inductiveautomation.kindling.utils.tag
 import javax.swing.JButton
-import javax.swing.JComponent
 import javax.swing.JPanel
 import net.miginfocom.swing.MigLayout
 
 class GatewayServiceNode(
     override val model: GatewayServiceModel = GatewayServiceModel(GatewayServiceModel.DEFAULT_IMAGE),
+    override var volumeOptions: Set<DockerVolume>,
+    override var networks: Set<DockerNetwork>,
 ) : AbstractDockerServiceNode<GatewayServiceModel>() {
 
-    override val configEditor: JComponent = JPanel()
+    override val configEditor = GatewayServiceConfigEditor()
 
     private val deleteButton = JButton(FlatSVGIcon("icons/bx-x.svg").derive(12, 12))
 
@@ -55,6 +58,15 @@ class GatewayServiceNode(
                 append(model.containerName)
             }
         }
+    }
+
+    inner class GatewayServiceConfigEditor : NodeConfigPanel("fill") {
+        override val generalSection = JPanel()
+        override val portsSection = JPanel()
+        override val envSection = JPanel()
+        override val cliSection = JPanel()
+        override val volumesSection = JPanel()
+        override val networksSection = JPanel()
     }
 }
 

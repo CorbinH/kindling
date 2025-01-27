@@ -11,8 +11,8 @@ import io.github.inductiveautomation.kindling.core.Kindling
 import io.github.inductiveautomation.kindling.core.Theme.Companion.theme
 import io.github.inductiveautomation.kindling.core.Tool
 import io.github.inductiveautomation.kindling.core.ToolPanel
-import io.github.inductiveautomation.kindling.docker.model.DockerServiceModel
-import io.github.inductiveautomation.kindling.docker.model.GatewayServiceModel
+import io.github.inductiveautomation.kindling.docker.model.DockerNetwork
+import io.github.inductiveautomation.kindling.docker.model.DockerVolume
 import io.github.inductiveautomation.kindling.docker.ui.AbstractDockerServiceNode
 import io.github.inductiveautomation.kindling.docker.ui.Canvas
 import io.github.inductiveautomation.kindling.docker.ui.CanvasNodeList
@@ -30,9 +30,6 @@ import java.nio.file.Path
 import javax.swing.JLabel
 import javax.swing.JPanel
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.modules.SerializersModule
-import kotlinx.serialization.modules.polymorphic
-import kotlinx.serialization.modules.subclass
 import net.miginfocom.swing.MigLayout
 import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants.SYNTAX_STYLE_YAML
@@ -66,13 +63,33 @@ class DockerDraftPanel : ToolPanel("ins 0, fill, hidemode 3") {
     private val services: List<AbstractDockerServiceNode<*>>
         get() = canvas.traverseChildren(false).filterIsInstance<AbstractDockerServiceNode<*>>().toList()
 
+    private val volumes: MutableSet<DockerVolume> = mutableSetOf(
+        DockerVolume("db-data"),
+        DockerVolume("backup-data")
+    )
+
+    private val networks: Set<DockerNetwork> = mutableSetOf(
+        DockerNetwork("network1"),
+        DockerNetwork("network2"),
+    )
+
     init {
-        val testNode1 = GatewayServiceNode()
-        val testNode2 = GenericDockerServiceNode()
+        val testNode1 = GatewayServiceNode(volumeOptions = volumes, networks = networks).apply {
+            model.addServiceModelChangeListener {
+                updatePreview()
+            }
+        }
+        val testNode2 = GenericDockerServiceNode(
+            initialVolumeOptions = volumes,
+            initialNetworkOptions = networks,
+        ).apply {
+            model.addServiceModelChangeListener {
+                updatePreview()
+            }
+        }
 
         name = "Docker Draft Test"
         toolTipText = ""
-
 
         add(
             HorizontalSplitPane(
@@ -89,31 +106,29 @@ class DockerDraftPanel : ToolPanel("ins 0, fill, hidemode 3") {
             }, "push, grow"
         )
 
-        EventQueue.invokeLater {
-            canvas.add(testNode1)
-            canvas.add(testNode2)
+        canvas.add(testNode1)
+        canvas.add(testNode2)
 
-            yamlPreview.text = YAML.encodeToString(
-                mapOf(
-                    "services" to mapOf(
-                        "gateway" to testNode1.model,
-                        "db" to testNode2.model,
-                    ),
-                )
+        yamlPreview.text = YAML.encodeToString(
+            mapOf(
+                "services" to mapOf(
+                    "gateway" to testNode1.model,
+                    "db" to testNode2.model,
+                ),
             )
+        )
 
-            canvas.addContainerListener(
-                object : ContainerListener {
-                    override fun componentAdded(e: ContainerEvent?) {
-                        updatePreview()
-                    }
-
-                    override fun componentRemoved(e: ContainerEvent?) {
-                        updatePreview()
-                    }
+        canvas.addContainerListener(
+            object : ContainerListener {
+                override fun componentAdded(e: ContainerEvent?) {
+                    updatePreview()
                 }
-            )
-        }
+
+                override fun componentRemoved(e: ContainerEvent?) {
+                    updatePreview()
+                }
+            }
+        )
     }
 
     private fun updatePreview() {
@@ -129,17 +144,10 @@ class DockerDraftPanel : ToolPanel("ins 0, fill, hidemode 3") {
     }
 
     companion object {
-        private val serializersModule = SerializersModule {
-            polymorphic(DockerServiceModel::class) {
-                subclass(GatewayServiceModel::class)
-            }
-        }
-
         private val YAML = Yaml(
-            serializersModule = serializersModule,
             configuration = YamlConfiguration(
                 encodingIndentationSize = 2,
-                singleLineStringStyle = SingleLineStringStyle.PlainExceptAmbiguous,
+                singleLineStringStyle = SingleLineStringStyle.Plain,
                 multiLineStringStyle = MultiLineStringStyle.Folded,
                 sequenceStyle = SequenceStyle.Block,
                 encodeDefaults = false,
