@@ -25,8 +25,8 @@ class CanvasNodeList : JList<NodeInitializer>(CanvasNodeListModel()) {
     class CanvasNodeListModel : AbstractListModel<NodeInitializer>() {
 
         private val data: List<NodeInitializer> = listOf(
-            NodeInitializer { GenericDockerServiceNode() },
-            NodeInitializer { GatewayServiceNode() },
+            NodeInitializer { GenericDockerServiceNode(initialVolumeOptions = emptySet(), initialNetworkOptions = emptySet()) },
+            NodeInitializer { GatewayServiceNode(volumeOptions = emptySet(), networks = emptySet()) },
         )
 
         operator fun get(i: NodeInitializer): String {

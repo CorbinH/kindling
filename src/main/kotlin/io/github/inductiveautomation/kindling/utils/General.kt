@@ -1,12 +1,6 @@
 package io.github.inductiveautomation.kindling.utils
 
 import com.jidesoft.swing.CheckBoxListSelectionModel
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
 import java.io.InputStream
 import java.io.OutputStream
 import java.util.Properties
@@ -138,3 +132,45 @@ infix fun InputStream.transferTo(output: OutputStream) {
 }
 
 fun CheckBoxListSelectionModel.isAllSelected() = isSelectedIndex(allEntryIndex)
+
+/*
+class MutableListenableList<T>(
+    private val onListEdit: (editType: ListEditEvent, oldValue: T?, newValue: T?, index: Int) -> Unit,
+) : AbstractMutableList<T>() {
+
+    fun onListAdd(callback: (element: T, index: Int) -> Unit) {
+
+    }
+
+    private val backingList = mutableListOf<T>()
+
+    override fun set(index: Int, element: T): T {
+        val oldValue = backingList[index]
+        if (oldValue === element) return element
+        backingList[index] = element
+        onListEdit(ListEditEvent.SET, oldValue, element, index)
+        return element
+    }
+
+    override val size: Int = backingList.size
+
+    override fun add(index: Int, element: T) {
+        backingList.add(index, element)
+        onListEdit(ListEditEvent.ADD, null, element, index)
+    }
+
+    override fun get(index: Int): T {
+        return backingList[index]
+    }
+
+    override fun removeAt(index: Int): T {
+        val removed = backingList.removeAt(index)
+        onListEdit(ListEditEvent.REMOVE, removed, null, index)
+        return removed
+    }
+
+    fun interface ListAddListener<T> {
+        fun onListAdd(element: T, index: Int)
+    }
+}
+*/

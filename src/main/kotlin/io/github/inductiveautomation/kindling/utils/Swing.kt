@@ -34,10 +34,7 @@ import javax.swing.event.DocumentEvent
 import javax.swing.event.DocumentListener
 import javax.swing.event.EventListenerList
 import javax.swing.text.Document
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.swing.Swing
-import org.jdesktop.swingx.prompt.BuddySupport
+import javax.swing.text.JTextComponent
 
 /**
  * A common CoroutineScope bound to the event dispatch thread (see [Dispatchers.Swing]).
@@ -200,6 +197,21 @@ inline fun <reified T : JComponent> InputVerifier(
     return object : InputVerifier() {
         override fun verify(input: JComponent?): Boolean {
             return input is T && verify(input)
+        }
+    }
+}
+
+class RegexInputVerifier(
+    private val regex: Regex,
+    private val allowPartialMatch: Boolean = false,
+) : InputVerifier() {
+    override fun verify(input: JComponent?): Boolean {
+        if (input !is JTextComponent) return false
+
+        return if (allowPartialMatch) {
+            regex.containsMatchIn(input.text)
+        } else {
+            regex.matches(input.text)
         }
     }
 }

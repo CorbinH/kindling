@@ -5,6 +5,6 @@ import kotlinx.serialization.Serializable
 
 @Serializable(with=PortMappingAsStringSerializer::class)
 data class PortMapping(
-    val hostPort: UShort,
-    val containerPort: UShort,
+    var hostPort: UShort,
+    var containerPort: UShort,
 )
