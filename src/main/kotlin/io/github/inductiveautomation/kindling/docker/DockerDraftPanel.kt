@@ -16,12 +16,17 @@ import io.github.inductiveautomation.kindling.docker.model.DockerVolume
 import io.github.inductiveautomation.kindling.docker.ui.AbstractDockerServiceNode
 import io.github.inductiveautomation.kindling.docker.ui.Canvas
 import io.github.inductiveautomation.kindling.docker.ui.CanvasNodeList
+import io.github.inductiveautomation.kindling.docker.ui.GatewayNodeConnector
 import io.github.inductiveautomation.kindling.docker.ui.GatewayServiceNode
 import io.github.inductiveautomation.kindling.docker.ui.GenericDockerServiceNode
 import io.github.inductiveautomation.kindling.utils.FileFilter
 import io.github.inductiveautomation.kindling.utils.FlatScrollPane
 import io.github.inductiveautomation.kindling.utils.HorizontalSplitPane
 import io.github.inductiveautomation.kindling.utils.traverseChildren
+import kotlinx.serialization.encodeToString
+import net.miginfocom.swing.MigLayout
+import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
+import org.fife.ui.rsyntaxtextarea.SyntaxConstants.SYNTAX_STYLE_YAML
 import java.awt.EventQueue
 import java.awt.Font
 import java.awt.event.ContainerEvent
@@ -29,10 +34,6 @@ import java.awt.event.ContainerListener
 import java.nio.file.Path
 import javax.swing.JLabel
 import javax.swing.JPanel
-import kotlinx.serialization.encodeToString
-import net.miginfocom.swing.MigLayout
-import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
-import org.fife.ui.rsyntaxtextarea.SyntaxConstants.SYNTAX_STYLE_YAML
 
 @Suppress("unused")
 class DockerDraftPanel : ToolPanel("ins 0, fill, hidemode 3") {
@@ -79,6 +80,11 @@ class DockerDraftPanel : ToolPanel("ins 0, fill, hidemode 3") {
                 updatePreview()
             }
         }
+        val testNode3 = GatewayServiceNode(volumeOptions = volumes, networks = networks).apply {
+            model.addServiceModelChangeListener {
+                updatePreview()
+            }
+        }
         val testNode2 = GenericDockerServiceNode(
             initialVolumeOptions = volumes,
             initialNetworkOptions = networks,
@@ -87,6 +93,8 @@ class DockerDraftPanel : ToolPanel("ins 0, fill, hidemode 3") {
                 updatePreview()
             }
         }
+
+        val testConnector = GatewayNodeConnector(testNode1, testNode3)
 
         name = "Docker Draft Test"
         toolTipText = ""
@@ -108,6 +116,10 @@ class DockerDraftPanel : ToolPanel("ins 0, fill, hidemode 3") {
 
         canvas.add(testNode1)
         canvas.add(testNode2)
+        canvas.add(testNode3)
+        canvas.add(testConnector)
+
+        testConnector.setBounds(100, 100, 100, 100)
 
         yamlPreview.text = YAML.encodeToString(
             mapOf(
@@ -138,7 +150,7 @@ class DockerDraftPanel : ToolPanel("ins 0, fill, hidemode 3") {
 
         yamlPreview.text = runCatching {
             YAML.encodeToString(yamlMap)
-        }.getOrElse {  error ->
+        }.getOrElse { error ->
             error.stackTraceToString()
         }
     }
