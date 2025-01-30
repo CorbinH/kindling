@@ -4,12 +4,12 @@ import io.github.inductiveautomation.kindling.docker.serializers.CommandLineArgu
 import io.github.inductiveautomation.kindling.docker.ui.GatewayServiceFlavor
 import io.github.inductiveautomation.kindling.utils.add
 import io.github.inductiveautomation.kindling.utils.getAll
-import javax.swing.event.EventListenerList
-import kotlin.random.Random
-import kotlin.random.nextInt
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
+import javax.swing.event.EventListenerList
+import kotlin.random.Random
+import kotlin.random.nextInt
 
 @Serializable
 @SerialName("IgnitionGatewayService")
@@ -34,9 +34,6 @@ class GatewayServiceModel(
     override fun fireServiceModelChangedEvent() {
         listeners.getAll<ServiceModelChangeListener>().forEach(ServiceModelChangeListener::onServiceModelChanged)
     }
-
-    @Transient
-    val outgoingConnections: MutableList<GatewayServiceModel> = mutableListOf()
 
     @Transient
     var flavor: GatewayServiceFlavor = GatewayServiceFlavor.valueOf(image.substringBefore("/").uppercase())

@@ -12,9 +12,9 @@ import io.github.inductiveautomation.kindling.docker.ui.editors.PortMappingEdito
 import io.github.inductiveautomation.kindling.docker.ui.editors.VolumeEditor
 import io.github.inductiveautomation.kindling.utils.RegexInputVerifier
 import io.github.inductiveautomation.kindling.utils.TrivialListDataListener
+import org.jdesktop.swingx.JXFormattedTextField
 import javax.swing.JLabel
 import javax.swing.JTextField
-import org.jdesktop.swingx.JXFormattedTextField
 
 class GenericNodeConfigPanel(
     private val nodeModel: DefaultDockerServiceModel,
@@ -33,7 +33,6 @@ class GenericNodeConfigPanel(
             networksSection.networkOptions = value
         }
 
-
     /* General */
     private val imageLabel = JLabel("Image")
     private val imageEntry = JTextField(nodeModel.image).apply {
@@ -47,7 +46,12 @@ class GenericNodeConfigPanel(
     }
 
     private val hostLabel = JLabel("Hostname")
-    private val hostEntry = JXFormattedTextField("(default)")
+    private val hostEntry = JXFormattedTextField("(default)").apply {
+        addActionListener {
+            nodeModel.hostName = text
+            nodeModel.fireServiceModelChangedEvent()
+        }
+    }
 
     private val containerLabel = JLabel("Container Name")
     private val containerEntry = JTextField(nodeModel.containerName).apply {

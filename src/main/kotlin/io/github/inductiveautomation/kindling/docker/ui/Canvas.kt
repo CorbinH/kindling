@@ -9,12 +9,10 @@ import java.awt.Font
 import java.awt.Graphics
 import java.awt.Graphics2D
 import java.awt.Point
-import java.util.EventListener
 import javax.swing.JComponent
 import javax.swing.JPanel
 import javax.swing.SwingUtilities
 import javax.swing.TransferHandler
-import javax.swing.event.EventListenerList
 
 class Canvas(
     private val label: String,
@@ -74,6 +72,7 @@ class Canvas(
     override fun addImpl(comp: Component?, constraints: Any?, index: Int) {
         if (comp !is JComponent) return
         super.addImpl(comp, constraints, index)
+        if (comp !is AbstractDockerServiceNode<*>) return
         attachDragListeners(comp)
 
         EventQueue.invokeLater {
@@ -125,45 +124,9 @@ class Canvas(
 
         g.font = labelFont
         g.drawString(label, 10, labelFont.size + 10)
-
-        paintLinks(g)
-    }
-
-    private fun paintLinks(g: Graphics2D) {
-        val children = traverseChildren(false).filterIsInstance<CanvasLinkable>()
-        for (child in children) {
-            child as Component
-            child.outgoingLink?.let {
-                if (it !is Component) return@let
-                g.drawLine(
-                    child.x + child.width / 2,
-                    child.y + child.height / 2,
-                    it.x + it.width / 2,
-                    it.y + it.height / 2,
-                )
-            }
-        }
     }
 
     companion object {
         private val labelFont: Font = Font(Font.SANS_SERIF, Font.BOLD, 24)
     }
-}
-
-interface CanvasLinkable {
-    val linkListeners: EventListenerList
-    var incomingLink: CanvasLinkable?
-    var outgoingLink: CanvasLinkable?
-    fun fireLinkStartEvent()
-
-    companion object {
-        fun CanvasLinkable.linkComponent(c: CanvasLinkable) {
-            outgoingLink = c
-            c.incomingLink = this
-        }
-    }
-}
-
-fun interface CanvasLinkBeginListener : EventListener {
-    fun onLinkStart()
 }
