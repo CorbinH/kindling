@@ -87,6 +87,9 @@ class Canvas(
             }
 
             comp.setBounds(x, y, comp.preferredSize.width, comp.preferredSize.height)
+
+            comp.revalidate()
+            comp.repaint()
         }
     }
 

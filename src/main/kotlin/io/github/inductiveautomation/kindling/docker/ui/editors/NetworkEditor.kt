@@ -17,25 +17,20 @@ import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.JTable
 import javax.swing.ListSelectionModel
-import javax.swing.event.TableModelListener
 import javax.swing.table.TableCellEditor
 import javax.swing.table.TableModel
 import net.miginfocom.swing.MigLayout
 
 class NetworkEditor(
     initialNetworks: MutableList<DockerNetwork>,
-    initialNetworkOptions: Set<DockerNetwork>,
+    initialNetworkOptions: List<DockerNetwork>,
 ) : ConfigSection("Networks") {
-    var networkOptions: Set<DockerNetwork>
-        get() = networkTable.model.networkOptions
-        set(value) {
-            networkTable.model.networkOptions = value
-        }
-
     private val networkTable = ReifiedJXTable(DockerNetworksTableModel(initialNetworks, initialNetworkOptions)).apply {
         tableHeader.isVisible = false
         isColumnControlVisible = false
     }
+
+    var networkOptions by networkTable.model::networkOptions
 
     private val networksHeader = JPanel(MigLayout("fill")).apply {
         val networkLabel = JLabel("Add/Remove, Double-click to edit")
@@ -83,16 +78,16 @@ class NetworkEditor(
     init {
         add(networksHeader, "growx, wrap")
         add(networkTable, "push, grow")
-    }
 
-    fun addTableModelListener(l: TableModelListener) {
-        networkTable.model.addTableModelListener(l)
+        networkTable.model.addTableModelListener {
+            fireConfigChange()
+        }
     }
 }
 
 class DockerNetworksTableModel(
     override val data: MutableList<DockerNetwork>,
-    networkOptions: Set<DockerNetwork>,
+    networkOptions: List<DockerNetwork>,
 ) : ReifiedListTableModel<DockerNetwork>(data, DockerNetworkTableColumns()) {
     override val columns = super.columns as DockerNetworkTableColumns
 
@@ -108,19 +103,19 @@ class DockerNetworksTableModel(
         fireTableCellUpdated(rowIndex, columnIndex)
     }
 
-    var networkOptions: Set<DockerNetwork> = networkOptions
+    var networkOptions: List<DockerNetwork> = networkOptions
         set(value) {
             field = value
+            val indicesToRemove = data.mapIndexedNotNull { i, n ->
+                if (n !in value) i else null
+            }.sortedDescending()
 
-            var updated = false
-            for (network in data) {
-                if (network !in value) {
-                    data.remove(network)
-                    updated = true
+            if (indicesToRemove.isNotEmpty()) {
+                for (index in indicesToRemove) {
+                    data.removeAt(index)
                 }
+                fireTableDataChanged()
             }
-
-            if (updated) fireTableDataChanged()
         }
 
 

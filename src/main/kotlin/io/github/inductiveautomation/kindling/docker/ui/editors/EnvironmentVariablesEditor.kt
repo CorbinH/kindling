@@ -1,58 +1,95 @@
 package io.github.inductiveautomation.kindling.docker.ui.editors
 
+import io.github.inductiveautomation.kindling.docker.model.EnvironmentVariable
 import io.github.inductiveautomation.kindling.docker.ui.ConfigSection
-import io.github.inductiveautomation.kindling.utils.KMutableListModel
+import io.github.inductiveautomation.kindling.utils.ColumnList
+import io.github.inductiveautomation.kindling.utils.FlatScrollPane
+import io.github.inductiveautomation.kindling.utils.ReifiedJXTable
+import io.github.inductiveautomation.kindling.utils.ReifiedTableModel
 import javax.swing.JButton
 import javax.swing.JLabel
-import javax.swing.JList
 import javax.swing.JPanel
 import javax.swing.ListSelectionModel
-import javax.swing.event.ListDataListener
+import javax.swing.table.AbstractTableModel
 import net.miginfocom.swing.MigLayout
 import org.jdesktop.swingx.JXTextArea
 
 class EnvironmentVariablesEditor(
-    initialEnvVariables: MutableList<String>,
+    private val envVariables: MutableMap<String, String>,
 ) : ConfigSection("Environment Variables") {
-    private val envVariablesList = object : JList<String>(KMutableListModel(initialEnvVariables)) {
-        override fun getModel(): KMutableListModel<String> = super.getModel() as KMutableListModel<String>
+    private val envVariablesTable = ReifiedJXTable(ReifiedMapTableModel(envVariables)).apply {
+        isColumnControlVisible = false
+        isSortable = false
     }
 
     private val envSectionHeader = JPanel(MigLayout("fill")).apply {
         val envVariableLabel = JLabel("Add/Remove")
-        val envEntry = JXTextArea("Enter 1 or more (space-separated)")
+        val keyEntry = JXTextArea("Key")
+        val valueEntry = JXTextArea("Value")
+
         val addEnvButton = JButton("+").apply {
             addActionListener {
-                val toAdd = envEntry.text.split(" ").filter { it.isNotBlank() }
-
-                if (toAdd.isNotEmpty()) {
-                    envVariablesList.model.addAll(toAdd)
-                    envEntry.text = ""
+                if (!keyEntry.text.isNullOrEmpty() && !valueEntry.text.isNullOrEmpty()) {
+                    envVariables[keyEntry.text] = valueEntry.text
+                    envVariablesTable.model.fireTableDataChanged()
                 }
             }
         }
-        val removeEnvButton = JButton("-").apply {
-            isEnabled = !envVariablesList.isSelectionEmpty
 
-            envVariablesList.selectionModel.addListSelectionListener {
+        val removeEnvButton = JButton("-").apply {
+            isEnabled = !envVariablesTable.selectionModel.isSelectionEmpty
+
+            envVariablesTable.selectionModel.addListSelectionListener {
                 isEnabled = !(it.source as ListSelectionModel).isSelectionEmpty
             }
 
             addActionListener {
-                envVariablesList.model.removeAll(envVariablesList.selectedIndices.toList())
+                val entries = envVariables.keys.toList()
+                val toRemove = envVariablesTable.selectionModel.selectedIndices.map {
+                    entries[it]
+                }
+                toRemove.forEach { envVariables.remove(it) }
+                envVariablesTable.model.fireTableDataChanged()
             }
         }
 
         add(envVariableLabel, "west")
-        add(envEntry, "grow")
+        add(keyEntry, "grow, sg")
+        add(valueEntry, "grow, sg")
         add(addEnvButton, "east")
         add(removeEnvButton, "east")
     }
 
     init {
         add(envSectionHeader, "growx, spanx")
-        add(envVariablesList, "push, grow")
+        add(FlatScrollPane(envVariablesTable), "push, grow")
+
+        envVariablesTable.model.addTableModelListener {
+            fireConfigChange()
+        }
+    }
+}
+
+class ReifiedMapTableModel(
+    private val data: MutableMap<String, String>,
+) : AbstractTableModel(), ReifiedTableModel<EnvironmentVariable> {
+    override fun getRowCount() = data.size
+    override fun getColumnCount() = 2
+    override fun getColumnClass(columnIndex: Int) = columns[columnIndex].clazz
+    override fun getColumnName(columnIndex: Int) = columns[columnIndex].header
+
+    override fun getValueAt(rowIndex: Int, columnIndex: Int): Any {
+        val pair = data.entries.toList().get(rowIndex).toPair()
+        return when (columnIndex) {
+            0 -> pair.first
+            1 -> pair.second
+            else -> error("Column index $columnIndex out of bounds. Should be 0 or 1.")
+        }
     }
 
-    fun addListDataListener(l: ListDataListener) = envVariablesList.model.addListDataListener(l)
+    @Suppress("unused")
+    override val columns = object : ColumnList<EnvironmentVariable>() {
+        val Key by column { it.first }
+        val Value by column { it.second }
+    }
 }
