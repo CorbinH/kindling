@@ -9,7 +9,9 @@ import javax.swing.JComponent
 import javax.swing.JList
 import javax.swing.TransferHandler
 
-class CanvasNodeList : JList<NodeInitializer>(CanvasNodeListModel()) {
+class CanvasNodeList(
+    initializers: List<NodeInitializer>,
+) : JList<NodeInitializer>(CanvasNodeListModel(initializers)) {
     override fun getModel(): CanvasNodeListModel = super.getModel() as CanvasNodeListModel
 
     init {
@@ -22,22 +24,16 @@ class CanvasNodeList : JList<NodeInitializer>(CanvasNodeListModel()) {
         transferHandler = NodeInitializerTransferHandler()
     }
 
-    class CanvasNodeListModel : AbstractListModel<NodeInitializer>() {
-
-        private val data: List<NodeInitializer> = listOf(
-            NodeInitializer { GenericDockerServiceNode(initialVolumeOptions = emptySet(), initialNetworkOptions = emptySet()) },
-            NodeInitializer { GatewayServiceNode(volumeOptions = emptySet(), networks = emptySet()) },
-        )
-
+    class CanvasNodeListModel(private val data: List<NodeInitializer>) : AbstractListModel<NodeInitializer>() {
         operator fun get(i: NodeInitializer): String {
             return when (data.indexOf(i)) {
-                0 -> "Generic Service Node"
-                1 -> "Ignition Gateway Node"
+                0 -> "Ignition Gateway Node"
+                1 -> "Generic Service Node"
                 else -> error("Invalid list argument.")
             }
         }
 
-        override fun getSize(): Int  = data.size
+        override fun getSize(): Int = data.size
 
         override fun getElementAt(index: Int): NodeInitializer = data[index]
     }

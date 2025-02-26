@@ -4,29 +4,53 @@ import com.formdev.flatlaf.extras.FlatSVGIcon
 import io.github.inductiveautomation.kindling.docker.model.DockerNetwork
 import io.github.inductiveautomation.kindling.docker.model.DockerVolume
 import io.github.inductiveautomation.kindling.docker.model.GatewayServiceModel
+import io.github.inductiveautomation.kindling.utils.add
+import io.github.inductiveautomation.kindling.utils.getAll
 import io.github.inductiveautomation.kindling.utils.tag
+import java.util.EventListener
 import javax.swing.JButton
 import javax.swing.JPanel
 import net.miginfocom.swing.MigLayout
 
 class GatewayServiceNode(
-    override val model: GatewayServiceModel = GatewayServiceModel(GatewayServiceModel.DEFAULT_IMAGE),
-    override var volumeOptions: Set<DockerVolume>,
-    override var networks: Set<DockerNetwork>,
+    override val model: GatewayServiceModel = GatewayServiceModel(),
+    initialVolumeOptions: List<DockerVolume>,
+    initialNetworkOptions: List<DockerNetwork>,
+    val parent: Canvas,
 ) : AbstractDockerServiceNode<GatewayServiceModel>() {
+    override val configEditor by lazy {
+        GatewayNodeConfigPanel(this, initialVolumeOptions, initialNetworkOptions)
+    }
 
-    override val configEditor = GatewayServiceConfigEditor()
+    override var volumeOptions by configEditor::volumeOptions
+    override var networkOptions by configEditor::networkOptions
 
     private val deleteButton = JButton(FlatSVGIcon("icons/bx-x.svg").derive(12, 12))
 
     private val connectButton = JButton(FlatSVGIcon("icons/bx-link.svg").derive(12, 12)).apply {
-        toolTipText = "Create Outgoing GAN Connection"
+        toolTipText = "Create GAN Connection"
+
+        addActionListener {
+            fireConnectionInit()
+//            if (this@GatewayServiceNode.model.hostName == null) {
+//                JOptionPane.showMessageDialog(
+//                    null,
+//                    "Please specify a hostname to create a connection",
+//                    "Missing Hostname",
+//                    JOptionPane.ERROR_MESSAGE
+//                )
+//            } else {
+//                fireConnectionInit()
+//            }
+        }
     }
 
     override val header = JPanel(MigLayout("fill, ins 0")).apply {
         add(connectButton, "west")
         add(deleteButton, "east")
     }
+
+    val connections: MutableMap<Int, GatewayNodeConnector> = mutableMapOf()
 
     init {
         add(header, "north")
@@ -60,50 +84,17 @@ class GatewayServiceNode(
         }
     }
 
-    inner class GatewayServiceConfigEditor : NodeConfigPanel("fill") {
-        override val generalSection = JPanel()
-        override val portsSection = JPanel()
-        override val envSection = JPanel()
-        override val cliSection = JPanel()
-        override val volumesSection = JPanel()
-        override val networksSection = JPanel()
+    fun addConnectionInitListener(l: GatewayConnectionInitListener) {
+        listenerList.add(l)
+    }
+
+    private fun fireConnectionInit() {
+        listenerList.getAll<GatewayConnectionInitListener>().forEach {
+            it.onConnectionInitRequest()
+        }
     }
 }
 
-enum class GatewayServiceFlavor {
-    KCOLLINS,
-    INDUCTIVEAUTOMATION,
-    ;
-
-    val serialName: String = name.lowercase()
+fun interface GatewayConnectionInitListener : EventListener {
+    fun onConnectionInitRequest()
 }
-
-/*
-    init {
-        ports.putAll(
-            listOf(
-                9088.toUShort() to 8088.toUShort(),
-                9043.toUShort() to 8043.toUShort(),
-            )
-        )
-
-        environment.addAll(
-            listOf(
-                "ACCEPT_IGNITION_EULA=Y",
-                "GATEWAY_ADMIN_USERNAME=admin",
-                "GATEWAY_ADMIN_PASSWORD_FILE=/run/secrets/gateway-admin-password",
-                "IGNITION_EDITION=standard",
-                "TZ=America/Chicago",
-            )
-        )
-
-        commands.addAll(
-            listOf(
-                "-n docker-test",
-                "-m 1024",
-                "wrapper.java.initmemory=512",
-                "-Dignition.allowunsignedmodules=true",
-            ),
-        )
-    }
-*/

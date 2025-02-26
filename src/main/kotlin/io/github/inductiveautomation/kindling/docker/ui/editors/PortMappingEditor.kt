@@ -10,16 +10,11 @@ import javax.swing.JButton
 import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.JTextField
-import javax.swing.event.TableModelListener
 import net.miginfocom.swing.MigLayout
 
 class PortMappingEditor(
     initialData: MutableList<PortMapping>,
 ) : ConfigSection("Ports") {
-    fun addTableModelListener(l: TableModelListener) {
-        portMappingTable.model.addTableModelListener(l)
-    }
-
     private val portMappingTable = ReifiedJXTable(PortMappingTableModel(initialData)).apply {
         isColumnControlVisible = false
         // Fire service model changed event from config panel
@@ -60,6 +55,10 @@ class PortMappingEditor(
     init {
         add(portMappingHeader, "growx, wrap")
         add(portMappingTable, "push, grow")
+
+        portMappingTable.model.addTableModelListener {
+            fireConfigChange()
+        }
     }
 }
 

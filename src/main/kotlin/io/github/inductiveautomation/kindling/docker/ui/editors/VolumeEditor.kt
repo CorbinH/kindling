@@ -19,26 +19,21 @@ import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.JTable
 import javax.swing.ListSelectionModel
-import javax.swing.event.TableModelListener
 import javax.swing.table.TableCellEditor
 import javax.swing.table.TableModel
 import net.miginfocom.swing.MigLayout
 
 class VolumeEditor(
     initialVolumes: MutableList<DockerVolumeServiceBinding>,
-    initialVolumeOptions: Set<DockerVolume>,
+    initialVolumeOptions: List<DockerVolume>,
 ) : ConfigSection("Volumes") {
-    var volumeOptions: Set<DockerVolume>
-        get() = volumesTable.model.volumeOptions
-        set(value) {
-            volumesTable.model.volumeOptions = value
-        }
-
     private val volumesTable = ReifiedJXTable(
         DockerVolumesTableModel(initialVolumes, initialVolumeOptions)
     ).apply {
         isColumnControlVisible = false
     }
+
+    var volumeOptions: List<DockerVolume> by volumesTable.model::volumeOptions
 
     private val volumeSectionHeader = JPanel(MigLayout("fill, gap 3")).apply {
         val volumeLabel = JLabel("Add/Remove")
@@ -89,17 +84,32 @@ class VolumeEditor(
     init {
         add(volumeSectionHeader, "growx, wrap")
         add(volumesTable, "push, grow")
-    }
 
-    fun addTableModelListener(l: TableModelListener) {
-        volumesTable.model.addTableModelListener(l)
+        volumesTable.model.addTableModelListener {
+            fireConfigChange()
+        }
     }
 }
 
 internal class DockerVolumesTableModel(
     override val data: MutableList<DockerVolumeServiceBinding>,
-    var volumeOptions: Set<DockerVolume>,
+    volumeOptions: List<DockerVolume>,
 ) : ReifiedListTableModel<DockerVolumeServiceBinding>(data, DockerVolumeTableColumns()) {
+    var volumeOptions: List<DockerVolume> = volumeOptions
+        set(value) {
+            field = value
+            val indicesToRemove = data.mapIndexedNotNull { i, v ->
+                if (v.volume !in value) i else null
+            }.sortedDescending()
+
+            if (indicesToRemove.isNotEmpty()) {
+                for (index in indicesToRemove) {
+                    data.removeAt(index)
+                }
+                fireTableDataChanged()
+            }
+        }
+
     override val columns = super.columns as DockerVolumeTableColumns
 
     override fun isCellEditable(rowIndex: Int, columnIndex: Int): Boolean {
@@ -121,7 +131,7 @@ internal class DockerVolumesTableModel(
                 fireTableCellUpdated(rowIndex, columnIndex)
             }
             columns.bindPath -> {
-                if (aValue is String && !aValue.isNullOrEmpty()) {
+                if (aValue is String && aValue.isNotEmpty()) {
                     data[rowIndex].bindMount = aValue
                     fireTableCellUpdated(rowIndex, columnIndex)
                 } else {

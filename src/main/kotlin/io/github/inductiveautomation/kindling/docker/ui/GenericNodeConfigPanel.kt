@@ -1,6 +1,5 @@
 package io.github.inductiveautomation.kindling.docker.ui
 
-import io.github.inductiveautomation.kindling.docker.model.DefaultDockerServiceModel
 import io.github.inductiveautomation.kindling.docker.model.DockerNetwork
 import io.github.inductiveautomation.kindling.docker.model.DockerVolume
 import io.github.inductiveautomation.kindling.docker.ui.GenericDockerServiceNode.Companion.IMAGE_NAME_REGEX
@@ -11,36 +10,23 @@ import io.github.inductiveautomation.kindling.docker.ui.editors.NetworkEditor
 import io.github.inductiveautomation.kindling.docker.ui.editors.PortMappingEditor
 import io.github.inductiveautomation.kindling.docker.ui.editors.VolumeEditor
 import io.github.inductiveautomation.kindling.utils.RegexInputVerifier
-import io.github.inductiveautomation.kindling.utils.TrivialListDataListener
-import org.jdesktop.swingx.JXFormattedTextField
 import javax.swing.JLabel
 import javax.swing.JTextField
+import org.jdesktop.swingx.JXFormattedTextField
 
 class GenericNodeConfigPanel(
-    private val nodeModel: DefaultDockerServiceModel,
-    volumeOptions: Set<DockerVolume>,
-    networkOptions: Set<DockerNetwork>,
+    override val node: GenericDockerServiceNode,
+    volumeOptions: List<DockerVolume>,
+    networkOptions: List<DockerNetwork>,
 ) : NodeConfigPanel("fill, ins 4") {
-    var volumeOptions: Set<DockerVolume> = volumeOptions
-        set(value) {
-            field = value
-            volumesSection.volumeOptions = value
-        }
-
-    var networkOptions: Set<DockerNetwork> = networkOptions
-        set(value) {
-            field = value
-            networksSection.networkOptions = value
-        }
-
     /* General */
     private val imageLabel = JLabel("Image")
-    private val imageEntry = JTextField(nodeModel.image).apply {
+    private val imageEntry = JTextField(node.model.image).apply {
         inputVerifier = RegexInputVerifier(IMAGE_NAME_REGEX)
         addActionListener {
             if (inputVerifier.verify(this)) {
-                nodeModel.image = text
-                nodeModel.fireServiceModelChangedEvent()
+                node.model.image = text
+                node.fireServiceModelChangedEvent()
             }
         }
     }
@@ -48,76 +34,48 @@ class GenericNodeConfigPanel(
     private val hostLabel = JLabel("Hostname")
     private val hostEntry = JXFormattedTextField("(default)").apply {
         addActionListener {
-            nodeModel.hostName = text
-            nodeModel.fireServiceModelChangedEvent()
+            node.model.hostName = text
+            node.fireServiceModelChangedEvent()
         }
     }
 
     private val containerLabel = JLabel("Container Name")
-    private val containerEntry = JTextField(nodeModel.containerName).apply {
+    private val containerEntry = JTextField(node.model.containerName).apply {
         inputVerifier = RegexInputVerifier(SERVICE_NAME_REGEX)
         addActionListener {
             if (inputVerifier.verify(this)) {
-                nodeModel.containerName = text
-                nodeModel.fireServiceModelChangedEvent()
+                node.model.containerName = text
+                node.fireServiceModelChangedEvent()
             }
         }
     }
 
-    override val generalSection = configSection("General", "fillx, ins 0, aligny top") {
-        add(imageLabel)
-        add(imageEntry, "growx, wrap")
-        add(hostLabel)
-        add(hostEntry, "growx, wrap")
-        add(containerLabel)
-        add(containerEntry, "growx")
-    }
-
-    /* Port Mappings */
-    override val portsSection = PortMappingEditor(nodeModel.ports).apply {
-        addTableModelListener {
-            nodeModel.fireServiceModelChangedEvent()
+    override val generalSection = object : ConfigSection("General", "fillx, ins 0, aligny top") {
+        init {
+            add(imageLabel)
+            add(imageEntry, "growx, wrap")
+            add(hostLabel)
+            add(hostEntry, "growx, wrap")
+            add(containerLabel)
+            add(containerEntry, "growx")
         }
     }
 
-    /* Environment Variables */
-    override val envSection = EnvironmentVariablesEditor(nodeModel.environment).apply {
-        addListDataListener(
-            TrivialListDataListener {
-                nodeModel.fireServiceModelChangedEvent()
-            }
-        )
-    }
+    override val portsSection = PortMappingEditor(node.model.ports).bind()
+    override val envSection = EnvironmentVariablesEditor(node.model.environment).bind()
+    override val cliSection = CliArgumentsEditor(node.model.commands).bind()
+    override val volumesSection = VolumeEditor(node.model.volumes, volumeOptions).bind()
+    override val networksSection = NetworkEditor(node.model.networks, networkOptions).bind()
 
-    /* Command Line Arguments */
-    override val cliSection = CliArgumentsEditor(nodeModel.commands).apply {
-        addListDataListener(
-            TrivialListDataListener {
-                nodeModel.fireServiceModelChangedEvent()
-            }
-        )
-    }
-
-    /* Volumes */
-    override val volumesSection = VolumeEditor(nodeModel.volumes, volumeOptions).apply {
-        addTableModelListener {
-            nodeModel.fireServiceModelChangedEvent()
-        }
-    }
-
-    /* Networks */
-    override val networksSection = NetworkEditor(nodeModel.networks, networkOptions).apply {
-        addTableModelListener {
-            nodeModel.fireServiceModelChangedEvent()
-        }
-    }
+    var volumeOptions by volumesSection::volumeOptions
+    var networkOptions by networksSection::networkOptions
 
     init {
         add(generalSection, "grow, sg")
-        add(portsSection, "grow, sg")
-        add(volumesSection, "grow, wrap, sg")
         add(envSection, "grow, sg")
+        add(volumesSection, "grow, wrap, sg")
         add(cliSection, "grow, sg")
+        add(portsSection, "grow, sg")
         add(networksSection, "grow, sg")
     }
 }

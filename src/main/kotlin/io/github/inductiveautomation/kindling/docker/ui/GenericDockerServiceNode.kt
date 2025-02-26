@@ -10,31 +10,20 @@ import javax.swing.JPanel
 import net.miginfocom.swing.MigLayout
 
 class GenericDockerServiceNode(
-    override val model: DefaultDockerServiceModel = DefaultDockerServiceModel(
-        DefaultDockerServiceModel.DEFAULT_GENERIC_IMAGE
-    ),
-    initialVolumeOptions: Set<DockerVolume>,
-    initialNetworkOptions: Set<DockerNetwork>,
+    override val model: DefaultDockerServiceModel = DefaultDockerServiceModel(),
+    initialVolumeOptions: List<DockerVolume>,
+    initialNetworkOptions: List<DockerNetwork>,
 ) : AbstractDockerServiceNode<DefaultDockerServiceModel>() {
-    override var volumeOptions: Set<DockerVolume> = initialVolumeOptions
-        set(value) {
-            field = value
-            configEditor.volumeOptions = value
-        }
+    override val configEditor = GenericNodeConfigPanel(this, initialVolumeOptions, initialNetworkOptions)
 
-    override var networks: Set<DockerNetwork> = initialNetworkOptions
-        set(value) {
-            field = value
-            configEditor.networkOptions = value
-        }
+    override var volumeOptions by configEditor::volumeOptions
+    override var networkOptions by configEditor::networkOptions
 
     private val deleteButton = JButton(FlatSVGIcon("icons/bx-x.svg").derive(12, 12))
 
     override val header = JPanel(MigLayout("fill, ins 0")).apply {
         add(deleteButton, "east")
     }
-
-    override val configEditor = GenericNodeConfigPanel(model, volumeOptions, networks)
 
     init {
         add(header, "growx, spanx", 0)

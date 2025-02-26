@@ -3,9 +3,13 @@ package io.github.inductiveautomation.kindling.docker.ui
 import io.github.inductiveautomation.kindling.docker.model.DockerNetwork
 import io.github.inductiveautomation.kindling.docker.model.DockerServiceModel
 import io.github.inductiveautomation.kindling.docker.model.DockerVolume
+import io.github.inductiveautomation.kindling.docker.model.ServiceModelChangeListener
+import io.github.inductiveautomation.kindling.utils.add
+import io.github.inductiveautomation.kindling.utils.getAll
 import io.github.inductiveautomation.kindling.utils.jFrame
 import java.awt.Color
 import java.awt.Font
+import java.util.EventListener
 import javax.swing.BorderFactory
 import javax.swing.JButton
 import javax.swing.JComponent
@@ -17,9 +21,9 @@ import net.miginfocom.swing.MigLayout
 abstract class AbstractDockerServiceNode<T : DockerServiceModel> : JPanel(MigLayout("fill, ins 4")) {
     abstract val model: T
 
-    abstract var volumeOptions: Set<DockerVolume>
+    abstract var volumeOptions: List<DockerVolume>
 
-    abstract var networks: Set<DockerNetwork>
+    abstract var networkOptions: List<DockerNetwork>
 
     abstract val configEditor: NodeConfigPanel
 
@@ -35,6 +39,14 @@ abstract class AbstractDockerServiceNode<T : DockerServiceModel> : JPanel(MigLay
         }
     }
 
+    fun addServiceModelChangeListener(l: ServiceModelChangeListener) {
+        listenerList.add(l)
+    }
+
+    fun fireServiceModelChangedEvent() {
+        listenerList.getAll<ServiceModelChangeListener>().forEach(ServiceModelChangeListener::onServiceModelChanged)
+    }
+
     init {
         isOpaque = true
         border = BorderFactory.createLineBorder(Color.GRAY, 1, true)
@@ -46,26 +58,24 @@ abstract class AbstractDockerServiceNode<T : DockerServiceModel> : JPanel(MigLay
 }
 
 abstract class NodeConfigPanel(constraints: String) : JPanel(MigLayout(constraints)) {
-    protected abstract val generalSection: JPanel
-    protected abstract val portsSection: JPanel
-    protected abstract val envSection: JPanel
-    protected abstract val cliSection: JPanel
-    protected abstract val volumesSection: JPanel
-    protected abstract val networksSection: JPanel
+    protected abstract val node: AbstractDockerServiceNode<out DockerServiceModel>
 
-    companion object {
-        fun configSection(title: String, constraints: String = "fill, ins 0", block: JPanel.() -> Unit): JPanel {
-            return JPanel(MigLayout(constraints)).apply {
-                border = BorderFactory.createTitledBorder(BorderFactory.createEmptyBorder(), title).apply {
-                    this.titleFont = titleFont.deriveFont(Font.BOLD, 14F)
-                }
-                block()
-            }
+    protected abstract val generalSection: ConfigSection
+    protected abstract val portsSection: ConfigSection
+    protected abstract val envSection: ConfigSection
+    protected abstract val cliSection: ConfigSection
+    protected abstract val volumesSection: ConfigSection
+    protected abstract val networksSection: ConfigSection
+
+    protected fun <T : ConfigSection> T.bind(): T {
+        addChangeListener {
+            node.fireServiceModelChangedEvent()
         }
+        return this
     }
 }
 
-open class ConfigSection(
+abstract class ConfigSection(
     title: String,
     constraints: String = "fill, ins 0",
 ) : JPanel(MigLayout(constraints)) {
@@ -75,12 +85,16 @@ open class ConfigSection(
         }
     }
 
-//    final override fun getBorder(): Border {
-//        return super.getBorder()
-//    }
-//
-//    final override fun setBorder(border: Border?) {
-//        super.setBorder(border)
-//    }
-}
+    open fun updateData() = Unit
+    fun addChangeListener(l: ConfigChangeListener) {
+        listenerList.add(l)
+    }
 
+    protected fun fireConfigChange() {
+        listenerList.getAll<ConfigChangeListener>().forEach(ConfigChangeListener::onConfigChange)
+    }
+
+    fun interface ConfigChangeListener : EventListener {
+        fun onConfigChange()
+    }
+}

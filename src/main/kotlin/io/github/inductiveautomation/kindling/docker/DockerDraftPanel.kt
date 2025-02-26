@@ -11,22 +11,24 @@ import io.github.inductiveautomation.kindling.core.Kindling
 import io.github.inductiveautomation.kindling.core.Theme.Companion.theme
 import io.github.inductiveautomation.kindling.core.Tool
 import io.github.inductiveautomation.kindling.core.ToolPanel
+import io.github.inductiveautomation.kindling.docker.model.DefaultDockerServiceModel
 import io.github.inductiveautomation.kindling.docker.model.DockerNetwork
 import io.github.inductiveautomation.kindling.docker.model.DockerVolume
+import io.github.inductiveautomation.kindling.docker.model.GatewayServiceModel
 import io.github.inductiveautomation.kindling.docker.ui.AbstractDockerServiceNode
 import io.github.inductiveautomation.kindling.docker.ui.Canvas
 import io.github.inductiveautomation.kindling.docker.ui.CanvasNodeList
 import io.github.inductiveautomation.kindling.docker.ui.GatewayNodeConnector
 import io.github.inductiveautomation.kindling.docker.ui.GatewayServiceNode
 import io.github.inductiveautomation.kindling.docker.ui.GenericDockerServiceNode
+import io.github.inductiveautomation.kindling.docker.ui.NetworksList
+import io.github.inductiveautomation.kindling.docker.ui.NodeInitializer
+import io.github.inductiveautomation.kindling.docker.ui.VolumesList
 import io.github.inductiveautomation.kindling.utils.FileFilter
 import io.github.inductiveautomation.kindling.utils.FlatScrollPane
 import io.github.inductiveautomation.kindling.utils.HorizontalSplitPane
+import io.github.inductiveautomation.kindling.utils.TrivialListDataListener
 import io.github.inductiveautomation.kindling.utils.traverseChildren
-import kotlinx.serialization.encodeToString
-import net.miginfocom.swing.MigLayout
-import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
-import org.fife.ui.rsyntaxtextarea.SyntaxConstants.SYNTAX_STYLE_YAML
 import java.awt.EventQueue
 import java.awt.Font
 import java.awt.event.ContainerEvent
@@ -34,6 +36,10 @@ import java.awt.event.ContainerListener
 import java.nio.file.Path
 import javax.swing.JLabel
 import javax.swing.JPanel
+import kotlinx.serialization.encodeToString
+import net.miginfocom.swing.MigLayout
+import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
+import org.fife.ui.rsyntaxtextarea.SyntaxConstants.SYNTAX_STYLE_YAML
 
 @Suppress("unused")
 class DockerDraftPanel : ToolPanel("ins 0, fill, hidemode 3") {
@@ -44,7 +50,28 @@ class DockerDraftPanel : ToolPanel("ins 0, fill, hidemode 3") {
     private val optionsLabel = JLabel("Components").apply {
         font = font.deriveFont(Font.BOLD, 14F)
     }
-    private val optionList = CanvasNodeList()
+    private val optionList = CanvasNodeList(
+        listOf(
+            NodeInitializer {
+                GatewayServiceNode(
+                    GatewayServiceModel(),
+                    initialNetworkOptions = networks,
+                    initialVolumeOptions = volumes,
+                    parent = canvas,
+                ).apply {
+                    bindYamlPreview()
+                    connectionObserver.observeConnection(this)
+                }
+            },
+            NodeInitializer {
+                GenericDockerServiceNode(
+                    DefaultDockerServiceModel(""),
+                    initialVolumeOptions = volumes,
+                    initialNetworkOptions = networks,
+                )
+            }
+        )
+    )
 
     private val previewLabel = JLabel("YAML Preview").apply {
         font = font.deriveFont(Font.BOLD, 14F)
@@ -54,9 +81,57 @@ class DockerDraftPanel : ToolPanel("ins 0, fill, hidemode 3") {
         syntaxEditingStyle = SYNTAX_STYLE_YAML
     }
 
+    private var volumes: List<DockerVolume> = listOf(DockerVolume("db-data"), DockerVolume("backup-data"))
+        set(value) {
+            field = value
+            services.forEach {
+                it.volumeOptions = value
+            }
+        }
+
+    private var networks = listOf(DockerNetwork("network1"), DockerNetwork("network2"))
+        set(value) {
+            field = value
+            services.forEach {
+                it.networkOptions = value
+            }
+        }
+
+    private val volumesLabel = JLabel("Volumes").apply {
+        font = font.deriveFont(Font.BOLD, 14F)
+    }
+    private val volumesList = VolumesList(volumes.toMutableList()).apply {
+        volumesList.model.addListDataListener(
+            TrivialListDataListener {
+                val options = Array<DockerVolume>(volumesList.model.size) {
+                    volumesList.model.getElementAt(it)
+                }
+                volumes = options.toList()
+            }
+        )
+    }
+
+    private val networksLabel = JLabel("Networks").apply {
+        font = font.deriveFont(Font.BOLD, 14F)
+    }
+    private val networksList = NetworksList(networks.toMutableList()).apply {
+        networksList.model.addListDataListener(
+            TrivialListDataListener {
+                val options = Array<DockerNetwork>(networksList.model.size) {
+                    networksList.model.getElementAt(it)
+                }
+                networks = options.toList()
+            }
+        )
+    }
+
     private val sidebar = JPanel(MigLayout("flowy, nogrid, fill")).apply {
         add(optionsLabel, "gapbottom 3")
         add(optionList, "gapbottom 10, wmin 300, growx")
+        add(volumesLabel, "gapbottom 3")
+        add(volumesList, "grow, gapbottom 3")
+        add(networksLabel, "gapbottom 3")
+        add(networksList, "grow, gapbottom 10")
         add(previewLabel, "gapbottom 3")
         add(FlatScrollPane(yamlPreview), "pushy, grow, wmin 300")
     }
@@ -64,38 +139,9 @@ class DockerDraftPanel : ToolPanel("ins 0, fill, hidemode 3") {
     private val services: List<AbstractDockerServiceNode<*>>
         get() = canvas.traverseChildren(false).filterIsInstance<AbstractDockerServiceNode<*>>().toList()
 
-    private val volumes: MutableSet<DockerVolume> = mutableSetOf(
-        DockerVolume("db-data"),
-        DockerVolume("backup-data")
-    )
-
-    private val networks: Set<DockerNetwork> = mutableSetOf(
-        DockerNetwork("network1"),
-        DockerNetwork("network2"),
-    )
+    private val connectionObserver = ConnectionObserver()
 
     init {
-        val testNode1 = GatewayServiceNode(volumeOptions = volumes, networks = networks).apply {
-            model.addServiceModelChangeListener {
-                updatePreview()
-            }
-        }
-        val testNode3 = GatewayServiceNode(volumeOptions = volumes, networks = networks).apply {
-            model.addServiceModelChangeListener {
-                updatePreview()
-            }
-        }
-        val testNode2 = GenericDockerServiceNode(
-            initialVolumeOptions = volumes,
-            initialNetworkOptions = networks,
-        ).apply {
-            model.addServiceModelChangeListener {
-                updatePreview()
-            }
-        }
-
-        val testConnector = GatewayNodeConnector(testNode1, testNode3)
-
         name = "Docker Draft Test"
         toolTipText = ""
 
@@ -114,22 +160,6 @@ class DockerDraftPanel : ToolPanel("ins 0, fill, hidemode 3") {
             }, "push, grow"
         )
 
-        canvas.add(testNode1)
-        canvas.add(testNode2)
-        canvas.add(testNode3)
-        canvas.add(testConnector)
-
-        testConnector.setBounds(100, 100, 100, 100)
-
-        yamlPreview.text = YAML.encodeToString(
-            mapOf(
-                "services" to mapOf(
-                    "gateway" to testNode1.model,
-                    "db" to testNode2.model,
-                ),
-            )
-        )
-
         canvas.addContainerListener(
             object : ContainerListener {
                 override fun componentAdded(e: ContainerEvent?) {
@@ -141,6 +171,15 @@ class DockerDraftPanel : ToolPanel("ins 0, fill, hidemode 3") {
                 }
             }
         )
+
+        addTestNodes()
+        updatePreview()
+    }
+
+    private fun GatewayServiceNode.bindYamlPreview() {
+        addServiceModelChangeListener {
+            updatePreview()
+        }
     }
 
     private fun updatePreview() {
@@ -155,6 +194,29 @@ class DockerDraftPanel : ToolPanel("ins 0, fill, hidemode 3") {
         }
     }
 
+    private fun addTestNodes() {
+        val testNode1 = GatewayServiceNode(initialVolumeOptions = volumes, initialNetworkOptions = networks, parent = canvas).apply {
+            bindYamlPreview()
+            connectionObserver.observeConnection(this)
+        }
+        val testNode3 = GatewayServiceNode(initialVolumeOptions = volumes, initialNetworkOptions = networks, parent = canvas).apply {
+            bindYamlPreview()
+            connectionObserver.observeConnection(this)
+        }
+        val testNode2 = GenericDockerServiceNode(
+            initialVolumeOptions = volumes,
+            initialNetworkOptions = networks,
+        ).apply {
+            addServiceModelChangeListener {
+                updatePreview()
+            }
+        }
+
+        canvas.add(testNode1)
+        canvas.add(testNode2)
+        canvas.add(testNode3)
+    }
+
     companion object {
         private val YAML = Yaml(
             configuration = YamlConfiguration(
@@ -165,6 +227,39 @@ class DockerDraftPanel : ToolPanel("ins 0, fill, hidemode 3") {
                 encodeDefaults = false,
             )
         )
+    }
+
+    private inner class ConnectionObserver {
+        var inProgressConnection: GatewayNodeConnector? = null
+            set(value) {
+                field = value
+                toolTipText = if (value != null) {
+                    "Press ESC to cancel adding a connection."
+                } else {
+                    ""
+                }
+            }
+
+        fun handleConnectionInit(node: GatewayServiceNode) {
+            if (inProgressConnection == null) {
+                val index = node.connections.keys.maxOrNull()?.plus(1) ?: 1
+                val connection = GatewayNodeConnector(node, index)
+                node.connections[index] = connection
+
+                canvas.add(connection)
+
+                inProgressConnection = connection
+            } else {
+                inProgressConnection!!.to = node
+                inProgressConnection = null
+            }
+        }
+
+        fun observeConnection(node: GatewayServiceNode) {
+            node.addConnectionInitListener {
+                handleConnectionInit(node)
+            }
+        }
     }
 }
 
