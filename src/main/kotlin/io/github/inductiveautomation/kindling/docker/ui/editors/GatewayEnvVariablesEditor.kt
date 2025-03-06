@@ -38,6 +38,9 @@ class GatewayEnvVariablesEditor(
     /**
      * Divided into 3 sections: Pre-canned variables, variables from connection settings, and custom variables.
      */
+    private val gatewaySettingsTable = ReifiedJXTable(GatewayEnvironmentVariableTableModel(data)).apply {
+        selectionMode = ListSelectionModel.SINGLE_SELECTION
+    }
     private val gatewaySettingsLabel = JLabel("Ignition Environment Variables")
     private val addButton = JButton("+").apply {
         addActionListener {
@@ -52,7 +55,21 @@ class GatewayEnvVariablesEditor(
             }
         }
     }
-    private val gatewaySettingsTable = ReifiedJXTable(GatewayEnvironmentVariableTableModel(data))
+    private val removeButton = JButton("-").apply {
+        isEnabled = false
+        gatewaySettingsTable.selectionModel.addListSelectionListener {
+            isEnabled = !(it.source as ListSelectionModel).isSelectionEmpty
+        }
+
+        addActionListener {
+            val index = gatewaySettingsTable.selectionModel.selectedIndices.first()
+            val modelIndex = gatewaySettingsTable.convertRowIndexToModel(index)
+
+            val removed = gatewaySettingsTable.model.staticVariableData.removeAt(modelIndex)
+            data.remove(removed.first.name)
+            gatewaySettingsTable.model.fireTableDataChanged()
+        }
+    }
 
     private val customSettingsLabel = JLabel("Custom Environment Variables")
     private val customVariablesTable = ReifiedJXTable(ReifiedMapTableModel(data)).apply {
@@ -114,7 +131,8 @@ class GatewayEnvVariablesEditor(
 
     init {
         add(gatewaySettingsLabel, "growx")
-        add(addButton, "growx, wrap")
+        add(removeButton)
+        add(addButton, "wrap")
         add(gatewaySettingsTable, "push, grow, span, sg")
         add(customSettingsLabel, "growx, spanx")
         add(customVariablesHeader, "growx, spanx")
@@ -230,7 +248,7 @@ class GatewayEnvironmentVariableTableModel(
         }
 
         override fun isCellEditable(e: EventObject?): Boolean {
-            return e is MouseEvent && e.clickCount == 1
+            return e is MouseEvent && e.clickCount == 2
         }
 
         override fun getCellEditorValue(): StaticDefinition {
@@ -251,7 +269,7 @@ class GatewayEnvironmentVariableTableModel(
             val unusedOptions = table.model.allVariables.filter { it !in currentKeys || it == value }
 
             comboBox.model = DefaultComboBoxModel(unusedOptions.toTypedArray())
-            comboBox.selectedItem = value as? String ?: unusedOptions.first()
+            comboBox.selectedItem = value ?: unusedOptions.first()
 
             return comboBox
         }
@@ -276,7 +294,7 @@ class GatewayEnvironmentVariableTableModel(
         }
 
         override fun isCellEditable(e: EventObject?): Boolean {
-            return e is MouseEvent && e.clickCount == 1
+            return e is MouseEvent && e.clickCount == 2
         }
 
         override fun getTableCellEditorComponent(
@@ -294,11 +312,11 @@ class GatewayEnvironmentVariableTableModel(
             if (envVar.options != null) {
                 textField.text = null
                 comboBox.model = DefaultComboBoxModel(envVar.options!!.toTypedArray())
-                comboBox.selectedItem = envVar.default
+                comboBox.selectedItem = value ?: envVar.default
                 return comboBox
             } else {
                 comboBox.selectedItem = null
-                textField.text = envVar.default
+                textField.text = value as? String ?: envVar.default
                 return textField
             }
         }

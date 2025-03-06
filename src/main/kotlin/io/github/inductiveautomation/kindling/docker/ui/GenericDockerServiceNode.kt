@@ -10,7 +10,7 @@ import javax.swing.JPanel
 import net.miginfocom.swing.MigLayout
 
 class GenericDockerServiceNode(
-    override val model: DefaultDockerServiceModel = DefaultDockerServiceModel(),
+    override val model: DefaultDockerServiceModel,
     initialVolumeOptions: List<DockerVolume>,
     initialNetworkOptions: List<DockerNetwork>,
 ) : AbstractDockerServiceNode<DefaultDockerServiceModel>() {
@@ -50,6 +50,10 @@ class GenericDockerServiceNode(
                 }
                 append(model.containerName)
             }
+        }
+
+        deleteButton.addActionListener {
+            fireNodeDeletedEvent()
         }
     }
 

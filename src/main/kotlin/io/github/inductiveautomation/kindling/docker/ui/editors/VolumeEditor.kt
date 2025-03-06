@@ -47,8 +47,8 @@ class VolumeEditor(
                 volumesTable.model.data.add(
                     DockerVolumeServiceBinding(
                         volumeOptions.first {
-                            it !in volumesTable.model.data.map { binding -> binding.volume }
-                        },
+                            it.name !in volumesTable.model.data.map { binding -> binding.volumeName }
+                        }.name,
                         "/usr/local/bin/ignition/data/",
                     ),
                 )
@@ -98,8 +98,9 @@ internal class DockerVolumesTableModel(
     var volumeOptions: List<DockerVolume> = volumeOptions
         set(value) {
             field = value
+            val names = value.map { it.name }
             val indicesToRemove = data.mapIndexedNotNull { i, v ->
-                if (v.volume !in value) i else null
+                if (v.volumeName !in names) i else null
             }.sortedDescending()
 
             if (indicesToRemove.isNotEmpty()) {
@@ -127,7 +128,7 @@ internal class DockerVolumesTableModel(
 
         when (column) {
             columns.Volume -> {
-                data[rowIndex].volume = aValue as? DockerVolume ?: return
+                data[rowIndex].volumeName = (aValue as? DockerVolume)?.name ?: return
                 fireTableCellUpdated(rowIndex, columnIndex)
             }
             columns.bindPath -> {
@@ -177,19 +178,21 @@ internal class DockerVolumesTableModel(
                         @Suppress("unchecked_cast")
                         table as ReifiedJXTable<DockerVolumesTableModel>
 
-                        val volumeNames = table.model.data.map { it.volume }
+                        val volumeNames = table.model.data.map { it.volumeName }
                         val unusedOptions = table.model.volumeOptions.filter {
-                            it !in volumeNames || it == table.model.data[row].volume
+                            it.name !in volumeNames || it.name == table.model.data[row].volumeName
                         }
 
                         comboBox.model = DefaultComboBoxModel(unusedOptions.toTypedArray())
-                        comboBox.selectedItem = table.model.data[row]
+                        comboBox.selectedItem = unusedOptions.find {
+                            it.name == table.model.data[row].volumeName
+                        }
 
                         return comboBox
                     }
                 }
             },
-            value = { it.volume.name },
+            value = { it.volumeName },
         )
 
         val bindPath by column("Bind Path") {

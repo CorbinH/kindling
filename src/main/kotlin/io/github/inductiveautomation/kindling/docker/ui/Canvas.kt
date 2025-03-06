@@ -70,9 +70,11 @@ class Canvas(
     }
 
     override fun addImpl(comp: Component?, constraints: Any?, index: Int) {
-        if (comp !is JComponent) return
         super.addImpl(comp, constraints, index)
+
+//        if (comp is GatewayNodeConnector) setComponentZOrder(comp, 0)
         if (comp !is AbstractDockerServiceNode<*>) return
+
         attachDragListeners(comp)
 
         EventQueue.invokeLater {

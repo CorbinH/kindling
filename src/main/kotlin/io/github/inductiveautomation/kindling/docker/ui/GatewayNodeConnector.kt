@@ -5,8 +5,10 @@ import io.github.inductiveautomation.kindling.docker.model.ConnectionDefinition
 import io.github.inductiveautomation.kindling.docker.model.GatewayEnvironmentVariableDefinition.Companion.addOrRemove
 import io.github.inductiveautomation.kindling.docker.model.GatewayEnvironmentVariableDefinition.Companion.createConnectionVariable
 import io.github.inductiveautomation.kindling.docker.model.IgnitionVersionComparator
+import io.github.inductiveautomation.kindling.utils.Action
 import io.github.inductiveautomation.kindling.utils.MouseListenerBuilder.Companion.addMouseListener
 import io.github.inductiveautomation.kindling.utils.MouseMotionListenerBuilder.Companion.addMouseMotionListener
+import io.github.inductiveautomation.kindling.utils.attachPopupMenu
 import io.github.inductiveautomation.kindling.utils.jFrame
 import io.github.inductiveautomation.kindling.utils.tag
 import java.awt.BasicStroke
@@ -23,6 +25,7 @@ import javax.swing.JCheckBox
 import javax.swing.JComponent
 import javax.swing.JLabel
 import javax.swing.JPanel
+import javax.swing.JPopupMenu
 import javax.swing.JSpinner
 import javax.swing.JTextArea
 import javax.swing.JTextField
@@ -38,9 +41,9 @@ import net.miginfocom.swing.MigLayout
 class GatewayNodeConnector(
     fromGateway: GatewayServiceNode,
     val index: Int = 1,
+    private val canvas: Canvas,
 ) : JComponent() {
     var from : GatewayServiceNode = fromGateway
-
     lateinit var to: GatewayServiceNode
 
     private val connectionInProgress: Boolean
@@ -61,6 +64,9 @@ class GatewayNodeConnector(
             repaint()
         }
     }
+
+    private var highlightPath = false
+    private var connectionPath = Path2D.Double()
 
     private val settingsPanel get() = ConnectionSettingsPanel()
 
@@ -83,24 +89,7 @@ class GatewayNodeConnector(
             }
             mouseClicked {
                 if (highlightPath && it.clickCount == 2) {
-                    jFrame("Edit Connection", 485, 650) {
-                        contentPane = settingsPanel
-                    }
-//                    val result = JOptionPane.showConfirmDialog(3
-//                        null,
-//                        "Delete this connection?",
-//                        "Confirm",
-//                        JOptionPane.YES_NO_OPTION
-//                    )
-//
-//                    if (result == JOptionPane.YES_OPTION) {
-//                        val parent = SwingUtilities.getUnwrappedParent(this@GatewayNodeConnector)
-//                        parent.remove(this@GatewayNodeConnector)
-//
-//                        SwingUtilities.invokeLater {
-//                            parent.repaint()
-//                        }
-//                    }
+                    showEditor()
                 }
             }
         }
@@ -110,15 +99,11 @@ class GatewayNodeConnector(
         }
     }
 
-    private var highlightPath = false
-
-    private var connectionPath = Path2D.Double()
-
     private val boundsFromConnectionPoints: Rectangle
         get() {
             if (connectionInProgress) {
                 val p: Point = mouseLocation.clone() as Point
-                SwingUtilities.convertPointFromScreen(p, from.parent)
+                SwingUtilities.convertPointFromScreen(p, canvas)
 
                 val minX = minOf(from.x, p.x)
                 val minY = minOf(from.y, p.y)
@@ -138,10 +123,20 @@ class GatewayNodeConnector(
 
     init {
         bounds = boundsFromConnectionPoints
+
+        attachPopupMenu {
+            JPopupMenu().also { menu ->
+                menu.add(
+                    Action("Edit") { showEditor() }
+                )
+                menu.add(
+                    Action("Delete") { deleteConnection() }
+                )
+            }
+        }
     }
 
     private fun finalizeConnection() {
-        println("Finalizing Connection")
         this.mouseObserver.stop()
         from.model.environment.addOrRemove(
             createConnectionVariable(
@@ -159,6 +154,31 @@ class GatewayNodeConnector(
                 from.fireServiceModelChangedEvent()
             }
         }
+
+        to.addNodeDeleteListener {
+            deleteConnection()
+        }
+
+        from.addNodeDeleteListener {
+            canvas.remove(this)
+        }
+    }
+
+    private fun deleteConnection() {
+        val variablesToRemove = from.model.environment.keys.filter { key ->
+            key.startsWith("GATEWAY_NETWORK_$index")
+        }
+
+        for (v in variablesToRemove) {
+            from.model.environment.remove(v)
+        }
+
+        from.connections.remove(index)
+        canvas.remove(this)
+    }
+
+    private fun showEditor() = jFrame("Edit Connection", 485, 650) {
+        contentPane = settingsPanel
     }
 
     override fun paintComponent(g: Graphics?) {
@@ -367,15 +387,19 @@ class GatewayNodeConnector(
             }
         }
 
+        private val footer = JPanel(MigLayout("fill, ins 0")).apply {
+            add(closeButton, "west")
+            add(okButton, "east")
+            add(applyButton, "east")
+        }
+
         init {
             add(fromSection, "pushx, growx, sg")
             add(fromSection, "pushx, growx, sg")
             add(arrowLabel, "growx")
             add(toSection, "pushx, growx, sg, wrap")
             add(configSection, "push, grow, span, gaptop 10")
-            add(closeButton, "spanx, alignx trailing")
-            add(applyButton, "spanx, alignx trailing")
-            add(okButton, "spanx, alignx trailing")
+            add(footer, "growx, spanx")
         }
 
         private fun applySettings() {

@@ -23,6 +23,10 @@ sealed interface GatewayEnvironmentVariableDefinition {
             return replace(num, "X")
         }
 
+        fun String.getConnectionVariableIndex(): Int? {
+            return connectionVariableRegex.find(this)?.groups?.get("i")?.value?.toInt()
+        }
+
         fun EnvironmentVariable.isDefaultOrEmpty(): Boolean {
             return if (isConnectionVariable()) {
                 val name = first.getConnectionVariableFromInstance() ?: error("Invalid name: $first")

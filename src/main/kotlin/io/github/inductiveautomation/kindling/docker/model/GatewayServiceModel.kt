@@ -1,6 +1,7 @@
 package io.github.inductiveautomation.kindling.docker.model
 
 import io.github.inductiveautomation.kindling.docker.serializers.CommandLineArgumentListSerializer
+import io.github.inductiveautomation.kindling.docker.serializers.EnvironmentVariableSerializer
 import kotlin.random.Random
 import kotlin.random.nextInt
 import kotlinx.serialization.SerialName
@@ -10,15 +11,19 @@ import kotlinx.serialization.Transient
 @Serializable
 @SerialName("IgnitionGatewayService")
 class GatewayServiceModel(
-    override var image: String = DEFAULT_IMAGE,
+    override var image: String,
+    @SerialName("hostname")
     override var hostName: String? = null,
+    @SerialName("container_name")
     override var containerName: String = "Ignition-${Random.nextInt(1..10000)}",
     override val ports: MutableList<PortMapping> = mutableListOf(),
+    @Serializable(with = EnvironmentVariableSerializer::class)
     override val environment: MutableMap<String, String> = mutableMapOf(),
+    @SerialName("command")
     @Serializable(with = CommandLineArgumentListSerializer::class)
     override val commands: MutableList<CliArgument> = mutableListOf(),
     override val volumes: MutableList<DockerVolumeServiceBinding> = mutableListOf(),
-    override val networks: MutableList<DockerNetwork> = mutableListOf(),
+    override val networks: MutableList<String> = mutableListOf(),
 ) : DockerServiceModel {
 
     init {
@@ -46,7 +51,7 @@ class GatewayServiceModel(
     }
 
     companion object {
-        private const val DEFAULT_IMAGE = "inductiveautomation/ignition:latest"
+        const val DEFAULT_IMAGE = "inductiveautomation/ignition:latest"
         private val hostNameValidChars = ('A'..'Z') + ('0'..'9') + ('a'..'z') + '-'
     }
 }
