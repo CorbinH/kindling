@@ -1,5 +1,6 @@
 package io.github.inductiveautomation.kindling.docker.model
 
+import io.github.inductiveautomation.kindling.docker.serializers.DockerVolumeBindingSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -13,11 +14,8 @@ data class DockerVolume(
     val labels: MutableList<String> = mutableListOf(),
 )
 
-@Serializable
+@Serializable(with = DockerVolumeBindingSerializer::class)
 data class DockerVolumeServiceBinding(
-    var volume: DockerVolume,
+    var volumeName: String,
     var bindMount: String? = null,
 )
-
-val DockerVolumeServiceBinding.isBindMount: Boolean
-    get() = bindMount.isNullOrEmpty()

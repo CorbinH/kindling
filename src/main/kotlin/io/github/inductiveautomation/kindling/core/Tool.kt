@@ -96,6 +96,10 @@ interface ClipboardTool : Tool {
     fun open(data: String): ToolPanel
 }
 
+interface EditorTool : Tool {
+    fun open(): ToolPanel
+}
+
 /**
  * Should be thrown during initialization/construction of a tool to return a user-friendly error to the end user.
  */

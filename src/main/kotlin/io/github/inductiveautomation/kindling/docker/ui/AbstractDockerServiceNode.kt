@@ -47,6 +47,14 @@ abstract class AbstractDockerServiceNode<T : DockerServiceModel> : JPanel(MigLay
         listenerList.getAll<ServiceModelChangeListener>().forEach(ServiceModelChangeListener::onServiceModelChanged)
     }
 
+    fun addNodeDeleteListener(l: NodeDeleteListener<AbstractDockerServiceNode<T>>) = listenerList.add(l)
+
+    protected fun fireNodeDeletedEvent() {
+        listenerList.getAll<NodeDeleteListener<AbstractDockerServiceNode<T>>>().forEach {
+            it.onNodeDelete(this)
+        }
+    }
+
     init {
         isOpaque = true
         border = BorderFactory.createLineBorder(Color.GRAY, 1, true)
@@ -55,6 +63,10 @@ abstract class AbstractDockerServiceNode<T : DockerServiceModel> : JPanel(MigLay
         add(hostNameLabel, "growx, spanx")
         add(configureButton, "growx, spanx")
     }
+}
+
+fun interface NodeDeleteListener<T : AbstractDockerServiceNode<out DockerServiceModel>> : EventListener {
+    fun onNodeDelete(node: T)
 }
 
 abstract class NodeConfigPanel(constraints: String) : JPanel(MigLayout(constraints)) {

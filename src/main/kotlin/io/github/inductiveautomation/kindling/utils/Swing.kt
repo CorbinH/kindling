@@ -78,7 +78,7 @@ fun FlatSVGIcon.asActionIcon(selected: Boolean = false): FlatSVGIcon {
 
 fun JFileChooser.chooseFiles(parent: JComponent?): List<File>? {
     return if (showOpenDialog(parent) == JFileChooser.APPROVE_OPTION) {
-        selectedFiles.toList()
+        if (isMultiSelectionEnabled) selectedFiles.toList() else listOf(selectedFile)
     } else {
         null
     }

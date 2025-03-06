@@ -1,10 +1,10 @@
 package io.github.inductiveautomation.kindling.docker.ui
 
-import io.github.inductiveautomation.kindling.docker.DockerTool
 import io.github.inductiveautomation.kindling.utils.listCellRenderer
 import java.awt.datatransfer.DataFlavor
 import java.awt.datatransfer.Transferable
 import javax.swing.AbstractListModel
+import javax.swing.Icon
 import javax.swing.JComponent
 import javax.swing.JList
 import javax.swing.TransferHandler
@@ -17,30 +17,34 @@ class CanvasNodeList(
     init {
         dragEnabled = true
         cellRenderer = listCellRenderer<NodeInitializer> { _, value, _, _, _ ->
-            text = model[value]
-            icon = DockerTool.icon
+            text = value.description
+            icon = value.icon
         }
 
         transferHandler = NodeInitializerTransferHandler()
     }
 
     class CanvasNodeListModel(private val data: List<NodeInitializer>) : AbstractListModel<NodeInitializer>() {
-        operator fun get(i: NodeInitializer): String {
-            return when (data.indexOf(i)) {
-                0 -> "Ignition Gateway Node"
-                1 -> "Generic Service Node"
-                else -> error("Invalid list argument.")
-            }
-        }
-
         override fun getSize(): Int = data.size
 
         override fun getElementAt(index: Int): NodeInitializer = data[index]
     }
 }
 
-fun interface NodeInitializer {
+interface NodeInitializer {
+    val icon: Icon
+    val description: String
     fun initialize(): AbstractDockerServiceNode<*>
+
+    companion object {
+        operator fun invoke(icon: Icon, description: String, init: () -> AbstractDockerServiceNode<*>): NodeInitializer {
+            return object : NodeInitializer {
+                override val icon = icon
+                override val description = description
+                override fun initialize(): AbstractDockerServiceNode<*> = init()
+            }
+        }
+    }
 }
 
 class NodeInitializerTransferHandler : TransferHandler() {
@@ -57,10 +61,6 @@ class NodeInitializerTransferHandler : TransferHandler() {
         }
 
         return null
-    }
-
-    override fun exportDone(source: JComponent?, data: Transferable?, action: Int) {
-        super.exportDone(source, data, action)
     }
 
     class NodeInitializerTransferable(

@@ -9,14 +9,14 @@ import io.github.inductiveautomation.kindling.utils.getAll
 import io.github.inductiveautomation.kindling.utils.tag
 import java.util.EventListener
 import javax.swing.JButton
+import javax.swing.JOptionPane
 import javax.swing.JPanel
 import net.miginfocom.swing.MigLayout
 
 class GatewayServiceNode(
-    override val model: GatewayServiceModel = GatewayServiceModel(),
+    override val model: GatewayServiceModel,
     initialVolumeOptions: List<DockerVolume>,
     initialNetworkOptions: List<DockerNetwork>,
-    val parent: Canvas,
 ) : AbstractDockerServiceNode<GatewayServiceModel>() {
     override val configEditor by lazy {
         GatewayNodeConfigPanel(this, initialVolumeOptions, initialNetworkOptions)
@@ -25,23 +25,15 @@ class GatewayServiceNode(
     override var volumeOptions by configEditor::volumeOptions
     override var networkOptions by configEditor::networkOptions
 
-    private val deleteButton = JButton(FlatSVGIcon("icons/bx-x.svg").derive(12, 12))
+    private val deleteButton = JButton(FlatSVGIcon("icons/bx-x.svg").derive(12, 12)).apply {
+        toolTipText = "Delete"
+    }
 
     private val connectButton = JButton(FlatSVGIcon("icons/bx-link.svg").derive(12, 12)).apply {
         toolTipText = "Create GAN Connection"
 
         addActionListener {
             fireConnectionInit()
-//            if (this@GatewayServiceNode.model.hostName == null) {
-//                JOptionPane.showMessageDialog(
-//                    null,
-//                    "Please specify a hostname to create a connection",
-//                    "Missing Hostname",
-//                    JOptionPane.ERROR_MESSAGE
-//                )
-//            } else {
-//                fireConnectionInit()
-//            }
         }
     }
 
@@ -56,7 +48,16 @@ class GatewayServiceNode(
         add(header, "north")
 
         deleteButton.addActionListener {
-            println("delete!")
+            val confirm = JOptionPane.showConfirmDialog(
+                null,
+                "Really delete this node?",
+                "Confirm Deletion",
+                JOptionPane.YES_NO_OPTION,
+            )
+
+            if (confirm == JOptionPane.YES_OPTION) {
+                fireNodeDeletedEvent()
+            }
         }
 
         hostNameLabel.text = buildString {
@@ -84,15 +85,15 @@ class GatewayServiceNode(
         }
     }
 
-    fun addConnectionInitListener(l: GatewayConnectionInitListener) {
-        listenerList.add(l)
-    }
+    fun addConnectionInitListener(l: GatewayConnectionInitListener) = listenerList.add(l)
 
     private fun fireConnectionInit() {
         listenerList.getAll<GatewayConnectionInitListener>().forEach {
             it.onConnectionInitRequest()
         }
     }
+
+
 }
 
 fun interface GatewayConnectionInitListener : EventListener {
