@@ -266,7 +266,9 @@ class GatewayEnvironmentVariableTableModel(
             table as ReifiedJXTable<GatewayEnvironmentVariableTableModel>
 
             val currentKeys = table.model.staticVariableData.map { it.first }
-            val unusedOptions = table.model.allVariables.filter { it !in currentKeys || it == value }
+            val unusedOptions = table.model.allVariables.filter { it !in currentKeys || it == value }.sortedBy {
+                it.name
+            }
 
             comboBox.model = DefaultComboBoxModel(unusedOptions.toTypedArray())
             comboBox.selectedItem = value ?: unusedOptions.first()

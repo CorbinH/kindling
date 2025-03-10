@@ -2,8 +2,8 @@ package io.github.inductiveautomation.kindling.docker.model
 
 import io.github.inductiveautomation.kindling.docker.serializers.CommandLineArgumentListSerializer
 import io.github.inductiveautomation.kindling.docker.serializers.EnvironmentVariableSerializer
-import kotlin.random.Random
-import kotlin.random.nextInt
+import io.github.inductiveautomation.kindling.docker.serializers.PointAsStringSerializer
+import java.awt.Point
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
@@ -15,7 +15,7 @@ class GatewayServiceModel(
     @SerialName("hostname")
     override var hostName: String? = null,
     @SerialName("container_name")
-    override var containerName: String = "Ignition-${Random.nextInt(1..10000)}",
+    override var containerName: String,
     override val ports: MutableList<PortMapping> = mutableListOf(),
     @Serializable(with = EnvironmentVariableSerializer::class)
     override val environment: MutableMap<String, String> = mutableMapOf(),
@@ -25,6 +25,9 @@ class GatewayServiceModel(
     override val volumes: MutableList<DockerVolumeServiceBinding> = mutableListOf(),
     override val networks: MutableList<String> = mutableListOf(),
 ) : DockerServiceModel {
+    @SerialName("x-canvas.location")
+    @Serializable(with = PointAsStringSerializer::class)
+    override var canvasLocation: Point? = null
 
     init {
         if (hostName == null) {

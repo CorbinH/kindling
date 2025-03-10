@@ -2,8 +2,8 @@ package io.github.inductiveautomation.kindling.docker.model
 
 import io.github.inductiveautomation.kindling.docker.serializers.CommandLineArgumentListSerializer
 import io.github.inductiveautomation.kindling.docker.serializers.EnvironmentVariableSerializer
-import kotlin.random.Random
-import kotlin.random.nextInt
+import io.github.inductiveautomation.kindling.docker.serializers.PointAsStringSerializer
+import java.awt.Point
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -29,6 +29,9 @@ sealed interface DockerServiceModel {
     val volumes: MutableList<DockerVolumeServiceBinding>
 
     val networks: MutableList<String>
+
+    @SerialName("x-canvas.location")
+    var canvasLocation: Point?
 }
 
 fun interface ServiceModelChangeListener : java.util.EventListener {
@@ -42,7 +45,7 @@ class DefaultDockerServiceModel(
     @SerialName("hostname")
     override var hostName: String? = null,
     @SerialName("container_name")
-    override var containerName: String = "Container-${Random.nextInt(0..100000)}",
+    override var containerName: String,
     override val ports: MutableList<PortMapping> = mutableListOf(),
     @Serializable(with = EnvironmentVariableSerializer::class)
     override val environment: MutableMap<String, String> = mutableMapOf(),
@@ -52,6 +55,10 @@ class DefaultDockerServiceModel(
     override val volumes: MutableList<DockerVolumeServiceBinding> = mutableListOf(),
     override val networks: MutableList<String> = mutableListOf(),
 ) : DockerServiceModel {
+    @SerialName("x-canvas.location")
+    @Serializable(with = PointAsStringSerializer::class)
+    override var canvasLocation: Point? = null
+
     companion object {
         const val DEFAULT_GENERIC_IMAGE = "kcollins/mssql:latest"
     }

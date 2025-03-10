@@ -1,8 +1,8 @@
 package io.github.inductiveautomation.kindling.docker.ui
 
+import io.github.inductiveautomation.kindling.docker.model.Docker.ignitionImageVersions
 import io.github.inductiveautomation.kindling.docker.model.DockerNetwork
 import io.github.inductiveautomation.kindling.docker.model.DockerVolume
-import io.github.inductiveautomation.kindling.docker.model.ignitionImageVersions
 import io.github.inductiveautomation.kindling.docker.ui.GenericDockerServiceNode.Companion.SERVICE_NAME_REGEX
 import io.github.inductiveautomation.kindling.docker.ui.editors.GatewayCliArgEditor
 import io.github.inductiveautomation.kindling.docker.ui.editors.GatewayEnvVariablesEditor

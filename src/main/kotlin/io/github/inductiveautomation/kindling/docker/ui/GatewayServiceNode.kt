@@ -6,7 +6,6 @@ import io.github.inductiveautomation.kindling.docker.model.DockerVolume
 import io.github.inductiveautomation.kindling.docker.model.GatewayServiceModel
 import io.github.inductiveautomation.kindling.utils.add
 import io.github.inductiveautomation.kindling.utils.getAll
-import io.github.inductiveautomation.kindling.utils.tag
 import java.util.EventListener
 import javax.swing.JButton
 import javax.swing.JOptionPane
@@ -60,29 +59,8 @@ class GatewayServiceNode(
             }
         }
 
-        hostNameLabel.text = buildString {
-            tag("html") {
-                tag("b") {
-                    append("Hostname: ")
-                }
-                if (model.hostName.isNullOrEmpty()) {
-                    tag("i") {
-                        append("(default)")
-                    }
-                } else {
-                    append(model.hostName)
-                }
-            }
-        }
-
-        serviceNameLabel.text = buildString {
-            tag("html") {
-                tag("b") {
-                    append("Name: ")
-                }
-                append(model.containerName)
-            }
-        }
+        updateHostNameText()
+        updateContainerNameText()
     }
 
     fun addConnectionInitListener(l: GatewayConnectionInitListener) = listenerList.add(l)
@@ -92,8 +70,6 @@ class GatewayServiceNode(
             it.onConnectionInitRequest()
         }
     }
-
-
 }
 
 fun interface GatewayConnectionInitListener : EventListener {

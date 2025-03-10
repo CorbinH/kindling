@@ -4,7 +4,6 @@ import com.formdev.flatlaf.extras.FlatSVGIcon
 import io.github.inductiveautomation.kindling.docker.model.DefaultDockerServiceModel
 import io.github.inductiveautomation.kindling.docker.model.DockerNetwork
 import io.github.inductiveautomation.kindling.docker.model.DockerVolume
-import io.github.inductiveautomation.kindling.utils.tag
 import javax.swing.JButton
 import javax.swing.JPanel
 import net.miginfocom.swing.MigLayout
@@ -28,29 +27,8 @@ class GenericDockerServiceNode(
     init {
         add(header, "growx, spanx", 0)
 
-        hostNameLabel.text = buildString {
-            tag("html") {
-                tag("b") {
-                    append("Hostname: ")
-                }
-                if (model.hostName.isNullOrEmpty()) {
-                    tag("i") {
-                        append("(default)")
-                    }
-                } else {
-                    append(model.hostName)
-                }
-            }
-        }
-
-        serviceNameLabel.text = buildString {
-            tag("html") {
-                tag("b") {
-                    append("Name: ")
-                }
-                append(model.containerName)
-            }
-        }
+        updateHostNameText()
+        updateContainerNameText()
 
         deleteButton.addActionListener {
             fireNodeDeletedEvent()

@@ -14,6 +14,7 @@ import org.jdesktop.swingx.prompt.BuddySupport
 import java.awt.Color
 import java.awt.Component
 import java.awt.Container
+import java.awt.Point
 import java.awt.RenderingHints
 import java.awt.Toolkit
 import java.awt.event.MouseAdapter
@@ -190,6 +191,9 @@ fun Color.toHexString(alpha: Boolean = false): String {
         }
     }"
 }
+
+operator fun Point.component1() = x
+operator fun Point.component2() = y
 
 inline fun <reified T : JComponent> InputVerifier(
     crossinline verify: (T) -> Boolean

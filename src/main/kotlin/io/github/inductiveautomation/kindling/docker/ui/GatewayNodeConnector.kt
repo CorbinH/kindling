@@ -35,12 +35,11 @@ import javax.swing.Timer
 import net.miginfocom.swing.MigLayout
 
 /**
- * This class is responsible for drawing connection on the screen and editing connection properties.
+ * Responsible for drawing connection on the screen and editing connection properties.
  */
-@Suppress("unused")
 class GatewayNodeConnector(
     fromGateway: GatewayServiceNode,
-    val index: Int = 1,
+    val index: Int,
     private val canvas: Canvas,
 ) : JComponent() {
     var from : GatewayServiceNode = fromGateway
@@ -52,7 +51,7 @@ class GatewayNodeConnector(
     private var mouseLocation: Point = MouseInfo.getPointerInfo().location
 
     private val mouseObserver = Timer(10) {
-        if (::to.isInitialized) {
+        if (!connectionInProgress) {
             SwingUtilities.invokeLater {
                 this@GatewayNodeConnector.finalizeConnection()
             }
@@ -69,35 +68,6 @@ class GatewayNodeConnector(
     private var connectionPath = Path2D.Double()
 
     private val settingsPanel get() = ConnectionSettingsPanel()
-
-    init {
-        layout = null
-
-        addMouseMotionListener {
-            mouseMoved {
-                val contains = connectionPath.contains(it.point)
-                if (contains != highlightPath) {
-                    highlightPath = contains
-                    repaint()
-                }
-            }
-        }
-
-        addMouseListener {
-            mouseExited {
-                highlightPath = false
-            }
-            mouseClicked {
-                if (highlightPath && it.clickCount == 2) {
-                    showEditor()
-                }
-            }
-        }
-
-        SwingUtilities.invokeLater {
-            mouseObserver.start()
-        }
-    }
 
     private val boundsFromConnectionPoints: Rectangle
         get() {
@@ -122,7 +92,30 @@ class GatewayNodeConnector(
         }
 
     init {
+        layout = null
         bounds = boundsFromConnectionPoints
+        toolTipText = "Right-click to edit/delete"
+
+        addMouseMotionListener {
+            mouseMoved {
+                val contains = connectionPath.contains(it.point)
+                if (contains != highlightPath) {
+                    highlightPath = contains
+                    repaint()
+                }
+            }
+        }
+
+        addMouseListener {
+            mouseExited {
+                highlightPath = false
+            }
+            mouseClicked {
+                if (highlightPath && it.clickCount == 2) {
+                    showEditor()
+                }
+            }
+        }
 
         attachPopupMenu {
             JPopupMenu().also { menu ->
@@ -134,33 +127,43 @@ class GatewayNodeConnector(
                 )
             }
         }
+
+        SwingUtilities.invokeLater {
+            mouseObserver.start()
+        }
     }
 
     private fun finalizeConnection() {
-        this.mouseObserver.stop()
-        from.model.environment.addOrRemove(
-            createConnectionVariable(
-                ConnectionDefinition.GATEWAY_NETWORK_X_HOST,
-                index,
-                to.model.hostName,
+        mouseObserver.stop()
+
+        from.apply {
+            model.environment.addOrRemove(
+                createConnectionVariable(
+                    ConnectionDefinition.GATEWAY_NETWORK_X_HOST,
+                    index,
+                    to.model.hostName,
+                )
             )
-        )
-        from.fireServiceModelChangedEvent()
 
-        to.addServiceModelChangeListener {
-            val hostNameEnvVar = ConnectionDefinition.GATEWAY_NETWORK_X_HOST.name.replace("X", "$index")
-            if (to.model.hostName != null && to.model.hostName != from.model.environment[hostNameEnvVar]) {
-                from.model.environment[hostNameEnvVar] = to.model.hostName!!
-                from.fireServiceModelChangedEvent()
+            addNodeDeleteListener {
+                canvas.remove(this)
             }
+
+            fireServiceModelChangedEvent()
         }
 
-        to.addNodeDeleteListener {
-            deleteConnection()
-        }
+        to.apply {
+            addServiceModelChangeListener { // Listen for updates to hostname
+                val hostNameEnvVar = ConnectionDefinition.GATEWAY_NETWORK_X_HOST.name.replace("X", "$index")
+                if (to.model.hostName != null && to.model.hostName != from.model.environment[hostNameEnvVar]) {
+                    from.model.environment[hostNameEnvVar] = to.model.hostName!!
+                    from.fireServiceModelChangedEvent()
+                }
+            }
 
-        from.addNodeDeleteListener {
-            canvas.remove(this)
+            addNodeDeleteListener {
+                deleteConnection()
+            }
         }
     }
 

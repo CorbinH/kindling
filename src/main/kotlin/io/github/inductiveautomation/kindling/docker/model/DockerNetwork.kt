@@ -4,8 +4,8 @@ import io.github.inductiveautomation.kindling.docker.serializers.DockerNetworkSe
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
-@Serializable( with = DockerNetworkSerializer::class)
-class DockerNetwork(
+@Serializable(with = DockerNetworkSerializer::class)
+data class DockerNetwork(
     var name: String,
     var driver: String? = null,
     @SerialName("driver_opts")

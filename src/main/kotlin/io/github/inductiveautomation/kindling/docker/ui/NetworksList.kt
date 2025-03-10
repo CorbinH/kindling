@@ -1,6 +1,7 @@
 package io.github.inductiveautomation.kindling.docker.ui
 
 import io.github.inductiveautomation.kindling.docker.model.DockerNetwork
+import io.github.inductiveautomation.kindling.utils.FlatScrollPane
 import io.github.inductiveautomation.kindling.utils.listCellRenderer
 import javax.swing.DefaultListModel
 import javax.swing.JButton
@@ -33,11 +34,18 @@ class NetworksList(networks: List<DockerNetwork>) : JPanel(MigLayout("fill, ins 
         add(networkNameEntry, "pushx, growx")
         add(removeButton)
         add(addButton, "wrap")
-        add(networksList, "push, grow, span")
+        add(FlatScrollPane(networksList), "push, grow, span")
 
         addButton.addActionListener {
-            if (!networkNameEntry.text.isNullOrEmpty()) {
-                (networksList.model as DefaultListModel<DockerNetwork>).addElement(DockerNetwork(networkNameEntry.text))
+            val name = networkNameEntry.text?.trim() ?: ""
+            if (name.isNotBlank()) {
+                val model = networksList.model as DefaultListModel<DockerNetwork>
+
+                for (i in 0..<model.size) {
+                    if (model[i].name == name) return@addActionListener
+                }
+
+                model.addElement(DockerNetwork(name))
             }
         }
 
