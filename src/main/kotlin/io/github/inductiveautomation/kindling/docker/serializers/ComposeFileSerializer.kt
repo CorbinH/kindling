@@ -11,22 +11,22 @@ import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 
 object ComposeFileSerializer : KSerializer<DockerComposeFile> {
-    private val gSerializer = DockerComposeFile.generatedSerializer()
-    override val descriptor: SerialDescriptor get() = gSerializer.descriptor
+    private val delegate = DockerComposeFileDelegate.serializer()
+    override val descriptor: SerialDescriptor get() = delegate.descriptor
 
     override fun deserialize(decoder: Decoder): DockerComposeFile {
-        val delegate = decoder.decodeSerializableValue(DockerComposeFileDelegate.serializer())
+        val fileDelegate = decoder.decodeSerializableValue(DockerComposeFileDelegate.serializer())
 
         // Container names will be randomly generated, but we need to populate them from the keys of the map
-        for ((containerName, node) in delegate.services) {
+        for ((containerName, node) in fileDelegate.services) {
             node.containerName = containerName
         }
 
         // Create instances of Networks/Volumes. This will change when more configuration is supported
-        val networks = delegate.networks.keys.map { DockerNetwork(it) }
-        val volumes = delegate.volumes.keys.map { DockerVolume(it) }
+        val networks = fileDelegate.networks.keys.map { DockerNetwork(it) }
+        val volumes = fileDelegate.volumes.keys.map { DockerVolume(it) }
 
-        return DockerComposeFile(delegate.services.values.toList(), volumes, networks)
+        return DockerComposeFile(fileDelegate.services.values.toList(), volumes, networks)
     }
 
     override fun serialize(encoder: Encoder, value: DockerComposeFile) {
@@ -41,7 +41,7 @@ object ComposeFileSerializer : KSerializer<DockerComposeFile> {
 }
 
 @Serializable
-data class DockerComposeFileDelegate(
+internal class DockerComposeFileDelegate(
     val services: Map<String, DockerServiceModel> = emptyMap(),
     val volumes: Map<String, Nothing?> = emptyMap(),
     val networks: Map<String, Nothing?> = emptyMap(),

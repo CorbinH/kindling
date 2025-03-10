@@ -4,17 +4,23 @@ import io.github.inductiveautomation.kindling.docker.model.DockerNetwork
 import io.github.inductiveautomation.kindling.docker.model.DockerServiceModel
 import io.github.inductiveautomation.kindling.docker.model.DockerVolume
 import io.github.inductiveautomation.kindling.docker.model.ServiceModelChangeListener
+import io.github.inductiveautomation.kindling.utils.EDT_SCOPE
 import io.github.inductiveautomation.kindling.utils.add
+import io.github.inductiveautomation.kindling.utils.debounce
 import io.github.inductiveautomation.kindling.utils.getAll
 import io.github.inductiveautomation.kindling.utils.jFrame
+import io.github.inductiveautomation.kindling.utils.tag
 import java.awt.Color
 import java.awt.Font
+import java.awt.Point
+import java.awt.event.ComponentEvent
 import java.util.EventListener
 import javax.swing.BorderFactory
 import javax.swing.JButton
 import javax.swing.JComponent
 import javax.swing.JLabel
 import javax.swing.JPanel
+import kotlin.time.Duration.Companion.milliseconds
 import net.miginfocom.swing.MigLayout
 
 @Suppress("LeakingThis")
@@ -29,12 +35,62 @@ abstract class AbstractDockerServiceNode<T : DockerServiceModel> : JPanel(MigLay
 
     abstract val header: JComponent
 
-    protected val serviceNameLabel = JLabel()
-    protected val hostNameLabel = JLabel()
+    private val serviceNameLabel = JLabel()
+    private val hostNameLabel = JLabel()
     private val configureButton = JButton("Configure").apply {
         addActionListener {
             jFrame("Edit Docker Config", 1000, 600) {
                 contentPane = configEditor
+            }
+        }
+    }
+
+    init {
+        isOpaque = true
+        border = BorderFactory.createLineBorder(Color.GRAY, 1, true)
+
+        add(serviceNameLabel, "growx, spanx")
+        add(hostNameLabel, "growx, spanx")
+        add(configureButton, "growx, spanx")
+
+        addComponentListener(
+            object : java.awt.event.ComponentAdapter() {
+                override fun componentMoved(e: ComponentEvent?) {
+                    updateLocationInfo()
+                }
+            }
+        )
+
+        addServiceModelChangeListener {
+            if (model.hostName != hostNameLabel.text) updateHostNameText()
+            if (model.containerName != serviceNameLabel.text) updateContainerNameText()
+        }
+    }
+
+    protected fun updateHostNameText() {
+        hostNameLabel.text = buildString {
+            tag("html") {
+                tag("b") {
+                    append("Hostname: ")
+                }
+                if (model.hostName.isNullOrEmpty()) {
+                    tag("i") {
+                        append("(default)")
+                    }
+                } else {
+                    append(model.hostName)
+                }
+            }
+        }
+    }
+
+    protected fun updateContainerNameText() {
+        serviceNameLabel.text = buildString {
+            tag("html") {
+                tag("b") {
+                    append("Name: ")
+                }
+                append(model.containerName)
             }
         }
     }
@@ -47,26 +103,22 @@ abstract class AbstractDockerServiceNode<T : DockerServiceModel> : JPanel(MigLay
         listenerList.getAll<ServiceModelChangeListener>().forEach(ServiceModelChangeListener::onServiceModelChanged)
     }
 
-    fun addNodeDeleteListener(l: NodeDeleteListener<AbstractDockerServiceNode<T>>) = listenerList.add(l)
+    fun addNodeDeleteListener(l: NodeDeleteListener) = listenerList.add(l)
 
     protected fun fireNodeDeletedEvent() {
-        listenerList.getAll<NodeDeleteListener<AbstractDockerServiceNode<T>>>().forEach {
-            it.onNodeDelete(this)
+        listenerList.getAll<NodeDeleteListener>().forEach {
+            it.onNodeDelete()
         }
     }
 
-    init {
-        isOpaque = true
-        border = BorderFactory.createLineBorder(Color.GRAY, 1, true)
-
-        add(serviceNameLabel, "growx, spanx")
-        add(hostNameLabel, "growx, spanx")
-        add(configureButton, "growx, spanx")
+    private val updateLocationInfo: () -> Unit = debounce(300.milliseconds, EDT_SCOPE) {
+        model.canvasLocation = Point(x, y)
+        fireServiceModelChangedEvent()
     }
 }
 
-fun interface NodeDeleteListener<T : AbstractDockerServiceNode<out DockerServiceModel>> : EventListener {
-    fun onNodeDelete(node: T)
+fun interface NodeDeleteListener : EventListener {
+    fun onNodeDelete()
 }
 
 abstract class NodeConfigPanel(constraints: String) : JPanel(MigLayout(constraints)) {

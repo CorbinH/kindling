@@ -1,6 +1,7 @@
 package io.github.inductiveautomation.kindling.docker.ui
 
 import io.github.inductiveautomation.kindling.docker.model.DockerVolume
+import io.github.inductiveautomation.kindling.utils.FlatScrollPane
 import io.github.inductiveautomation.kindling.utils.listCellRenderer
 import javax.swing.DefaultListModel
 import javax.swing.JButton
@@ -33,11 +34,18 @@ class VolumesList(volumes: List<DockerVolume>) : JPanel(MigLayout("fill, ins 0")
         add(volumeNameEntry, "pushx, growx")
         add(removeButton)
         add(addButton, "wrap")
-        add(volumesList, "push, grow, span")
+        add(FlatScrollPane(volumesList), "push, grow, span")
 
         addButton.addActionListener {
-            if (!volumeNameEntry.text.isNullOrEmpty()) {
-                (volumesList.model as DefaultListModel<DockerVolume>).addElement(DockerVolume(volumeNameEntry.text))
+            val name = volumeNameEntry.text?.trim() ?: ""
+            if (name.isNotBlank()) {
+                val model = volumesList.model as DefaultListModel<DockerVolume>
+
+                for (i in 0..<model.size) {
+                    if (model[i].name == name) return@addActionListener
+                }
+
+                model.addElement(DockerVolume(name))
             }
         }
 

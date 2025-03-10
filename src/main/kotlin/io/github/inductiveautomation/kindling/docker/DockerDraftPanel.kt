@@ -20,14 +20,13 @@ import io.github.inductiveautomation.kindling.docker.model.DockerNetwork
 import io.github.inductiveautomation.kindling.docker.model.DockerServiceModel
 import io.github.inductiveautomation.kindling.docker.model.DockerVolume
 import io.github.inductiveautomation.kindling.docker.model.GatewayEnvironmentVariableDefinition.Companion.getConnectionVariableIndex
-import io.github.inductiveautomation.kindling.docker.model.GatewayEnvironmentVariableDefinition.Companion.isConnectionVariable
 import io.github.inductiveautomation.kindling.docker.model.GatewayServiceModel
 import io.github.inductiveautomation.kindling.docker.model.GatewayServiceModel.Companion.DEFAULT_IMAGE
-import io.github.inductiveautomation.kindling.docker.serializers.ComposeFileSerializer
 import io.github.inductiveautomation.kindling.docker.ui.AbstractDockerServiceNode
 import io.github.inductiveautomation.kindling.docker.ui.Canvas
 import io.github.inductiveautomation.kindling.docker.ui.CanvasNodeList
 import io.github.inductiveautomation.kindling.docker.ui.GatewayNodeConnector
+import io.github.inductiveautomation.kindling.docker.ui.GatewayNodeConnector.Companion.midPoint
 import io.github.inductiveautomation.kindling.docker.ui.GatewayServiceNode
 import io.github.inductiveautomation.kindling.docker.ui.GenericDockerServiceNode
 import io.github.inductiveautomation.kindling.docker.ui.NetworksList
@@ -38,10 +37,13 @@ import io.github.inductiveautomation.kindling.utils.FlatScrollPane
 import io.github.inductiveautomation.kindling.utils.HorizontalSplitPane
 import io.github.inductiveautomation.kindling.utils.TrivialListDataListener
 import io.github.inductiveautomation.kindling.utils.chooseFiles
+import io.github.inductiveautomation.kindling.utils.component1
+import io.github.inductiveautomation.kindling.utils.component2
 import io.github.inductiveautomation.kindling.utils.traverseChildren
 import java.awt.EventQueue
 import java.awt.Font
 import java.awt.KeyboardFocusManager
+import java.awt.Point
 import java.awt.event.ContainerEvent
 import java.awt.event.ContainerListener
 import java.awt.event.KeyEvent
@@ -52,12 +54,14 @@ import javax.swing.JFileChooser
 import javax.swing.JLabel
 import javax.swing.JOptionPane
 import javax.swing.JPanel
+import javax.swing.SwingUtilities
 import javax.swing.filechooser.FileNameExtensionFilter
+import kotlin.collections.component1
+import kotlin.collections.component2
+import kotlin.collections.set
 import kotlin.io.path.inputStream
 import kotlin.io.path.outputStream
-import kotlinx.serialization.ExperimentalSerializationApi
-import kotlinx.serialization.KeepGeneratedSerializer
-import kotlinx.serialization.Serializable
+import kotlin.random.Random
 import kotlinx.serialization.encodeToString
 import net.miginfocom.swing.MigLayout
 import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
@@ -79,15 +83,15 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
                 "Ignition Gateway Node",
             ) {
                 GatewayServiceNode(
-                    GatewayServiceModel(image = DEFAULT_IMAGE),
+                    GatewayServiceModel(
+                        image = DEFAULT_IMAGE,
+                        containerName = "Ignition-${nodeIdManager.generateID()}",
+                    ),
                     initialNetworkOptions = networks,
                     initialVolumeOptions = volumes,
                 ).apply {
                     bindYamlPreview()
                     connectionObserver.observeConnection(this)
-                    addNodeDeleteListener {
-                        canvas.remove(it)
-                    }
                 }
             },
             NodeInitializer(
@@ -95,13 +99,14 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
                 "Generic Docker Node",
             ) {
                 GenericDockerServiceNode(
-                    DefaultDockerServiceModel(image = DEFAULT_GENERIC_IMAGE),
+                    DefaultDockerServiceModel(
+                        image = DEFAULT_GENERIC_IMAGE,
+                        containerName = "Container-${nodeIdManager.generateID()}",
+                    ),
                     initialVolumeOptions = volumes,
                     initialNetworkOptions = networks,
                 ).apply {
-                    addNodeDeleteListener {
-                        canvas.remove(it)
-                    }
+                    bindYamlPreview()
                 }
             }
         )
@@ -175,11 +180,23 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
         add(optionsLabel, "gapbottom 3")
         add(optionList, "gapbottom 10, wmin 300, growx")
         add(volumesLabel, "gapbottom 3")
-        add(volumesList, "grow, gapbottom 3")
+        add(volumesList, "grow, gapbottom 3, sg, hmin 100")
         add(networksLabel, "gapbottom 3")
-        add(networksList, "grow, gapbottom 10")
+        add(networksList, "grow, gapbottom 10, sg, hmin 100")
         add(previewLabel, "gapbottom 3")
         add(FlatScrollPane(yamlPreview), "pushy, grow, wmin 300")
+    }
+
+    private val nodeIdManager = object {
+        val seenIDs = mutableListOf<Int>()
+        fun generateID(): Int {
+            var newID = Random.nextInt(10000)
+            while (newID in seenIDs) {
+                newID = Random.nextInt(10000)
+            }
+            seenIDs.add(newID)
+            return newID
+        }
     }
 
     private val services: List<AbstractDockerServiceNode<*>>
@@ -247,20 +264,22 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
         }
 
         if (existingFile != null) {
-            try {
-                import(existingFile)
-            } catch(e: Exception) {
-                JOptionPane.showMessageDialog(
-                    null,
-                    "Couldn't import docker file:\n${e.message}",
-                    "Import Error",
-                    JOptionPane.ERROR_MESSAGE,
-                )
+            SwingUtilities.invokeLater {
+                try {
+                    import(existingFile)
+                } catch(e: Exception) {
+                    JOptionPane.showMessageDialog(
+                        null,
+                        "Couldn't import docker file:\n${e.message}",
+                        "Import Error",
+                        JOptionPane.ERROR_MESSAGE,
+                    )
+                }
             }
         }
     }
 
-    private fun GatewayServiceNode.bindYamlPreview() {
+    private fun AbstractDockerServiceNode<*>.bindYamlPreview() {
         addServiceModelChangeListener {
             updatePreview()
         }
@@ -280,55 +299,83 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
     }
 
     private fun import(importFile: Path) {
-        val composeFile = importFile.inputStream().use {
-            YAML.decodeFromStream<DockerComposeFile>(it)
-        }
-
-        this.networks = composeFile.networks
-        this.volumes = composeFile.volumes
-
-        val nodes = composeFile.services.map { model ->
-            when (model) {
-                is GatewayServiceModel -> {
-                    GatewayServiceNode(model, volumes, networks).apply {
-                        bindYamlPreview()
-                        connectionObserver.observeConnection(this)
-                        addNodeDeleteListener {
-                            canvas.remove(it)
+        fun createNodes(services: List<DockerServiceModel>): List<AbstractDockerServiceNode<*>> {
+            return services.map { model ->
+                when (model) {
+                    is GatewayServiceModel -> {
+                        GatewayServiceNode(model, volumes, networks).apply {
+                            bindYamlPreview()
+                            connectionObserver.observeConnection(this)
+                        }
+                    }
+                    is DefaultDockerServiceModel -> {
+                        GenericDockerServiceNode(model, volumes, networks).apply {
+                            bindYamlPreview()
                         }
                     }
                 }
-                is DefaultDockerServiceModel -> {
-                    GenericDockerServiceNode(model, volumes, networks).apply {
-                        addNodeDeleteListener { canvas.remove(it) }
+            }
+        }
+
+        fun resolveConnections(nodes: List<AbstractDockerServiceNode<*>>): List<GatewayNodeConnector> {
+            val connections = mutableListOf<GatewayNodeConnector>()
+
+            for (node in nodes) {
+                if (node is GatewayServiceNode) {
+                    val outboundHosts = node.model.environment.filter { (k, _) ->
+                        k.startsWith("GATEWAY_NETWORK_") && k.endsWith("_HOST")
+                    }.map {
+                        it.key.getConnectionVariableIndex()!! to it.value
                     }
+
+                    for (host in outboundHosts) {
+                        val outboundNode = nodes.find { it.model.hostName == host.second } as GatewayServiceNode
+                        val connection = GatewayNodeConnector(node, host.first, canvas).apply {
+                            to = outboundNode
+                        }
+                        node.connections[host.first] = connection
+                        connections.add(connection)
+                    }
+                }
+            }
+
+            return connections
+        }
+
+        fun layoutComponents(nodes: List<AbstractDockerServiceNode<*>>, connections: List<GatewayNodeConnector>) {
+            var collateOffset = 0
+            for (node in nodes) {
+                val p = node.model.canvasLocation ?: run {
+                    val (xC, yC) = canvas.midPoint()
+                    val p = Point(xC + collateOffset, yC + collateOffset)
+                    collateOffset += 10
+                    p
+                }
+                canvas.add(node, p)
+                canvas.setComponentZOrder(node, 0)
+            }
+
+            for (c in connections) { canvas.add(c) }
+        }
+
+        fun parseExistingIDs(nodes: List<AbstractDockerServiceNode<*>>) {
+            for (node in nodes) {
+                val possibleID = node.model.containerName.split("-").getOrNull(1)?.toIntOrNull()
+                if (possibleID != null) {
+                    nodeIdManager.seenIDs.add(possibleID)
                 }
             }
         }
 
-        val connections = mutableListOf<GatewayNodeConnector>()
+        val composeFile = importFile.inputStream().use<_, DockerComposeFile>(YAML::decodeFromStream)
 
-        for (node in nodes) {
-            if (node is GatewayServiceNode && node.model.environment.any { it.toPair().isConnectionVariable() }) {
-                val outboundHosts = node.model.environment.filter { (k, _) ->
-                    k.startsWith("GATEWAY_NETWORK_") && k.endsWith("_HOST")
-                }.map {
-                    it.key.getConnectionVariableIndex()!! to it.value
-                }
+        networks = composeFile.networks
+        volumes = composeFile.volumes
 
-                for (host in outboundHosts) {
-                    val outboundNode = nodes.find { it.model.hostName == host.second } as GatewayServiceNode
-                    val connection = GatewayNodeConnector(node, host.first, canvas).apply {
-                        to = outboundNode
-                    }
-                    node.connections[host.first] = connection
-                    connections.add(connection)
-                }
-            }
-        }
-
-        for (node in nodes) { canvas.add(node) }
-        for (c in connections) { canvas.add(c) }
+        val nodes = createNodes(composeFile.services)
+        val connections = resolveConnections(nodes)
+        layoutComponents(nodes, connections)
+        parseExistingIDs(nodes)
     }
 
     private fun clear() {
@@ -344,33 +391,6 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
         }
     }
 
-    private fun addTestNodes() {
-        networks = listOf(DockerNetwork("network1"), DockerNetwork("network2"))
-        volumes = listOf(DockerVolume("db-data"), DockerVolume("backup-data"))
-
-        val testNode1 = GatewayServiceNode(model = GatewayServiceModel(image = DEFAULT_IMAGE), initialVolumeOptions = volumes, initialNetworkOptions = networks).apply {
-            bindYamlPreview()
-            connectionObserver.observeConnection(this)
-        }
-        val testNode3 = GatewayServiceNode(model = GatewayServiceModel(image = DEFAULT_IMAGE), initialVolumeOptions = volumes, initialNetworkOptions = networks).apply {
-            bindYamlPreview()
-            connectionObserver.observeConnection(this)
-        }
-        val testNode2 = GenericDockerServiceNode(
-            DefaultDockerServiceModel(DEFAULT_GENERIC_IMAGE),
-            initialVolumeOptions = volumes,
-            initialNetworkOptions = networks,
-        ).apply {
-            addServiceModelChangeListener {
-                updatePreview()
-            }
-        }
-
-        canvas.add(testNode1)
-        canvas.add(testNode2)
-        canvas.add(testNode3)
-    }
-
     companion object {
         private val YAML = Yaml(
             configuration = YamlConfiguration(
@@ -379,6 +399,7 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
                 multiLineStringStyle = MultiLineStringStyle.Folded,
                 sequenceStyle = SequenceStyle.Block,
                 encodeDefaults = false,
+                extensionDefinitionPrefix = "x-",
             )
         )
 
@@ -456,19 +477,6 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
                 handleConnectionInit(node)
             }
         }
-    }
-}
-
-@OptIn(ExperimentalSerializationApi::class)
-@KeepGeneratedSerializer
-@Serializable(with = ComposeFileSerializer::class)
-data class DockerComposeFile(
-    val services: List<DockerServiceModel>,
-    val volumes: List<DockerVolume>,
-    val networks: List<DockerNetwork>,
-) {
-    fun isEmpty(): Boolean {
-        return services.isEmpty() && networks.isEmpty() && volumes.isEmpty()
     }
 }
 
