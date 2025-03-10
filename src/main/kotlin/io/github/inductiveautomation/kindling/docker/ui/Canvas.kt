@@ -87,6 +87,8 @@ class Canvas(
     private fun tileArrange() {
         val nodes = traverseChildren(false).filterIsInstance<AbstractDockerServiceNode<*>>().toList()
 
+        if (nodes.isEmpty()) return
+
         val cols = ceil(sqrt(nodes.size.toDouble())).toInt()
         val rows = Math.ceilDiv(nodes.size, cols)
         val lastRow = nodes.size - (rows - 1) * cols
