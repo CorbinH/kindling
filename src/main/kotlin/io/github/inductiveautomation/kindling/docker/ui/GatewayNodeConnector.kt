@@ -147,7 +147,6 @@ class GatewayNodeConnector(
     }
 
     private fun finalizeConnection() {
-        println("Finalizing connection")
         mouseObserver.stop()
 
         from.apply {
@@ -178,8 +177,7 @@ class GatewayNodeConnector(
         }
 
         for (v in variablesToRemove) {
-            val result = from.model.environment.remove(v)
-            println("Removed: $result")
+            from.model.environment.remove(v)
         }
 
         from.connections.remove(index)

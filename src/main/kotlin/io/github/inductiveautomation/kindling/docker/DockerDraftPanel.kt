@@ -235,12 +235,10 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
         canvas.addContainerListener(
             object : ContainerListener {
                 override fun componentAdded(e: ContainerEvent?) {
-                    println("Component Added")
                     updatePreview()
                 }
 
                 override fun componentRemoved(e: ContainerEvent?) {
-                    println("Component Removed")
                     updatePreview()
                 }
             }
@@ -289,7 +287,6 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
 
     private fun AbstractDockerServiceNode<*>.bindYamlPreview() {
         addServiceModelChangeListener {
-            println("Service Model Change")
             updatePreview()
         }
     }
@@ -392,7 +389,6 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
     }
 
     private fun updatePreview() {
-        println("Update YAML Preview")
         yamlPreview.text = runCatching {
             val c = composeFile
             if (c.isEmpty()) "" else YAML.encodeToString(composeFile)
