@@ -5,6 +5,7 @@ import io.github.inductiveautomation.kindling.docker.model.ConnectionDefinition
 import io.github.inductiveautomation.kindling.docker.model.GatewayEnvironmentVariableDefinition.Companion.addOrRemove
 import io.github.inductiveautomation.kindling.docker.model.GatewayEnvironmentVariableDefinition.Companion.createConnectionVariable
 import io.github.inductiveautomation.kindling.docker.model.IgnitionVersionComparator
+import io.github.inductiveautomation.kindling.docker.model.ServiceModelChangeListener
 import io.github.inductiveautomation.kindling.utils.Action
 import io.github.inductiveautomation.kindling.utils.MouseListenerBuilder.Companion.addMouseListener
 import io.github.inductiveautomation.kindling.utils.MouseMotionListenerBuilder.Companion.addMouseMotionListener
@@ -133,7 +134,20 @@ class GatewayNodeConnector(
         }
     }
 
+    private val hostNameChangeListener = ServiceModelChangeListener {
+        val hostNameEnvVar = ConnectionDefinition.GATEWAY_NETWORK_X_HOST.name.replace("X", "$index")
+        if (to.model.hostName != null && to.model.hostName != from.model.environment[hostNameEnvVar]) {
+            from.model.environment[hostNameEnvVar] = to.model.hostName!!
+            from.fireServiceModelChangedEvent()
+        }
+    }
+
+    private val nodeDeleteListener = NodeDeleteListener {
+        deleteConnection()
+    }
+
     private fun finalizeConnection() {
+        println("Finalizing connection")
         mouseObserver.stop()
 
         from.apply {
@@ -153,17 +167,8 @@ class GatewayNodeConnector(
         }
 
         to.apply {
-            addServiceModelChangeListener { // Listen for updates to hostname
-                val hostNameEnvVar = ConnectionDefinition.GATEWAY_NETWORK_X_HOST.name.replace("X", "$index")
-                if (to.model.hostName != null && to.model.hostName != from.model.environment[hostNameEnvVar]) {
-                    from.model.environment[hostNameEnvVar] = to.model.hostName!!
-                    from.fireServiceModelChangedEvent()
-                }
-            }
-
-            addNodeDeleteListener {
-                deleteConnection()
-            }
+            addServiceModelChangeListener(hostNameChangeListener)
+            addNodeDeleteListener(nodeDeleteListener)
         }
     }
 
@@ -173,11 +178,15 @@ class GatewayNodeConnector(
         }
 
         for (v in variablesToRemove) {
-            from.model.environment.remove(v)
+            val result = from.model.environment.remove(v)
+            println("Removed: $result")
         }
 
         from.connections.remove(index)
+        to.removeServiceModelChangeListener(hostNameChangeListener)
+
         canvas.remove(this)
+        canvas.repaint()
     }
 
     private fun showEditor() = jFrame("Edit Connection", 485, 650) {

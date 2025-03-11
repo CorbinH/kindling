@@ -165,7 +165,6 @@ class Canvas(
 
                 c.setLocation(newComponentX, newComponentY)
                 cPoint = newEventPoint
-                this@Canvas.repaint()
             }
         }
     }

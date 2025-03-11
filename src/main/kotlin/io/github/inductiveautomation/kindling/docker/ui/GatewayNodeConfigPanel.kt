@@ -77,6 +77,7 @@ class GatewayNodeConfigPanel(
 
             versionDropdown.addActionListener {
                 node.model.version = versionDropdown.selectedItem as String
+                envSection.version = node.model.version
                 node.fireServiceModelChangedEvent()
             }
         }
@@ -101,7 +102,7 @@ class GatewayNodeConfigPanel(
         }
     }
 
-    override val envSection: ConfigSection = GatewayEnvVariablesEditor(node.model.environment).bind()
+    override val envSection = GatewayEnvVariablesEditor(node.model.environment, node.model.version).bind()
     override val portsSection = PortMappingEditor(node.model.ports).bind()
     override val cliSection = GatewayCliArgEditor(node.model.commands).bind()
     override val volumesSection = VolumeEditor(node.model.volumes, volumeOptions).bind()

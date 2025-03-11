@@ -9,6 +9,7 @@ import io.github.inductiveautomation.kindling.utils.add
 import io.github.inductiveautomation.kindling.utils.debounce
 import io.github.inductiveautomation.kindling.utils.getAll
 import io.github.inductiveautomation.kindling.utils.jFrame
+import io.github.inductiveautomation.kindling.utils.remove
 import io.github.inductiveautomation.kindling.utils.tag
 import java.awt.Color
 import java.awt.Font
@@ -95,15 +96,15 @@ abstract class AbstractDockerServiceNode<T : DockerServiceModel> : JPanel(MigLay
         }
     }
 
-    fun addServiceModelChangeListener(l: ServiceModelChangeListener) {
-        listenerList.add(l)
-    }
+    fun addServiceModelChangeListener(l: ServiceModelChangeListener) = listenerList.add(l)
+    fun removeServiceModelChangeListener(l: ServiceModelChangeListener) = listenerList.remove(l)
 
     fun fireServiceModelChangedEvent() {
         listenerList.getAll<ServiceModelChangeListener>().forEach(ServiceModelChangeListener::onServiceModelChanged)
     }
 
     fun addNodeDeleteListener(l: NodeDeleteListener) = listenerList.add(l)
+    fun removeNodeDeleteListener(l: NodeDeleteListener) = listenerList.remove(l)
 
     protected fun fireNodeDeletedEvent() {
         listenerList.getAll<NodeDeleteListener>().forEach {
