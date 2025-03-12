@@ -11,6 +11,7 @@ import com.formdev.flatlaf.util.SystemInfo
 import com.jidesoft.swing.StyleRange.STYLE_UNDERLINED
 import io.github.inductiveautomation.kindling.core.ClipboardTool
 import io.github.inductiveautomation.kindling.core.CustomIconView
+import io.github.inductiveautomation.kindling.core.EditorTool
 import io.github.inductiveautomation.kindling.core.Kindling
 import io.github.inductiveautomation.kindling.core.Kindling.Preferences.Advanced.Debug
 import io.github.inductiveautomation.kindling.core.Kindling.Preferences.General.ChoosableEncodings
@@ -30,15 +31,13 @@ import io.github.inductiveautomation.kindling.utils.EmptyBorder
 import io.github.inductiveautomation.kindling.utils.FlatScrollPane
 import io.github.inductiveautomation.kindling.utils.StyledLabel
 import io.github.inductiveautomation.kindling.utils.TabStrip
+import io.github.inductiveautomation.kindling.utils.attachPopupMenu
 import io.github.inductiveautomation.kindling.utils.chooseFiles
 import io.github.inductiveautomation.kindling.utils.getLogger
 import io.github.inductiveautomation.kindling.utils.jFrame
 import io.github.inductiveautomation.kindling.utils.menuShortcutKeyMaskEx
 import io.github.inductiveautomation.kindling.utils.render
 import io.github.inductiveautomation.kindling.utils.traverseChildren
-import net.miginfocom.layout.PlatformDefaults
-import net.miginfocom.layout.UnitValue
-import net.miginfocom.swing.MigLayout
 import java.awt.BorderLayout
 import java.awt.Component
 import java.awt.Cursor
@@ -71,12 +70,16 @@ import javax.swing.JMenu
 import javax.swing.JMenuBar
 import javax.swing.JMenuItem
 import javax.swing.JPanel
+import javax.swing.JPopupMenu
 import javax.swing.KeyStroke
 import javax.swing.SwingConstants.BOTTOM
 import javax.swing.SwingConstants.CENTER
 import javax.swing.SwingConstants.RIGHT
 import javax.swing.UIManager
 import javax.swing.filechooser.FileFilter
+import net.miginfocom.layout.PlatformDefaults
+import net.miginfocom.layout.UnitValue
+import net.miginfocom.swing.MigLayout
 
 class MainPanel : JPanel(MigLayout("ins 6, fill, hidemode 3")) {
     private val fileChooser = JFileChooser(HomeLocation.currentValue.toFile()).apply {
@@ -165,6 +168,24 @@ class MainPanel : JPanel(MigLayout("ins 6, fill, hidemode 3")) {
                 predicate = { tool.filter.accept(it) },
                 callback = { openFiles(it, tool) },
             )
+
+            if (tool is EditorTool) {
+                this@apply.toolTipText = "Right-click for more options"
+                this@apply.attachPopupMenu {
+                    JPopupMenu().also { menu ->
+                        menu.add(
+                            Action("New Editor") {
+                                openOrError(tool.title, tool.description, tool::open)
+                            }
+                        )
+                        menu.add(
+                            Action("Open Existing") {
+                                this@apply.doClick()
+                            }
+                        )
+                    }
+                }
+            }
         }
     }
 
