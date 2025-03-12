@@ -23,6 +23,7 @@ dependencies {
     // see gradle/libs.version.toml
     api(libs.serialization.json)
     api(libs.serialization.csv)
+    api(libs.serialization.yaml)
     api(libs.xerial.jdbc)
     api(libs.hsql)
     api(libs.zip4j)

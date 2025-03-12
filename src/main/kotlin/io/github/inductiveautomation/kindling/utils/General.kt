@@ -15,7 +15,6 @@ import io.ktor.http.contentType
 import com.jidesoft.swing.CheckBoxListSelectionModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.slf4j.Logger
@@ -34,6 +33,7 @@ import kotlin.math.pow
 import kotlin.reflect.KProperty
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.Job
 
 fun String.truncate(length: Int = 20): String {
     return asIterable().joinToString(separator = "", limit = length)
