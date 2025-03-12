@@ -39,12 +39,8 @@ import io.github.inductiveautomation.kindling.utils.escapeHtml
 import io.github.inductiveautomation.kindling.utils.selectedRowIndices
 import io.github.inductiveautomation.kindling.utils.toBodyLine
 import io.github.inductiveautomation.kindling.utils.transferTo
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import org.jdesktop.swingx.JXSearchField
-import org.jdesktop.swingx.decorator.ColorHighlighter
-import org.jdesktop.swingx.table.ColumnControlButton.COLUMN_CONTROL_MARKER
+import io.github.inductiveautomation.kindling.utils.uploadMultipleToWeb
+import java.awt.Color
 import java.awt.Desktop
 import java.awt.Rectangle
 import java.nio.file.Files
@@ -288,12 +284,6 @@ class MultiThreadView(
         updateThreadsOfInterest()
     }
 
-    private val sidebar = FilterSidebar(
-        statePanel,
-        systemPanel,
-        poolPanel,
-    )
-
     private var comparison = ThreadComparisonPane(threadDumps.size, threadDumps[0].version)
 
     private val exportMenu = run {
@@ -392,7 +382,7 @@ class MultiThreadView(
     }
 
     private val singleExportMenu = run {
-        val selectedThreadDump = threadDumpCheckboxList.selectedValue as ThreadDump?
+        val selectedThreadDump = sidebar.selectedFiles.first() as? ThreadDump
         val fileName = "threaddump_${selectedThreadDump?.version}_${selectedThreadDump.hashCode()}"
         exportMenu(fileName) { mainTable.model }
     }
