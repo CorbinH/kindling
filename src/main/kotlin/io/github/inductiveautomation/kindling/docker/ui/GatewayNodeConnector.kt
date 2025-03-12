@@ -13,7 +13,6 @@ import io.github.inductiveautomation.kindling.utils.attachPopupMenu
 import io.github.inductiveautomation.kindling.utils.jFrame
 import io.github.inductiveautomation.kindling.utils.tag
 import java.awt.BasicStroke
-import java.awt.Color
 import java.awt.Font
 import java.awt.Graphics
 import java.awt.Graphics2D
@@ -33,6 +32,7 @@ import javax.swing.JTextField
 import javax.swing.SpinnerNumberModel
 import javax.swing.SwingUtilities
 import javax.swing.Timer
+import javax.swing.UIManager
 import net.miginfocom.swing.MigLayout
 
 /**
@@ -199,7 +199,7 @@ class GatewayNodeConnector(
             bounds = boundsFromConnectionPoints
         }
 
-        g.color = Color.WHITE
+        g.color = UIManager.getColor("Label.foreground")
         val lineThickness = if (highlightPath) 3F else 1F
         g.stroke = BasicStroke(lineThickness, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND)
 

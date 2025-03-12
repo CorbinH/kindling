@@ -118,6 +118,10 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
     private val yamlPreview = RSyntaxTextArea().apply {
         theme = Kindling.Preferences.UI.Theme.currentValue
         syntaxEditingStyle = SYNTAX_STYLE_YAML
+
+        Kindling.Preferences.UI.Theme.addChangeListener {
+            theme = it
+        }
     }
 
     private var volumes: List<DockerVolume> = emptyList()
