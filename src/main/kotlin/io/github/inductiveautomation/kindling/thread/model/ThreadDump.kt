@@ -2,6 +2,7 @@ package io.github.inductiveautomation.kindling.thread.model
 
 import io.github.inductiveautomation.kindling.core.Kindling.Preferences.General.DefaultEncoding
 import io.github.inductiveautomation.kindling.core.ToolOpeningException
+import io.github.inductiveautomation.kindling.utils.FileFilterableCollection
 import io.github.inductiveautomation.kindling.utils.getValue
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -12,6 +13,7 @@ import java.io.InputStream
 import java.lang.Thread.State as ThreadState
 
 @Serializable
+@ConsistentCopyVisibility
 data class ThreadDump internal constructor(
     val version: String,
     val threads: List<Thread>,
@@ -19,7 +21,10 @@ data class ThreadDump internal constructor(
     val deadlockIds: List<Int> = emptyList(),
     @Transient
     val isLegacy: Boolean = false,
-) {
+) : FileFilterableCollection<Thread?> {
+    @Transient
+    override val items = threads
+
     companion object {
         private val JSON = Json {
             ignoreUnknownKeys = true

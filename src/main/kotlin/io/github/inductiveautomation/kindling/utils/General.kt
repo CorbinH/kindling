@@ -12,6 +12,7 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
+import com.jidesoft.swing.CheckBoxListSelectionModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -334,6 +335,8 @@ infix fun InputStream.transferTo(output: OutputStream) {
         output.use(input::transferTo)
     }
 }
+
+fun CheckBoxListSelectionModel.isAllSelected() = isSelectedIndex(allEntryIndex)
 
 fun <T> Iterator<T>.nextOrNull(): T? {
     return if (hasNext()) next() else null
