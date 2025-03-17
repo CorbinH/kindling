@@ -7,11 +7,11 @@ import io.github.inductiveautomation.kindling.docker.model.GatewayServiceModel
 import io.github.inductiveautomation.kindling.docker.model.IgnitionVersionComparator
 import io.github.inductiveautomation.kindling.utils.add
 import io.github.inductiveautomation.kindling.utils.getAll
-import net.miginfocom.swing.MigLayout
-import java.util.*
+import java.util.EventListener
 import javax.swing.JButton
 import javax.swing.JOptionPane
 import javax.swing.JPanel
+import net.miginfocom.swing.MigLayout
 
 class GatewayServiceNode(
     override val model: GatewayServiceModel,
@@ -24,14 +24,16 @@ class GatewayServiceNode(
 
     override var volumeOptions by configEditor::volumeOptions
     override var networkOptions by configEditor::networkOptions
-    fun meetsMinVersion(): Boolean = IgnitionVersionComparator.compare("8.1.10", model.version) <= 0
+
+    private val meetsMinVersion: Boolean
+        get() = IgnitionVersionComparator.compare("8.1.10", model.version) <= 0
 
     private val deleteButton = JButton(FlatSVGIcon("icons/bx-x.svg").derive(12, 12)).apply {
         toolTipText = "Delete"
     }
 
     private val connectButton = JButton(FlatSVGIcon("icons/bx-link.svg").derive(12, 12)).apply {
-        toolTipText = if (meetsMinVersion()) null else "GAN connections only available for 8.1.10+"
+        toolTipText = if (meetsMinVersion) null else "GAN connections only available for 8.1.10+"
 
         addActionListener {
             fireConnectionInit()
@@ -65,7 +67,7 @@ class GatewayServiceNode(
         updateHostNameText()
         updateContainerNameText()
         addServiceModelChangeListener {
-            connectButton.isEnabled = meetsMinVersion()
+            connectButton.isEnabled = meetsMinVersion
         }
     }
 
@@ -75,7 +77,7 @@ class GatewayServiceNode(
         if (inProgress) {
             connectButton.isEnabled = true
         } else {
-            connectButton.isEnabled = meetsMinVersion()
+            connectButton.isEnabled = meetsMinVersion
         }
     }
 

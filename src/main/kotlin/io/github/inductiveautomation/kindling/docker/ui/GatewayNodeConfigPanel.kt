@@ -11,16 +11,16 @@ import io.github.inductiveautomation.kindling.docker.ui.editors.PortMappingEdito
 import io.github.inductiveautomation.kindling.docker.ui.editors.VolumeEditor
 import io.github.inductiveautomation.kindling.utils.EDT_SCOPE
 import io.github.inductiveautomation.kindling.utils.RegexInputVerifier
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import org.jdesktop.swingx.JXFormattedTextField
+import java.awt.event.FocusAdapter
 import java.awt.event.FocusEvent
-import java.awt.event.FocusListener
 import javax.swing.DefaultComboBoxModel
 import javax.swing.JComboBox
 import javax.swing.JLabel
 import javax.swing.JTextField
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.jdesktop.swingx.JXFormattedTextField
 
 class GatewayNodeConfigPanel(
     override val node: GatewayServiceNode,
@@ -47,13 +47,10 @@ class GatewayNodeConfigPanel(
             node.fireServiceModelChangedEvent()
         }
         addFocusListener(
-            object : FocusListener {
+            object : FocusAdapter() {
                 override fun focusLost(e: FocusEvent) {
                     node.model.hostName = text
                     node.fireServiceModelChangedEvent()
-                }
-
-                override fun focusGained(e: FocusEvent) {
                 }
             },
         )
@@ -69,15 +66,12 @@ class GatewayNodeConfigPanel(
             }
         }
         addFocusListener(
-            object : FocusListener {
+            object : FocusAdapter() {
                 override fun focusLost(e: FocusEvent) {
                     if (SERVICE_NAME_REGEX.matches(text)) {
                         node.model.containerName = text
                         node.fireServiceModelChangedEvent()
                     }
-                }
-
-                override fun focusGained(e: FocusEvent) {
                 }
             },
         )
