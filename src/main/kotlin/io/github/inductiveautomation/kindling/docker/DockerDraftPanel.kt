@@ -25,6 +25,7 @@ import io.github.inductiveautomation.kindling.docker.model.GatewayServiceModel.C
 import io.github.inductiveautomation.kindling.docker.ui.AbstractDockerServiceNode
 import io.github.inductiveautomation.kindling.docker.ui.Canvas
 import io.github.inductiveautomation.kindling.docker.ui.CanvasNodeList
+import io.github.inductiveautomation.kindling.docker.ui.ConnectionProgressChangeListener
 import io.github.inductiveautomation.kindling.docker.ui.GatewayNodeConnector
 import io.github.inductiveautomation.kindling.docker.ui.GatewayNodeConnector.Companion.midPoint
 import io.github.inductiveautomation.kindling.docker.ui.GatewayServiceNode
@@ -38,8 +39,14 @@ import io.github.inductiveautomation.kindling.utils.HorizontalSplitPane
 import io.github.inductiveautomation.kindling.utils.PointHelpers.component1
 import io.github.inductiveautomation.kindling.utils.PointHelpers.component2
 import io.github.inductiveautomation.kindling.utils.TrivialListDataListener
+import io.github.inductiveautomation.kindling.utils.add
 import io.github.inductiveautomation.kindling.utils.chooseFiles
+import io.github.inductiveautomation.kindling.utils.getAll
 import io.github.inductiveautomation.kindling.utils.traverseChildren
+import kotlinx.serialization.encodeToString
+import net.miginfocom.swing.MigLayout
+import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
+import org.fife.ui.rsyntaxtextarea.SyntaxConstants.SYNTAX_STYLE_YAML
 import java.awt.EventQueue
 import java.awt.Font
 import java.awt.KeyboardFocusManager
@@ -62,10 +69,6 @@ import kotlin.collections.set
 import kotlin.io.path.inputStream
 import kotlin.io.path.outputStream
 import kotlin.random.Random
-import kotlinx.serialization.encodeToString
-import net.miginfocom.swing.MigLayout
-import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
-import org.fife.ui.rsyntaxtextarea.SyntaxConstants.SYNTAX_STYLE_YAML
 
 @Suppress("unused")
 class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3") {
@@ -92,6 +95,9 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
                 ).apply {
                     bindYamlPreview()
                     connectionObserver.observeConnection(this)
+                    connectionObserver.addConnectionProgressChangeListener { inProgress: Boolean ->
+                        this.updateValidConnectionTarget(inProgress)
+                    }
                 }
             },
             NodeInitializer(
@@ -108,8 +114,8 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
                 ).apply {
                     bindYamlPreview()
                 }
-            }
-        )
+            },
+        ),
     )
 
     private val previewLabel = JLabel("YAML Preview").apply {
@@ -151,7 +157,7 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
                 }
                 volumes = options.toList()
                 updatePreview()
-            }
+            },
         )
     }
 
@@ -166,7 +172,7 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
                 }
                 networks = options.toList()
                 updatePreview()
-            }
+            },
         )
     }
 
@@ -179,7 +185,7 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
                 add(importButton, "grow, sg")
                 add(exportButton, "grow, sg")
             },
-            "growx, gapbottom 3"
+            "growx, gapbottom 3",
         )
         add(optionsLabel, "gapbottom 3")
         add(optionList, "gapbottom 10, wmin 300, growx")
@@ -233,7 +239,8 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
                             this@HorizontalSplitPane.insets.right -
                             rightComponent.minimumSize.width - dividerSize
                 }
-            }, "push, grow"
+            },
+            "push, grow",
         )
 
         canvas.addContainerListener(
@@ -245,7 +252,7 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
                 override fun componentRemoved(e: ContainerEvent?) {
                     updatePreview()
                 }
-            }
+            },
         )
 
         importButton.addActionListener {
@@ -309,6 +316,7 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
                             connectionObserver.observeConnection(this)
                         }
                     }
+
                     is DefaultDockerServiceModel -> {
                         GenericDockerServiceNode(model, volumes, networks).apply {
                             bindYamlPreview()
@@ -356,7 +364,9 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
                 canvas.setComponentZOrder(node, 0)
             }
 
-            for (c in connections) { canvas.add(c) }
+            for (c in connections) {
+                canvas.add(c)
+            }
         }
 
         fun parseExistingIDs(nodes: List<AbstractDockerServiceNode<*>>) {
@@ -370,7 +380,7 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
 
         val composeFile = try {
             importFile.inputStream().use<_, DockerComposeFile>(YAML::decodeFromStream)
-        } catch(e: Exception) {
+        } catch (e: Exception) {
             JOptionPane.showMessageDialog(
                 null,
                 "Couldn't import docker file:\n${e.message}",
@@ -411,7 +421,7 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
                 sequenceStyle = SequenceStyle.Block,
                 encodeDefaults = false,
                 extensionDefinitionPrefix = "x-",
-            )
+            ),
         )
 
         private val yamlFileChooser = JFileChooser().apply {
@@ -432,6 +442,7 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
                 } else {
                     ""
                 }
+                fireConnectionProgressChange()
             }
 
         init {
@@ -471,6 +482,14 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
                         JOptionPane.WARNING_MESSAGE,
                     )
                 }
+            }
+        }
+
+        fun addConnectionProgressChangeListener(l: ConnectionProgressChangeListener) = listenerList.add(l)
+
+        private fun fireConnectionProgressChange() {
+            listenerList.getAll<ConnectionProgressChangeListener>().forEach {
+                it.onConnectionProgressChangeRequest(inProgressConnection != null)
             }
         }
 
