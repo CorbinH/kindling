@@ -9,6 +9,9 @@ import io.github.inductiveautomation.kindling.docker.model.ServiceModelChangeLis
 import io.github.inductiveautomation.kindling.utils.Action
 import io.github.inductiveautomation.kindling.utils.MouseListenerBuilder.Companion.addMouseListener
 import io.github.inductiveautomation.kindling.utils.MouseMotionListenerBuilder.Companion.addMouseMotionListener
+import io.github.inductiveautomation.kindling.utils.PointHelpers.component1
+import io.github.inductiveautomation.kindling.utils.PointHelpers.component2
+import io.github.inductiveautomation.kindling.utils.PointHelpers.convert
 import io.github.inductiveautomation.kindling.utils.attachPopupMenu
 import io.github.inductiveautomation.kindling.utils.jFrame
 import io.github.inductiveautomation.kindling.utils.tag
@@ -18,8 +21,15 @@ import java.awt.Graphics
 import java.awt.Graphics2D
 import java.awt.MouseInfo
 import java.awt.Point
+import java.awt.Polygon
 import java.awt.Rectangle
+import java.awt.Shape
+import java.awt.geom.AffineTransform
 import java.awt.geom.Path2D
+import java.awt.geom.Rectangle2D.OUT_BOTTOM
+import java.awt.geom.Rectangle2D.OUT_LEFT
+import java.awt.geom.Rectangle2D.OUT_RIGHT
+import java.awt.geom.Rectangle2D.OUT_TOP
 import javax.swing.JButton
 import javax.swing.JCheckBox
 import javax.swing.JComponent
@@ -31,8 +41,8 @@ import javax.swing.JTextArea
 import javax.swing.JTextField
 import javax.swing.SpinnerNumberModel
 import javax.swing.SwingUtilities
+import javax.swing.SwingUtilities.getUnwrappedParent
 import javax.swing.Timer
-import javax.swing.UIManager
 import net.miginfocom.swing.MigLayout
 
 /**
@@ -159,7 +169,7 @@ class GatewayNodeConnector(
             )
 
             addNodeDeleteListener {
-                canvas.remove(this)
+                canvas.remove(this@GatewayNodeConnector)
             }
 
             fireServiceModelChangedEvent()
@@ -195,11 +205,19 @@ class GatewayNodeConnector(
         super.paintComponent(g)
         if (g !is Graphics2D) return
 
-        if (boundsFromConnectionPoints.width > 0 && boundsFromConnectionPoints.height > 0) {
-            bounds = boundsFromConnectionPoints
+        val b = boundsFromConnectionPoints
+        if (b.width > 0 && b.height > 0) {
+            bounds = b
         }
 
-        g.color = UIManager.getColor("Label.foreground")
+        drawLine(g)
+
+        if (::to.isInitialized) {
+            drawArrowIndicator(g)
+        }
+    }
+
+    private fun drawLine(g: Graphics2D) {
         val lineThickness = if (highlightPath) 3F else 1F
         g.stroke = BasicStroke(lineThickness, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND)
 
@@ -209,7 +227,7 @@ class GatewayNodeConnector(
             SwingUtilities.convertPointFromScreen(p, this)
             p
         } else {
-            SwingUtilities.convertPoint(to, to.midPoint(), this)
+            to.midPoint().convert(to, this)
         }
 
         connectionPath.apply {
@@ -226,6 +244,86 @@ class GatewayNodeConnector(
         }
 
         g.draw(connectionPath)
+    }
+
+    private fun drawArrowIndicator(g: Graphics2D) {
+        val allPoints = buildList {
+            val curvePoints = connectionPath.getPathIterator(null, 0.01)
+            while (!curvePoints.isDone) {
+                val arr = DoubleArray(6)
+                curvePoints.currentSegment(arr)
+                add(Point(arr[0].toInt(), arr[1].toInt()))
+                curvePoints.next()
+            }
+        }
+
+        val arrowPoint = allPoints.findLast {
+            !to.bounds.contains(
+                it.convert(this, getUnwrappedParent(this))
+            )
+        } ?: return
+
+        val canvasPoint = arrowPoint.convert(this, getUnwrappedParent(this))
+        val toBounds = to.bounds.apply {
+            width -= 1
+            height -= 1
+        }
+
+        val outcode = toBounds.outcode(canvasPoint)
+        val toCoord = to.location.convert(getUnwrappedParent(to), this)
+
+        val angle = when (outcode) {
+            OUT_LEFT -> {
+                arrowPoint.x = toCoord.x
+                Math.PI / 2
+            }
+            OUT_TOP -> {
+                arrowPoint.y = toCoord.y
+                Math.PI
+            }
+            OUT_RIGHT -> {
+                arrowPoint.x = toCoord.x + to.width
+                Math.PI * 3 / 2
+            }
+            OUT_BOTTOM -> {
+                arrowPoint.y = toCoord.y + to.height
+                0.0
+            }
+            else -> {
+                0.0
+            }
+        }
+
+        val arrowHead = AffineTransform.getRotateInstance(
+            angle,
+            arrowPoint.x.toDouble(),
+            arrowPoint.y.toDouble(),
+        ).createTransformedShape(
+            arrowHead(arrowPoint, 2)
+        )
+
+        g.fill(arrowHead)
+    }
+
+    private fun arrowHead(headPoint: Point, scale: Int = 1): Shape {
+        val (headX, headY) = headPoint
+        val xCoords = arrayOf(
+            headX,
+            headX - (3 * scale),
+            headX,
+            headX + (3 * scale),
+            headX,
+        ).toIntArray()
+
+        val yCoords = arrayOf(
+            headY,
+            headY + (6 * scale),
+            headY + (5 * scale),
+            headY + (6 * scale),
+            headY,
+        ).toIntArray()
+
+        return Polygon(xCoords, yCoords, 5)
     }
 
     companion object {

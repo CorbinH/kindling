@@ -35,10 +35,10 @@ import io.github.inductiveautomation.kindling.docker.ui.VolumesList
 import io.github.inductiveautomation.kindling.utils.FileFilter
 import io.github.inductiveautomation.kindling.utils.FlatScrollPane
 import io.github.inductiveautomation.kindling.utils.HorizontalSplitPane
+import io.github.inductiveautomation.kindling.utils.PointHelpers.component1
+import io.github.inductiveautomation.kindling.utils.PointHelpers.component2
 import io.github.inductiveautomation.kindling.utils.TrivialListDataListener
 import io.github.inductiveautomation.kindling.utils.chooseFiles
-import io.github.inductiveautomation.kindling.utils.component1
-import io.github.inductiveautomation.kindling.utils.component2
 import io.github.inductiveautomation.kindling.utils.traverseChildren
 import java.awt.EventQueue
 import java.awt.Font
@@ -275,16 +275,7 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
 
         if (existingFile != null) {
             SwingUtilities.invokeLater {
-                try {
-                    import(existingFile)
-                } catch(e: Exception) {
-                    JOptionPane.showMessageDialog(
-                        null,
-                        "Couldn't import docker file:\n${e.message}",
-                        "Import Error",
-                        JOptionPane.ERROR_MESSAGE,
-                    )
-                }
+                import(existingFile)
             }
         }
     }
@@ -377,7 +368,17 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
             }
         }
 
-        val composeFile = importFile.inputStream().use<_, DockerComposeFile>(YAML::decodeFromStream)
+        val composeFile = try {
+            importFile.inputStream().use<_, DockerComposeFile>(YAML::decodeFromStream)
+        } catch(e: Exception) {
+            JOptionPane.showMessageDialog(
+                null,
+                "Couldn't import docker file:\n${e.message}",
+                "Import Error",
+                JOptionPane.ERROR_MESSAGE,
+            )
+            return
+        }
 
         networks = composeFile.networks
         volumes = composeFile.volumes

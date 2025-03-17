@@ -9,12 +9,15 @@ import java.awt.EventQueue
 import java.awt.Font
 import java.awt.Graphics
 import java.awt.Graphics2D
+import java.awt.MouseInfo
 import java.awt.Point
 import javax.swing.JButton
 import javax.swing.JComponent
 import javax.swing.JPanel
 import javax.swing.SwingUtilities
 import javax.swing.TransferHandler
+import kotlin.collections.component1
+import kotlin.collections.component2
 import kotlin.math.ceil
 import kotlin.math.sqrt
 
@@ -167,6 +170,23 @@ class Canvas(
                 cPoint = newEventPoint
             }
         }
+    }
+
+    init {
+        addMouseMotionListener {
+            mouseMoved {
+                mouseLoc = it.point
+                repaint()
+            }
+        }
+    }
+
+    private var mouseLoc: Point = getMouseLocRelative()
+
+    private fun getMouseLocRelative(): Point {
+        val loc = MouseInfo.getPointerInfo().location
+        SwingUtilities.convertPointFromScreen(loc, this)
+        return loc
     }
 
     override fun paintComponent(g: Graphics?) {

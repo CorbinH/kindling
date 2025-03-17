@@ -3,14 +3,6 @@ package io.github.inductiveautomation.kindling.utils
 import com.formdev.flatlaf.extras.FlatSVGIcon
 import com.github.weisj.jsvg.SVGDocument
 import com.github.weisj.jsvg.attributes.ViewBox
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.swing.Swing
-import org.jdesktop.swingx.decorator.AbstractHighlighter
-import org.jdesktop.swingx.decorator.ColorHighlighter
-import org.jdesktop.swingx.decorator.ComponentAdapter
-import org.jdesktop.swingx.decorator.Highlighter
-import org.jdesktop.swingx.prompt.BuddySupport
 import java.awt.Color
 import java.awt.Component
 import java.awt.Container
@@ -36,6 +28,14 @@ import javax.swing.event.DocumentListener
 import javax.swing.event.EventListenerList
 import javax.swing.text.Document
 import javax.swing.text.JTextComponent
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.swing.Swing
+import org.jdesktop.swingx.decorator.AbstractHighlighter
+import org.jdesktop.swingx.decorator.ColorHighlighter
+import org.jdesktop.swingx.decorator.ComponentAdapter
+import org.jdesktop.swingx.decorator.Highlighter
+import org.jdesktop.swingx.prompt.BuddySupport
 
 /**
  * A common CoroutineScope bound to the event dispatch thread (see [Dispatchers.Swing]).
@@ -192,9 +192,6 @@ fun Color.toHexString(alpha: Boolean = false): String {
     }"
 }
 
-operator fun Point.component1() = x
-operator fun Point.component2() = y
-
 inline fun <reified T : JComponent> InputVerifier(
     crossinline verify: (T) -> Boolean
 ): InputVerifier {
@@ -262,5 +259,14 @@ class MouseMotionListenerBuilder : MouseMotionListener {
         fun JComponent.addMouseMotionListener(block: MouseMotionListenerBuilder.() -> Unit) {
             addMouseMotionListener(MouseMotionListenerBuilder().apply(block))
         }
+    }
+}
+
+object PointHelpers {
+    operator fun Point.component1() = x
+    operator fun Point.component2() = y
+
+    fun Point.convert(from: Component?, to: Component?): Point {
+        return SwingUtilities.convertPoint(from, this, to)
     }
 }
