@@ -15,7 +15,7 @@ data class DockerVolume(
 )
 
 @Serializable(with = DockerVolumeBindingSerializer::class)
-data class DockerVolumeServiceBinding(
-    var volumeName: String,
-    var bindMount: String? = null,
+data class BindMount(
+    var bindPath: String,
+    var containerPath: String? = null,
 )

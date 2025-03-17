@@ -22,7 +22,7 @@ class GatewayServiceModel(
     @SerialName("command")
     @Serializable(with = CommandLineArgumentListSerializer::class)
     override val commands: MutableList<CliArgument> = mutableListOf(),
-    override val volumes: MutableList<DockerVolumeServiceBinding> = mutableListOf(),
+    override val volumes: MutableList<BindMount> = mutableListOf(),
     override val networks: MutableList<String> = mutableListOf(),
 ) : DockerServiceModel {
     @SerialName("x-canvas.location")

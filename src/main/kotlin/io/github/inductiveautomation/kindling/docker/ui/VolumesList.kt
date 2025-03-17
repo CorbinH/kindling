@@ -46,6 +46,8 @@ class VolumesList(volumes: List<DockerVolume>) : JPanel(MigLayout("fill, ins 0")
                 }
 
                 model.addElement(DockerVolume(name))
+
+                volumeNameEntry.text = ""
             }
         }
 

@@ -46,6 +46,8 @@ class NetworksList(networks: List<DockerNetwork>) : JPanel(MigLayout("fill, ins 
                 }
 
                 model.addElement(DockerNetwork(name))
+
+                networkNameEntry.text = ""
             }
         }
 
