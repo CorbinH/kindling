@@ -11,18 +11,18 @@ import io.github.inductiveautomation.kindling.utils.getAll
 import io.github.inductiveautomation.kindling.utils.jFrame
 import io.github.inductiveautomation.kindling.utils.remove
 import io.github.inductiveautomation.kindling.utils.tag
+import net.miginfocom.swing.MigLayout
 import java.awt.Color
 import java.awt.Font
 import java.awt.Point
 import java.awt.event.ComponentEvent
-import java.util.EventListener
+import java.util.*
 import javax.swing.BorderFactory
 import javax.swing.JButton
 import javax.swing.JComponent
 import javax.swing.JLabel
 import javax.swing.JPanel
 import kotlin.time.Duration.Companion.milliseconds
-import net.miginfocom.swing.MigLayout
 
 @Suppress("LeakingThis")
 abstract class AbstractDockerServiceNode<T : DockerServiceModel> : JPanel(MigLayout("fill, ins 4")) {
@@ -38,7 +38,7 @@ abstract class AbstractDockerServiceNode<T : DockerServiceModel> : JPanel(MigLay
 
     private val serviceNameLabel = JLabel()
     private val hostNameLabel = JLabel()
-    private val configureButton = JButton("Configure").apply {
+    protected val configureButton = JButton("Configure").apply {
         addActionListener {
             jFrame("Edit Docker Config", 1000, 600) {
                 contentPane = configEditor
@@ -59,7 +59,7 @@ abstract class AbstractDockerServiceNode<T : DockerServiceModel> : JPanel(MigLay
                 override fun componentMoved(e: ComponentEvent?) {
                     updateLocationInfo()
                 }
-            }
+            },
         )
 
         addServiceModelChangeListener {

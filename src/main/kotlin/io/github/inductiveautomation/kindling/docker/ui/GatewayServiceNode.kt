@@ -60,6 +60,7 @@ class GatewayServiceNode(
                 fireNodeDeletedEvent()
             }
         }
+        configureButton.addActionListener { configEditor.resetNames() }
 
         updateHostNameText()
         updateContainerNameText()
