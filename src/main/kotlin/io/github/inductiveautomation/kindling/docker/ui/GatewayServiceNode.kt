@@ -4,6 +4,7 @@ import com.formdev.flatlaf.extras.FlatSVGIcon
 import io.github.inductiveautomation.kindling.docker.model.DockerNetwork
 import io.github.inductiveautomation.kindling.docker.model.DockerVolume
 import io.github.inductiveautomation.kindling.docker.model.GatewayServiceModel
+import io.github.inductiveautomation.kindling.docker.model.IgnitionVersionComparator
 import io.github.inductiveautomation.kindling.utils.add
 import io.github.inductiveautomation.kindling.utils.getAll
 import java.util.EventListener
@@ -24,12 +25,15 @@ class GatewayServiceNode(
     override var volumeOptions by configEditor::volumeOptions
     override var networkOptions by configEditor::networkOptions
 
+    private val meetsMinVersion: Boolean
+        get() = IgnitionVersionComparator.compare("8.1.10", model.version) <= 0
+
     private val deleteButton = JButton(FlatSVGIcon("icons/bx-x.svg").derive(12, 12)).apply {
         toolTipText = "Delete"
     }
 
     private val connectButton = JButton(FlatSVGIcon("icons/bx-link.svg").derive(12, 12)).apply {
-        toolTipText = "Create GAN Connection"
+        toolTipText = if (meetsMinVersion) null else "GAN connections only available for 8.1.10+"
 
         addActionListener {
             fireConnectionInit()
@@ -58,12 +62,24 @@ class GatewayServiceNode(
                 fireNodeDeletedEvent()
             }
         }
+        configureButton.addActionListener { configEditor.resetNames() }
 
         updateHostNameText()
         updateContainerNameText()
+        addServiceModelChangeListener {
+            connectButton.isEnabled = meetsMinVersion
+        }
     }
 
     fun addConnectionInitListener(l: GatewayConnectionInitListener) = listenerList.add(l)
+
+    fun updateValidConnectionTarget(inProgress: Boolean) {
+        if (inProgress) {
+            connectButton.isEnabled = true
+        } else {
+            connectButton.isEnabled = meetsMinVersion
+        }
+    }
 
     private fun fireConnectionInit() {
         listenerList.getAll<GatewayConnectionInitListener>().forEach {
@@ -74,4 +90,8 @@ class GatewayServiceNode(
 
 fun interface GatewayConnectionInitListener : EventListener {
     fun onConnectionInitRequest()
+}
+
+fun interface ConnectionProgressChangeListener : EventListener {
+    fun onConnectionProgressChangeRequest(inProgress: Boolean)
 }

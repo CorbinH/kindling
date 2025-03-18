@@ -11,6 +11,8 @@ import io.github.inductiveautomation.kindling.docker.ui.editors.PortMappingEdito
 import io.github.inductiveautomation.kindling.docker.ui.editors.VolumeEditor
 import io.github.inductiveautomation.kindling.utils.EDT_SCOPE
 import io.github.inductiveautomation.kindling.utils.RegexInputVerifier
+import java.awt.event.FocusAdapter
+import java.awt.event.FocusEvent
 import javax.swing.DefaultComboBoxModel
 import javax.swing.JComboBox
 import javax.swing.JLabel
@@ -44,6 +46,14 @@ class GatewayNodeConfigPanel(
             node.model.hostName = text
             node.fireServiceModelChangedEvent()
         }
+        addFocusListener(
+            object : FocusAdapter() {
+                override fun focusLost(e: FocusEvent) {
+                    node.model.hostName = text
+                    node.fireServiceModelChangedEvent()
+                }
+            },
+        )
     }
 
     private val containerLabel = JLabel("Container Name")
@@ -55,6 +65,16 @@ class GatewayNodeConfigPanel(
                 node.fireServiceModelChangedEvent()
             }
         }
+        addFocusListener(
+            object : FocusAdapter() {
+                override fun focusLost(e: FocusEvent) {
+                    if (SERVICE_NAME_REGEX.matches(text)) {
+                        node.model.containerName = text
+                        node.fireServiceModelChangedEvent()
+                    }
+                }
+            },
+        )
     }
 
     private val imageTypeLabel = JLabel("Image Type")
@@ -118,5 +138,10 @@ class GatewayNodeConfigPanel(
         add(portsSection, "grow, sg")
         add(volumesSection, "grow, sg")
         add(networksSection, "grow, sg")
+    }
+
+    fun resetNames() {
+        hostEntry.text = node.model.hostName
+        containerEntry.text = node.model.containerName
     }
 }

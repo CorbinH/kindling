@@ -217,9 +217,6 @@ fun Color.toHexString(alpha: Boolean = false): String {
     }"
 }
 
-operator fun Point.component1() = x
-operator fun Point.component2() = y
-
 inline fun <reified T : JComponent> InputVerifier(
     crossinline verify: (T) -> Boolean
 ): InputVerifier {
@@ -287,5 +284,14 @@ class MouseMotionListenerBuilder : MouseMotionListener {
         fun JComponent.addMouseMotionListener(block: MouseMotionListenerBuilder.() -> Unit) {
             addMouseMotionListener(MouseMotionListenerBuilder().apply(block))
         }
+    }
+}
+
+object PointHelpers {
+    operator fun Point.component1() = x
+    operator fun Point.component2() = y
+
+    fun Point.convert(from: Component?, to: Component?): Point {
+        return SwingUtilities.convertPoint(from, this, to)
     }
 }

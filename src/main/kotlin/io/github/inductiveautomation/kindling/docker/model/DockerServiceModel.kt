@@ -26,7 +26,7 @@ sealed interface DockerServiceModel {
     @Serializable(with = CommandLineArgumentListSerializer::class)
     val commands: MutableList<CliArgument>
 
-    val volumes: MutableList<DockerVolumeServiceBinding>
+    val volumes: MutableList<BindMount>
 
     val networks: MutableList<String>
 
@@ -52,7 +52,7 @@ class DefaultDockerServiceModel(
     @SerialName("command")
     @Serializable(with = CommandLineArgumentListSerializer::class)
     override val commands: MutableList<CliArgument> = mutableListOf(),
-    override val volumes: MutableList<DockerVolumeServiceBinding> = mutableListOf(),
+    override val volumes: MutableList<BindMount> = mutableListOf(),
     override val networks: MutableList<String> = mutableListOf(),
 ) : DockerServiceModel {
     @SerialName("x-canvas.location")
