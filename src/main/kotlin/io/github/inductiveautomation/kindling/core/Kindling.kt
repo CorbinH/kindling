@@ -7,8 +7,8 @@ import com.github.weisj.jsvg.parser.SVGLoader
 import io.github.inductiveautomation.kindling.core.Preference.Companion.PreferenceCheckbox
 import io.github.inductiveautomation.kindling.core.Preference.Companion.preference
 import io.github.inductiveautomation.kindling.utils.CharsetSerializer
-import io.github.inductiveautomation.kindling.utils.EmptyBorder
 import io.github.inductiveautomation.kindling.utils.DocumentAdapter
+import io.github.inductiveautomation.kindling.utils.EmptyBorder
 import io.github.inductiveautomation.kindling.utils.PathSerializer
 import io.github.inductiveautomation.kindling.utils.PathSerializer.serializedForm
 import io.github.inductiveautomation.kindling.utils.ThemeSerializer
@@ -17,15 +17,6 @@ import io.github.inductiveautomation.kindling.utils.asActionIcon
 import io.github.inductiveautomation.kindling.utils.configureCellRenderer
 import io.github.inductiveautomation.kindling.utils.debounce
 import io.github.inductiveautomation.kindling.utils.render
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.serialization.ExperimentalSerializationApi
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.decodeFromStream
-import kotlinx.serialization.json.encodeToStream
-import net.miginfocom.swing.MigLayout
-import org.jdesktop.swingx.JXTextField
 import java.awt.Image
 import java.net.URI
 import java.nio.charset.Charset
@@ -42,6 +33,15 @@ import kotlin.io.path.createDirectories
 import kotlin.io.path.inputStream
 import kotlin.io.path.outputStream
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.decodeFromStream
+import kotlinx.serialization.json.encodeToStream
+import net.miginfocom.swing.MigLayout
+import org.jdesktop.swingx.JXTextField
 import io.github.inductiveautomation.kindling.core.Theme.Companion as KindlingTheme
 
 data object Kindling {
@@ -57,7 +57,7 @@ data object Kindling {
     val homepage = URI("https://github.com/inductiveautomation/kindling")
     val forumThread = URI("https://forum.inductiveautomation.com/t/54689")
 
-    const val BETA_VERSION = "1.4.2"
+    const val BETA_VERSION = "1.5.0"
 
     data object Preferences {
         data object General : PreferenceCategory {
