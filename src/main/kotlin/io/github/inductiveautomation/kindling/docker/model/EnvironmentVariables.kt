@@ -133,9 +133,8 @@ enum class StaticDefinition : GatewayEnvironmentVariableDefinition {
         override val minimumVersion = "8.1.10"
     },
     GATEWAY_MODULES_ENABLED {
-        override val default = "true"
+        override val default = ""
         override val minimumVersion = "8.1.17"
-        override val options = listOf("true", "false")
     },
     IGNITION_UID {
         override val default = "2003"

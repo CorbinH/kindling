@@ -30,6 +30,8 @@ sealed interface DockerServiceModel {
 
     val networks: MutableList<String>
 
+    val labels: List<String>
+
     @SerialName("x-canvas.location")
     var canvasLocation: Point?
 }
@@ -54,6 +56,7 @@ class DefaultDockerServiceModel(
     override val commands: MutableList<CliArgument> = mutableListOf(),
     override val volumes: MutableList<BindMount> = mutableListOf(),
     override val networks: MutableList<String> = mutableListOf(),
+    override val labels: List<String> = emptyList(),
 ) : DockerServiceModel {
     @SerialName("x-canvas.location")
     @Serializable(with = PointAsStringSerializer::class)

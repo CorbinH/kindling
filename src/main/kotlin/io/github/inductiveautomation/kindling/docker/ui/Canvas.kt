@@ -16,8 +16,6 @@ import javax.swing.JComponent
 import javax.swing.JPanel
 import javax.swing.SwingUtilities
 import javax.swing.TransferHandler
-import kotlin.collections.component1
-import kotlin.collections.component2
 import kotlin.math.ceil
 import kotlin.math.sqrt
 

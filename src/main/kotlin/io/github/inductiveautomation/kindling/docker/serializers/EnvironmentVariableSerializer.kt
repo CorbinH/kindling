@@ -19,7 +19,7 @@ object EnvironmentVariableSerializer : KSerializer<MutableMap<String, String>> {
     override fun deserialize(decoder: Decoder): MutableMap<String, String> {
         val value = try {
             decoder.decodeSerializableValue(mapDelegate)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             decoder.decodeSerializableValue(listDelegate)
         }
 

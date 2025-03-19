@@ -7,6 +7,7 @@ import io.github.inductiveautomation.kindling.docker.model.GatewayEnvironmentVar
 import io.github.inductiveautomation.kindling.docker.model.IgnitionVersionComparator
 import io.github.inductiveautomation.kindling.docker.model.StaticDefinition
 import io.github.inductiveautomation.kindling.docker.ui.ConfigSection
+import io.github.inductiveautomation.kindling.docker.ui.editors.GatewayEnvVariablesEditor.Companion.defaultOverrides
 import io.github.inductiveautomation.kindling.utils.ColorHighlighter
 import io.github.inductiveautomation.kindling.utils.Column
 import io.github.inductiveautomation.kindling.utils.ColumnList
@@ -52,14 +53,24 @@ class GatewayEnvVariablesEditor(
     private val gatewaySettingsLabel = JLabel("Ignition Environment Variables")
     private val addButton = JButton("+").apply {
         addActionListener {
+            val s = gatewaySettingsTable.model.rowCount
+
             val currentVars = gatewaySettingsTable.model.staticVariableData.map { it.first }
             val newEntry = StaticDefinition.entries.find {
                 it !in currentVars
             }
 
             if (newEntry != null) {
-                gatewaySettingsTable.model.staticVariableData.add(Pair(newEntry, newEntry.default))
-                gatewaySettingsTable.model.fireTableDataChanged()
+                val newValue = defaultOverrides[newEntry]
+
+                if (newValue == null) {
+                    gatewaySettingsTable.model.staticVariableData.add(Pair(newEntry, newEntry.default))
+                } else {
+                    gatewaySettingsTable.model.staticVariableData.add(Pair(newEntry, newValue))
+                    data[newEntry.name] = newValue
+                }
+
+                gatewaySettingsTable.model.fireTableRowsInserted(s, s)
             }
         }
 
@@ -183,6 +194,17 @@ class GatewayEnvVariablesEditor(
             )
         }
     }
+
+    companion object {
+        internal val defaultOverrides: Map<StaticDefinition, String> = mapOf(
+            StaticDefinition.TZ to "America/Los_Angeles",
+            StaticDefinition.ACCEPT_IGNITION_EULA to "Y",
+            StaticDefinition.IGNITION_EDITION to "standard",
+            StaticDefinition.GATEWAY_ADMIN_USERNAME to "admin",
+            StaticDefinition.GATEWAY_ADMIN_PASSWORD to "password",
+            StaticDefinition.DISABLE_QUICKSTART to "true",
+        )
+    }
 }
 
 class GatewayEnvironmentVariableTableModel(
@@ -239,17 +261,28 @@ class GatewayEnvironmentVariableTableModel(
             aValue as StaticDefinition
             val currentValue = getValueAt(rowIndex, columnIndex) as StaticDefinition
 
-            if (currentValue.name in dataSource.keys) {
-                dataSource.remove(currentValue.name)
+            dataSource.remove(currentValue.name)
+
+            val newValue = defaultOverrides[aValue]
+
+            if (newValue == null) {
+                staticVariableData[rowIndex] = Pair(aValue, aValue.default)
+            } else {
+                staticVariableData[rowIndex] = Pair(aValue, newValue)
+                dataSource[aValue.name] = newValue
             }
-            staticVariableData[rowIndex] = Pair(aValue, aValue.default)
+
             fireTableDataChanged()
         } else if (columnIndex == 1) {
             aValue as String
             val def = getValueAt(rowIndex, 0) as StaticDefinition
 
             staticVariableData[rowIndex] = Pair(def, aValue)
-            if (aValue == def.default) dataSource.remove(def.name) else dataSource[def.name] = aValue
+            if (aValue == def.default && def !in defaultOverrides.keys) {
+                dataSource.remove(def.name)
+            } else {
+                dataSource[def.name] = aValue
+            }
 
             fireTableDataChanged()
         }
@@ -280,14 +313,14 @@ class GatewayEnvironmentVariableTableModel(
                         value as StaticDefinition
 
                         val modelRow = table.convertRowIndexToModel(row)
-                        if (!table.model.meetsMinimumVersion(modelRow)) {
-                            toolTipText = """
-                                ⚠ Variable will have no effect. ⚠
+
+                        toolTipText = if (!table.model.meetsMinimumVersion(modelRow)) {
+                            """⚠ Variable will have no effect. ⚠
                                 Minimum Version: ${value.minimumVersion}
                                 Current Version: ${table.model.version}
                             """.trimIndent()
                         } else {
-                            toolTipText = null
+                            null
                         }
                         return super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column)
                     }
@@ -392,7 +425,7 @@ class GatewayEnvironmentVariableTableModel(
 
             if (envVar.options != null) {
                 textField.text = null
-                comboBox.model = DefaultComboBoxModel(envVar.options!!.toTypedArray())
+                comboBox.model = DefaultComboBoxModel(envVar.options.toTypedArray())
                 comboBox.selectedItem = value ?: envVar.default
                 return comboBox
             } else {

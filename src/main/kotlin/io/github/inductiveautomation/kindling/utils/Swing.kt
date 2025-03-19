@@ -17,6 +17,7 @@ import java.awt.image.BufferedImage
 import java.io.File
 import java.util.EventListener
 import javax.swing.InputVerifier
+import javax.swing.JComboBox
 import javax.swing.JComponent
 import javax.swing.JFileChooser
 import javax.swing.JPopupMenu
@@ -207,13 +208,23 @@ class RegexInputVerifier(
     private val allowPartialMatch: Boolean = false,
 ) : InputVerifier() {
     override fun verify(input: JComponent?): Boolean {
-        if (input !is JTextComponent) return false
-
-        return if (allowPartialMatch) {
-            regex.containsMatchIn(input.text)
+        if (input is JTextComponent) {
+            return if (allowPartialMatch) {
+                regex.containsMatchIn(input.text)
+            } else {
+                regex.matches(input.text)
+            }
+        } else if (input is JComboBox<*>) {
+            val strInput = input.selectedItem as? String ?: return false
+            return if (allowPartialMatch) {
+                regex.containsMatchIn(strInput)
+            } else {
+                regex.matches(strInput)
+            }
         } else {
-            regex.matches(input.text)
+            return false
         }
+
     }
 }
 
