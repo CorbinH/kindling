@@ -136,6 +136,8 @@ class Canvas(
 
                 comp.setBounds(x, y, comp.preferredSize.width, comp.preferredSize.height)
 
+                setComponentZOrder(comp, 0)
+
                 comp.revalidate()
                 comp.repaint()
             }
