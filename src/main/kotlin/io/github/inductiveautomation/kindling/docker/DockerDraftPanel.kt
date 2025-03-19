@@ -22,6 +22,7 @@ import io.github.inductiveautomation.kindling.docker.model.DockerVolume
 import io.github.inductiveautomation.kindling.docker.model.GatewayEnvironmentVariableDefinition.Companion.getConnectionVariableIndex
 import io.github.inductiveautomation.kindling.docker.model.GatewayServiceModel
 import io.github.inductiveautomation.kindling.docker.model.GatewayServiceModel.Companion.DEFAULT_IMAGE
+import io.github.inductiveautomation.kindling.docker.model.PortMapping
 import io.github.inductiveautomation.kindling.docker.ui.AbstractDockerServiceNode
 import io.github.inductiveautomation.kindling.docker.ui.Canvas
 import io.github.inductiveautomation.kindling.docker.ui.CanvasNodeList
@@ -43,10 +44,6 @@ import io.github.inductiveautomation.kindling.utils.add
 import io.github.inductiveautomation.kindling.utils.chooseFiles
 import io.github.inductiveautomation.kindling.utils.getAll
 import io.github.inductiveautomation.kindling.utils.traverseChildren
-import kotlinx.serialization.encodeToString
-import net.miginfocom.swing.MigLayout
-import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
-import org.fife.ui.rsyntaxtextarea.SyntaxConstants.SYNTAX_STYLE_YAML
 import java.awt.EventQueue
 import java.awt.Font
 import java.awt.KeyboardFocusManager
@@ -63,18 +60,76 @@ import javax.swing.JOptionPane
 import javax.swing.JPanel
 import javax.swing.SwingUtilities
 import javax.swing.filechooser.FileNameExtensionFilter
-import kotlin.collections.component1
-import kotlin.collections.component2
-import kotlin.collections.set
 import kotlin.io.path.inputStream
 import kotlin.io.path.outputStream
 import kotlin.random.Random
+import kotlinx.serialization.encodeToString
+import net.miginfocom.swing.MigLayout
+import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
+import org.fife.ui.rsyntaxtextarea.SyntaxConstants.SYNTAX_STYLE_YAML
 
 @Suppress("unused")
 class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3") {
     override val icon = DockerTool.icon
 
     private val canvas = Canvas("Docker Drafting")
+
+    private val services: List<AbstractDockerServiceNode<*>>
+        get() = canvas.traverseChildren(false).filterIsInstance<AbstractDockerServiceNode<*>>().toList()
+
+    private val nodeIdManager = object {
+        val seenIDs = mutableListOf<Int>()
+        fun generateID(): Int {
+            var newID = Random.nextInt(10000)
+            while (newID in seenIDs) {
+                newID = Random.nextInt(10000)
+            }
+            seenIDs.add(newID)
+            return newID
+        }
+    }
+
+    private val portMapper = object {
+        val usedPorts = mutableListOf<UShort>()
+        fun generatePort(): UShort {
+            var newPort: UShort = 9088u
+            while (newPort in usedPorts) {
+                newPort++
+            }
+            usedPorts.add(newPort)
+            return newPort
+        }
+
+        fun listenForDeletion(node: AbstractDockerServiceNode<*>) {
+            node.addNodeDeleteListener {
+                usedPorts.removeAll(node.model.ports.map { it.hostPort })
+            }
+        }
+    }
+
+    private var volumes: List<DockerVolume> = emptyList()
+        set(value) {
+            field = value
+            services.forEach {
+                it.volumeOptions = value
+            }
+        }
+
+    private var networks: List<DockerNetwork> = emptyList()
+        set(value) {
+            field = value
+            services.forEach {
+                it.networkOptions = value
+            }
+        }
+
+    private val connectionObserver = ConnectionObserver()
+
+    init {
+        if (existingFile != null) {
+            import(existingFile)
+        }
+    }
 
     private val optionsLabel = JLabel("Components").apply {
         font = font.deriveFont(Font.BOLD, 14F)
@@ -89,15 +144,14 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
                     GatewayServiceModel(
                         image = DEFAULT_IMAGE,
                         containerName = "Ignition-${nodeIdManager.generateID()}",
+                        ports = mutableListOf(PortMapping(portMapper.generatePort(), 8088u)),
                     ),
                     initialNetworkOptions = networks,
                     initialVolumeOptions = volumes,
                 ).apply {
                     bindYamlPreview()
                     connectionObserver.observeConnection(this)
-                    connectionObserver.addConnectionProgressChangeListener { inProgress: Boolean ->
-                        this.updateValidConnectionTarget(inProgress)
-                    }
+                    portMapper.listenForDeletion(this)
                 }
             },
             NodeInitializer(
@@ -130,26 +184,10 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
         }
     }
 
-    private var volumes: List<DockerVolume> = emptyList()
-        set(value) {
-            field = value
-            services.forEach {
-                it.volumeOptions = value
-            }
-        }
-
-    private var networks: List<DockerNetwork> = emptyList()
-        set(value) {
-            field = value
-            services.forEach {
-                it.networkOptions = value
-            }
-        }
-
     private val volumesLabel = JLabel("Volumes").apply {
         font = font.deriveFont(Font.BOLD, 14F)
     }
-    private val volumesList = VolumesList(volumes.toMutableList()).apply {
+    private val volumesList = VolumesList(volumes).apply {
         volumesList.model.addListDataListener(
             TrivialListDataListener {
                 val options = Array<DockerVolume>(volumesList.model.size) {
@@ -164,7 +202,7 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
     private val networksLabel = JLabel("Networks").apply {
         font = font.deriveFont(Font.BOLD, 14F)
     }
-    private val networksList = NetworksList(networks.toMutableList()).apply {
+    private val networksList = NetworksList(networks).apply {
         networksList.model.addListDataListener(
             TrivialListDataListener {
                 val options = Array<DockerNetwork>(networksList.model.size) {
@@ -196,23 +234,6 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
         add(previewLabel, "gapbottom 3")
         add(FlatScrollPane(yamlPreview), "pushy, grow, wmin 300")
     }
-
-    private val nodeIdManager = object {
-        val seenIDs = mutableListOf<Int>()
-        fun generateID(): Int {
-            var newID = Random.nextInt(10000)
-            while (newID in seenIDs) {
-                newID = Random.nextInt(10000)
-            }
-            seenIDs.add(newID)
-            return newID
-        }
-    }
-
-    private val services: List<AbstractDockerServiceNode<*>>
-        get() = canvas.traverseChildren(false).filterIsInstance<AbstractDockerServiceNode<*>>().toList()
-
-    private val connectionObserver = ConnectionObserver()
 
     private val composeFile: DockerComposeFile
         get() {
@@ -280,10 +301,8 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
             export()
         }
 
-        if (existingFile != null) {
-            SwingUtilities.invokeLater {
-                import(existingFile)
-            }
+        SwingUtilities.invokeLater {
+            updatePreview()
         }
     }
 
@@ -378,6 +397,16 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
             }
         }
 
+        fun parseExistingPorts(nodes: List<AbstractDockerServiceNode<*>>) {
+            val usedPorts = nodes.flatMap { node ->
+                node.model.ports.map { mapping ->
+                    mapping.hostPort
+                }
+            }
+
+            portMapper.usedPorts.addAll(usedPorts)
+        }
+
         val composeFile = try {
             importFile.inputStream().use<_, DockerComposeFile>(YAML::decodeFromStream)
         } catch (e: Exception) {
@@ -397,6 +426,7 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
         val connections = resolveConnections(nodes)
         layoutComponents(nodes, connections)
         parseExistingIDs(nodes)
+        parseExistingPorts(nodes)
     }
 
     private fun clear() {
@@ -505,6 +535,10 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
         fun observeConnection(node: GatewayServiceNode) {
             node.addConnectionInitListener {
                 handleConnectionInit(node)
+            }
+
+            addConnectionProgressChangeListener { inProgress: Boolean ->
+                node.updateValidConnectionTarget(inProgress)
             }
         }
     }

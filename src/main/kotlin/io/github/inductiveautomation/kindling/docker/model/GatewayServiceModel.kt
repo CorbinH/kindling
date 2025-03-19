@@ -24,6 +24,7 @@ class GatewayServiceModel(
     override val commands: MutableList<CliArgument> = mutableListOf(),
     override val volumes: MutableList<BindMount> = mutableListOf(),
     override val networks: MutableList<String> = mutableListOf(),
+    override val labels: List<String> = emptyList(),
 ) : DockerServiceModel {
     @SerialName("x-canvas.location")
     @Serializable(with = PointAsStringSerializer::class)
@@ -33,6 +34,8 @@ class GatewayServiceModel(
         if (hostName == null) {
             hostName = containerName.filter { it in hostNameValidChars }
         }
+
+        environment.putAll(DEFAULT_VARIABLES)
     }
 
     @Transient
@@ -56,5 +59,11 @@ class GatewayServiceModel(
     companion object {
         const val DEFAULT_IMAGE = "inductiveautomation/ignition:latest"
         private val hostNameValidChars = ('A'..'Z') + ('0'..'9') + ('a'..'z') + '-'
+        private val DEFAULT_VARIABLES = mapOf(
+            StaticDefinition.ACCEPT_IGNITION_EULA.name to "Y",
+            StaticDefinition.GATEWAY_ADMIN_USERNAME.name to "admin",
+            StaticDefinition.GATEWAY_ADMIN_PASSWORD.name to "password",
+            StaticDefinition.IGNITION_EDITION.name to "standard",
+        )
     }
 }

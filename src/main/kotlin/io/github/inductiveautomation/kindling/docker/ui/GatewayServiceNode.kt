@@ -59,9 +59,13 @@ class GatewayServiceNode(
             )
 
             if (confirm == JOptionPane.YES_OPTION) {
+                if (configWindow.isVisible) {
+                    configWindow.dispose()
+                }
                 fireNodeDeletedEvent()
             }
         }
+
         configureButton.addActionListener { configEditor.resetNames() }
 
         updateHostNameText()

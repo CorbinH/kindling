@@ -25,7 +25,7 @@ class PortMappingEditor(
 
         val addPortButton = JButton("+").apply {
             addActionListener {
-                portMappingTable.model.data.add(PortMapping(9088.toUShort(), 8088.toUShort()))
+                portMappingTable.model.data.add(PortMapping(9088u, 8088u))
                 portMappingTable.model.fireTableDataChanged()
             }
         }
