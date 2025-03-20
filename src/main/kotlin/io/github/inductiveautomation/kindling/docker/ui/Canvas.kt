@@ -13,7 +13,7 @@ import java.awt.MouseInfo
 import java.awt.Point
 import javax.swing.JButton
 import javax.swing.JComponent
-import javax.swing.JPanel
+import javax.swing.JLayeredPane
 import javax.swing.SwingUtilities
 import javax.swing.TransferHandler
 import kotlin.math.ceil
@@ -21,8 +21,10 @@ import kotlin.math.sqrt
 
 class Canvas(
     private val label: String,
-) : JPanel() {
+) : JLayeredPane() {
     private lateinit var canvasDragPoint: Point
+    val NODE_LAYER = 2
+    val CONNECTION_LAYER = 1
 
     init {
         isOpaque = true
@@ -47,17 +49,28 @@ class Canvas(
 
                 canvasDragPoint = e.point
             }
+            mouseMoved { e ->
+                val allConnections = traverseChildren(false).filterIsInstance<GatewayNodeConnector>().toList()
+                allConnections.forEach { connection ->
+                    val connectionPoint = SwingUtilities.convertPoint(this@Canvas, e.point, connection)
+                    if (connection.contains(connectionPoint)) {
+                        this@Canvas.setLayer(connection, CONNECTION_LAYER, 0)
+                    }
+                }
+            }
         }
 
         transferHandler = object : TransferHandler() {
             override fun canImport(support: TransferSupport?): Boolean {
-                return support?.isDataFlavorSupported(NodeInitializerTransferHandler.NODE_INITIALIZER_DATA_FLAVOR) ?: false
+                return support?.isDataFlavorSupported(NodeInitializerTransferHandler.NODE_INITIALIZER_DATA_FLAVOR)
+                    ?: false
             }
 
             override fun importData(support: TransferSupport?): Boolean {
                 if (!canImport(support)) return false
 
-                val initializer = support?.transferable?.getTransferData(NodeInitializerTransferHandler.NODE_INITIALIZER_DATA_FLAVOR)
+                val initializer =
+                    support?.transferable?.getTransferData(NodeInitializerTransferHandler.NODE_INITIALIZER_DATA_FLAVOR)
 
                 if (initializer is NodeInitializer) {
                     val canvas = support.component as? Canvas ?: return false
@@ -68,6 +81,7 @@ class Canvas(
                     }
 
                     canvas.add(node, dropLocation)
+                    canvas.setLayer(node, NODE_LAYER)
                     return true
                 }
 
@@ -84,6 +98,15 @@ class Canvas(
         toolTipText = "Tile-arrange"
         addActionListener { tileArrange() }
     }
+
+//    fun resetZOrders() {
+//        traverseChildren(false).filterIsInstance<AbstractDockerServiceNode<*>>().toList().forEach {
+//            setComponentZOrder(it, 1)
+//        }
+//        traverseChildren(false).filterIsInstance<GatewayNodeConnector>().toList().forEach {
+//            setComponentZOrder(it, 3)
+//        }
+//    }
 
     private fun tileArrange() {
         val nodes = traverseChildren(false).filterIsInstance<AbstractDockerServiceNode<*>>().toList()
@@ -113,6 +136,7 @@ class Canvas(
             nodes[n].location = Point(locationX.toInt(), locationY.toInt())
             n++
         }
+//        resetZOrders()
     }
 
     override fun addImpl(comp: Component?, constraints: Any?, index: Int) {
@@ -122,7 +146,8 @@ class Canvas(
             comp.addNodeDeleteListener {
                 remove(comp)
             }
-
+//            resetZOrders()
+            setComponentZOrder(comp, 0)
             EventQueue.invokeLater {
                 // If location is specified, place the component there, otherwise place it in the center.
                 val (x, y) = if (constraints is Point) {
@@ -130,7 +155,7 @@ class Canvas(
                 } else {
                     listOf(
                         (width / 2) - (comp.preferredSize.width / 2),
-                        (height / 2) - (comp.preferredSize.width / 2)
+                        (height / 2) - (comp.preferredSize.width / 2),
                     )
                 }
 
@@ -149,7 +174,8 @@ class Canvas(
         c.addMouseListener {
             mousePressed {
                 cPoint = SwingUtilities.convertPoint(c, it.x, it.y, this@Canvas)
-                setComponentZOrder(c, 1)
+//                this@Canvas.resetZOrders()
+                this@Canvas.setLayer(c, NODE_LAYER, 0)
                 c.repaint()
             }
         }

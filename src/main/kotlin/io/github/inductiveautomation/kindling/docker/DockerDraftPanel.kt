@@ -44,6 +44,10 @@ import io.github.inductiveautomation.kindling.utils.add
 import io.github.inductiveautomation.kindling.utils.chooseFiles
 import io.github.inductiveautomation.kindling.utils.getAll
 import io.github.inductiveautomation.kindling.utils.traverseChildren
+import kotlinx.serialization.encodeToString
+import net.miginfocom.swing.MigLayout
+import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
+import org.fife.ui.rsyntaxtextarea.SyntaxConstants.SYNTAX_STYLE_YAML
 import java.awt.EventQueue
 import java.awt.Font
 import java.awt.KeyboardFocusManager
@@ -63,10 +67,6 @@ import javax.swing.filechooser.FileNameExtensionFilter
 import kotlin.io.path.inputStream
 import kotlin.io.path.outputStream
 import kotlin.random.Random
-import kotlinx.serialization.encodeToString
-import net.miginfocom.swing.MigLayout
-import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
-import org.fife.ui.rsyntaxtextarea.SyntaxConstants.SYNTAX_STYLE_YAML
 
 @Suppress("unused")
 class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3") {
@@ -497,7 +497,8 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
                 val connection = GatewayNodeConnector(node, index, canvas)
                 node.connections[index] = connection
 
-                canvas.add(connection)
+                canvas.add(connection, canvas.CONNECTION_LAYER)
+                canvas.setLayer(connection, canvas.CONNECTION_LAYER)
 
                 inProgressConnection = connection
             } else {
