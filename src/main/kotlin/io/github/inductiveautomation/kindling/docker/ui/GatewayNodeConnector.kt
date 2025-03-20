@@ -15,6 +15,7 @@ import io.github.inductiveautomation.kindling.utils.PointHelpers.convert
 import io.github.inductiveautomation.kindling.utils.attachPopupMenu
 import io.github.inductiveautomation.kindling.utils.jFrame
 import io.github.inductiveautomation.kindling.utils.tag
+import net.miginfocom.swing.MigLayout
 import java.awt.BasicStroke
 import java.awt.Font
 import java.awt.Graphics
@@ -24,6 +25,7 @@ import java.awt.Point
 import java.awt.Polygon
 import java.awt.Rectangle
 import java.awt.Shape
+import java.awt.event.MouseEvent
 import java.awt.geom.AffineTransform
 import java.awt.geom.Path2D
 import java.awt.geom.Rectangle2D.OUT_BOTTOM
@@ -43,7 +45,6 @@ import javax.swing.SpinnerNumberModel
 import javax.swing.SwingUtilities
 import javax.swing.SwingUtilities.getUnwrappedParent
 import javax.swing.Timer
-import net.miginfocom.swing.MigLayout
 
 /**
  * Responsible for drawing connection on the screen and editing connection properties.
@@ -53,7 +54,7 @@ class GatewayNodeConnector(
     val index: Int,
     private val canvas: Canvas,
 ) : JComponent() {
-    var from : GatewayServiceNode = fromGateway
+    var from: GatewayServiceNode = fromGateway
     lateinit var to: GatewayServiceNode
 
     private val connectionInProgress: Boolean
@@ -77,6 +78,8 @@ class GatewayNodeConnector(
 
     private var highlightPath = false
     private var connectionPath = Path2D.Double()
+    private var boundingPath = Path2D.Double()
+    private val curveWidth = 4
 
     private val settingsPanel get() = ConnectionSettingsPanel()
 
@@ -89,30 +92,40 @@ class GatewayNodeConnector(
                 val minX = minOf(from.x, p.x)
                 val minY = minOf(from.y, p.y)
                 val maxX = maxOf(from.x + from.width, p.x)
-                val maxY = maxOf(from.y + from.height,p.y)
+                val maxY = maxOf(from.y + from.height, p.y)
 
                 return Rectangle(minX, minY, maxX - minX + 5, maxY - minY + 5)
             } else {
                 val minX = minOf(from.x, to.x)
                 val minY = minOf(from.y, to.y)
                 val maxX = maxOf(from.x + from.width, to.x + to.width)
-                val maxY = maxOf(from.y + from.height,to.y + to.height)
+                val maxY = maxOf(from.y + from.height, to.y + to.height)
 
                 return Rectangle(minX, minY, maxX - minX, maxY - minY)
             }
         }
 
+    override fun contains(point: Point): Boolean {
+        return boundingPath.contains(point)
+    }
+
     init {
         layout = null
         bounds = boundsFromConnectionPoints
         toolTipText = "Right-click to edit/delete"
-
         addMouseMotionListener {
             mouseMoved {
-                val contains = connectionPath.contains(it.point)
+                val contains = boundingPath.contains(it.point)
                 if (contains != highlightPath) {
                     highlightPath = contains
                     repaint()
+                } else if (!connectionInProgress) {
+                    val parentEvent: MouseEvent = SwingUtilities.convertMouseEvent(
+                        this@GatewayNodeConnector,
+                        it,
+                        this@GatewayNodeConnector.parent,
+                    )
+                    parent.dispatchEvent(parentEvent)
                 }
             }
         }
@@ -131,10 +144,10 @@ class GatewayNodeConnector(
         attachPopupMenu {
             JPopupMenu().also { menu ->
                 menu.add(
-                    Action("Edit") { showEditor() }
+                    Action("Edit") { showEditor() },
                 )
                 menu.add(
-                    Action("Delete") { deleteConnection() }
+                    Action("Delete") { deleteConnection() },
                 )
             }
         }
@@ -165,7 +178,7 @@ class GatewayNodeConnector(
                     ConnectionDefinition.GATEWAY_NETWORK_X_HOST,
                     index,
                     to.model.hostName,
-                )
+                ),
             )
 
             addNodeDeleteListener {
@@ -243,7 +256,97 @@ class GatewayNodeConnector(
             )
         }
 
+        val fromBounds = from.bounds.apply {
+            width -= 1
+            height -= 1
+        }
+
+        val allPoints = buildList {
+            val curvePoints = connectionPath.getPathIterator(null, 0.01)
+            while (!curvePoints.isDone) {
+                val arr = DoubleArray(6)
+                curvePoints.currentSegment(arr)
+                add(Point(arr[0].toInt(), arr[1].toInt()))
+                curvePoints.next()
+            }
+        }
+
+        val exitPoint = allPoints.find {
+            !from.bounds.contains(
+                it.convert(this, getUnwrappedParent(this)),
+            )
+        } ?: return
+
+        val canvasPoint = exitPoint.convert(this, getUnwrappedParent(this))
+
+        val outcode = fromBounds.outcode(canvasPoint)
+        val toIsAbove = toPoint.y < fromPoint.y
+        val toIsLeft = toPoint.x < fromPoint.x
+
+        var outerXOffset = 0
+        var outerYOffset = 0
+
+        var innerXOffset = 0
+        var innerYOffset = 0
+
+        when (outcode) {
+            OUT_LEFT -> {
+                outerXOffset = -curveWidth
+                outerYOffset = if (toIsAbove) curveWidth else -curveWidth
+
+                innerXOffset = curveWidth
+                innerYOffset = if (toIsAbove) -curveWidth else curveWidth
+            }
+
+            OUT_TOP -> {
+                outerXOffset = if (toIsLeft) curveWidth else -curveWidth
+                outerYOffset = -curveWidth
+
+                innerXOffset = if (toIsLeft) -curveWidth else curveWidth
+                innerYOffset = curveWidth
+            }
+
+            OUT_RIGHT -> {
+                outerXOffset = curveWidth
+                outerYOffset = if (toIsAbove) curveWidth else -curveWidth
+
+                innerXOffset = -curveWidth
+                innerYOffset = if (toIsAbove) -curveWidth else curveWidth
+            }
+
+            OUT_BOTTOM -> {
+                outerXOffset = if (toIsLeft) curveWidth else -curveWidth
+                outerYOffset = curveWidth
+
+                innerXOffset = if (toIsLeft) -curveWidth else curveWidth
+                innerYOffset = -curveWidth
+            }
+        }
         g.draw(connectionPath)
+        boundingPath.apply {
+            reset()
+            moveTo(fromPoint.x.toDouble() + outerXOffset, fromPoint.y.toDouble() + outerYOffset)
+            curveTo(
+                fromPoint.x.toDouble() + outerXOffset,
+                toPoint.y.toDouble() + outerYOffset,
+                fromPoint.x.toDouble() + outerXOffset,
+                toPoint.y.toDouble() + outerYOffset,
+                toPoint.x.toDouble() + outerXOffset,
+                toPoint.y.toDouble() + outerYOffset,
+            )
+            lineTo(
+                toPoint.x.toDouble() + innerXOffset,
+                toPoint.y.toDouble() + innerYOffset,
+            )
+            curveTo(
+                fromPoint.x.toDouble() + innerXOffset,
+                toPoint.y.toDouble() + innerYOffset,
+                fromPoint.x.toDouble() + innerXOffset,
+                toPoint.y.toDouble() + innerYOffset,
+                fromPoint.x.toDouble() + innerXOffset,
+                fromPoint.y.toDouble() + innerYOffset,
+            )
+        }
     }
 
     private fun drawArrowIndicator(g: Graphics2D) {
@@ -259,7 +362,7 @@ class GatewayNodeConnector(
 
         val arrowPoint = allPoints.findLast {
             !to.bounds.contains(
-                it.convert(this, getUnwrappedParent(this))
+                it.convert(this, getUnwrappedParent(this)),
             )
         } ?: return
 
@@ -277,18 +380,22 @@ class GatewayNodeConnector(
                 arrowPoint.x = toCoord.x
                 Math.PI / 2
             }
+
             OUT_TOP -> {
                 arrowPoint.y = toCoord.y
                 Math.PI
             }
+
             OUT_RIGHT -> {
                 arrowPoint.x = toCoord.x + to.width
                 Math.PI * 3 / 2
             }
+
             OUT_BOTTOM -> {
                 arrowPoint.y = toCoord.y + to.height
                 0.0
             }
+
             else -> {
                 0.0
             }
@@ -299,7 +406,7 @@ class GatewayNodeConnector(
             arrowPoint.x.toDouble(),
             arrowPoint.y.toDouble(),
         ).createTransformedShape(
-            arrowHead(arrowPoint, 2)
+            arrowHead(arrowPoint, 2),
         )
 
         g.fill(arrowHead)
@@ -416,7 +523,7 @@ class GatewayNodeConnector(
                 0,
                 Integer.MAX_VALUE,
                 1,
-            )
+            ),
         )
 
         val pingMaxMissedLabel = boldJLabel("Ping Max Missed")
@@ -426,7 +533,7 @@ class GatewayNodeConnector(
                 -1,
                 Integer.MAX_VALUE,
                 1,
-            )
+            ),
         )
 
         val enabledLabel = boldJLabel("Connection Enabled")
@@ -446,7 +553,7 @@ class GatewayNodeConnector(
                 10,
                 2_000_000_000,
                 1000,
-            )
+            ),
         )
 
         val descriptionLabel = boldJLabel("<html>Description<sup><i>8.1.26+</i></sup></html>")
@@ -455,26 +562,27 @@ class GatewayNodeConnector(
             isEnabled = IgnitionVersionComparator.compare(from.model.version, "8.1.26") >= 0
         }
 
-        private val configSection = object : ConfigSection("Connection Configuration", "fill, ins 0, gap 10, ins 5 0 0 0") {
-            init {
-                add(hostLabel, "sg")
-                add(hostField, "pushx, growx, wrap")
-                add(portLabel, "sg")
-                add(portField, "pushx, growx, wrap")
-                add(pingRateLabel, "sg")
-                add(pingRateField, "pushx, growx, wrap")
-                add(pingMaxMissedLabel, "sg")
-                add(pingMaxMissedField, "pushx, growx, wrap")
-                add(enabledLabel, "sg")
-                add(enabledCheckbox, "pushx, growx, wrap")
-                add(enableSSLLabel, "sg")
-                add(enableSSLCheckbox, "pushx, growx, wrap")
-                add(webSocketTimeoutLabel, "sg")
-                add(webSocketTimeoutField, "pushx, growx, wrap")
-                add(descriptionLabel, "sg, wrap")
-                add(descriptionEntry, "push, grow, span")
+        private val configSection =
+            object : ConfigSection("Connection Configuration", "fill, ins 0, gap 10, ins 5 0 0 0") {
+                init {
+                    add(hostLabel, "sg")
+                    add(hostField, "pushx, growx, wrap")
+                    add(portLabel, "sg")
+                    add(portField, "pushx, growx, wrap")
+                    add(pingRateLabel, "sg")
+                    add(pingRateField, "pushx, growx, wrap")
+                    add(pingMaxMissedLabel, "sg")
+                    add(pingMaxMissedField, "pushx, growx, wrap")
+                    add(enabledLabel, "sg")
+                    add(enabledCheckbox, "pushx, growx, wrap")
+                    add(enableSSLLabel, "sg")
+                    add(enableSSLCheckbox, "pushx, growx, wrap")
+                    add(webSocketTimeoutLabel, "sg")
+                    add(webSocketTimeoutField, "pushx, growx, wrap")
+                    add(descriptionLabel, "sg, wrap")
+                    add(descriptionEntry, "push, grow, span")
+                }
             }
-        }
 
         private val closeButton = JButton("Cancel").apply {
             addActionListener {
