@@ -99,15 +99,6 @@ class Canvas(
         addActionListener { tileArrange() }
     }
 
-//    fun resetZOrders() {
-//        traverseChildren(false).filterIsInstance<AbstractDockerServiceNode<*>>().toList().forEach {
-//            setComponentZOrder(it, 1)
-//        }
-//        traverseChildren(false).filterIsInstance<GatewayNodeConnector>().toList().forEach {
-//            setComponentZOrder(it, 3)
-//        }
-//    }
-
     private fun tileArrange() {
         val nodes = traverseChildren(false).filterIsInstance<AbstractDockerServiceNode<*>>().toList()
 
@@ -136,7 +127,6 @@ class Canvas(
             nodes[n].location = Point(locationX.toInt(), locationY.toInt())
             n++
         }
-//        resetZOrders()
     }
 
     override fun addImpl(comp: Component?, constraints: Any?, index: Int) {
@@ -146,8 +136,6 @@ class Canvas(
             comp.addNodeDeleteListener {
                 remove(comp)
             }
-//            resetZOrders()
-            setComponentZOrder(comp, 0)
             EventQueue.invokeLater {
                 // If location is specified, place the component there, otherwise place it in the center.
                 val (x, y) = if (constraints is Point) {
@@ -160,9 +148,7 @@ class Canvas(
                 }
 
                 comp.setBounds(x, y, comp.preferredSize.width, comp.preferredSize.height)
-
-                setComponentZOrder(comp, 0)
-
+                this.setLayer(comp, NODE_LAYER, 0)
                 comp.revalidate()
                 comp.repaint()
             }
@@ -176,7 +162,6 @@ class Canvas(
         c.addMouseListener {
             mousePressed {
                 cPoint = SwingUtilities.convertPoint(c, it.x, it.y, this@Canvas)
-//                this@Canvas.resetZOrders()
                 this@Canvas.setLayer(c, NODE_LAYER, 0)
                 c.repaint()
             }
