@@ -44,10 +44,6 @@ import io.github.inductiveautomation.kindling.utils.add
 import io.github.inductiveautomation.kindling.utils.chooseFiles
 import io.github.inductiveautomation.kindling.utils.getAll
 import io.github.inductiveautomation.kindling.utils.traverseChildren
-import kotlinx.serialization.encodeToString
-import net.miginfocom.swing.MigLayout
-import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
-import org.fife.ui.rsyntaxtextarea.SyntaxConstants.SYNTAX_STYLE_YAML
 import java.awt.EventQueue
 import java.awt.Font
 import java.awt.KeyboardFocusManager
@@ -64,9 +60,15 @@ import javax.swing.JOptionPane
 import javax.swing.JPanel
 import javax.swing.SwingUtilities
 import javax.swing.filechooser.FileNameExtensionFilter
+import kotlin.io.path.absolutePathString
 import kotlin.io.path.inputStream
+import kotlin.io.path.name
 import kotlin.io.path.outputStream
 import kotlin.random.Random
+import kotlinx.serialization.encodeToString
+import net.miginfocom.swing.MigLayout
+import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
+import org.fife.ui.rsyntaxtextarea.SyntaxConstants.SYNTAX_STYLE_YAML
 
 @Suppress("unused")
 class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3") {
@@ -245,8 +247,8 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
         }
 
     init {
-        name = "Docker Draft Test"
-        toolTipText = ""
+        name = existingFile?.name ?: "New Editor"
+        toolTipText = existingFile?.absolutePathString()
 
         add(
             HorizontalSplitPane(
