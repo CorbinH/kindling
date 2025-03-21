@@ -1,68 +1,48 @@
 package io.github.inductiveautomation.kindling.docker.model
 
 import io.github.inductiveautomation.kindling.docker.serializers.CommandLineArgumentListSerializer
-import io.github.inductiveautomation.kindling.docker.serializers.EnvironmentVariableSerializer
+import io.github.inductiveautomation.kindling.docker.serializers.DockerServiceModelSerializer
+import io.github.inductiveautomation.kindling.docker.serializers.EnvironmentVariableListSerializer
 import io.github.inductiveautomation.kindling.docker.serializers.PointAsStringSerializer
 import java.awt.Point
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.KeepGeneratedSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 
-@Serializable
-sealed interface DockerServiceModel {
-    var image: String
-
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable(with = DockerServiceModelSerializer::class)
+@KeepGeneratedSerializer
+open class DockerServiceModel(
+    var image: String,
     @SerialName("hostname")
-    var hostName: String?
-
+    var hostName: String? = null,
     @SerialName("container_name")
-    var containerName: String
-
-    val ports: MutableList<PortMapping>
-
-    @Serializable(with = EnvironmentVariableSerializer::class)
-    val environment: MutableMap<String, String>
-
+    var containerName: String = "",
+    val ports: MutableList<PortMapping> = mutableListOf(),
+    @SerialName("environment")
+    @Serializable(with = EnvironmentVariableListSerializer::class)
+    var envList: List<EnvironmentVariable> = emptyList(),
     @SerialName("command")
     @Serializable(with = CommandLineArgumentListSerializer::class)
-    val commands: MutableList<CliArgument>
+    val commands: MutableList<CliArgument> = mutableListOf(),
+    val volumes: MutableList<BindMount> = mutableListOf(),
+    val networks: MutableList<String> = mutableListOf(),
+    val labels: List<String> = emptyList(),
+) {
+    @Transient
+    val environment: MutableMap<String, String> = envList.toMap().toMutableMap()
 
-    val volumes: MutableList<BindMount>
-
-    val networks: MutableList<String>
-
-    val labels: List<String>
-
-    @SerialName("x-canvas.location")
-    var canvasLocation: Point?
-}
-
-fun interface ServiceModelChangeListener : java.util.EventListener {
-    fun onServiceModelChanged()
-}
-
-@Serializable
-@SerialName("GenericDockerService")
-class DefaultDockerServiceModel(
-    override var image: String,
-    @SerialName("hostname")
-    override var hostName: String? = null,
-    @SerialName("container_name")
-    override var containerName: String,
-    override val ports: MutableList<PortMapping> = mutableListOf(),
-    @Serializable(with = EnvironmentVariableSerializer::class)
-    override val environment: MutableMap<String, String> = mutableMapOf(),
-    @SerialName("command")
-    @Serializable(with = CommandLineArgumentListSerializer::class)
-    override val commands: MutableList<CliArgument> = mutableListOf(),
-    override val volumes: MutableList<BindMount> = mutableListOf(),
-    override val networks: MutableList<String> = mutableListOf(),
-    override val labels: List<String> = emptyList(),
-) : DockerServiceModel {
     @SerialName("x-canvas.location")
     @Serializable(with = PointAsStringSerializer::class)
-    override var canvasLocation: Point? = null
+    var canvasLocation: Point? = null
 
     companion object {
         const val DEFAULT_GENERIC_IMAGE = "kcollins/mssql:latest"
     }
+}
+
+fun interface ServiceModelChangeListener : java.util.EventListener {
+    fun onServiceModelChanged()
 }

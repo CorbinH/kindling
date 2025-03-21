@@ -1,18 +1,18 @@
 package io.github.inductiveautomation.kindling.docker.ui
 
 import com.formdev.flatlaf.extras.FlatSVGIcon
-import io.github.inductiveautomation.kindling.docker.model.DefaultDockerServiceModel
 import io.github.inductiveautomation.kindling.docker.model.DockerNetwork
+import io.github.inductiveautomation.kindling.docker.model.DockerServiceModel
 import io.github.inductiveautomation.kindling.docker.model.DockerVolume
 import javax.swing.JButton
 import javax.swing.JPanel
 import net.miginfocom.swing.MigLayout
 
 class GenericDockerServiceNode(
-    override val model: DefaultDockerServiceModel,
+    override val model: DockerServiceModel,
     initialVolumeOptions: List<DockerVolume>,
     initialNetworkOptions: List<DockerNetwork>,
-) : AbstractDockerServiceNode<DefaultDockerServiceModel>() {
+) : AbstractDockerServiceNode<DockerServiceModel>() {
     override val configEditor = GenericNodeConfigPanel(this, initialVolumeOptions, initialNetworkOptions)
 
     override var volumeOptions by configEditor::volumeOptions
