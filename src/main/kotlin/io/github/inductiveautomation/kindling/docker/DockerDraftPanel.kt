@@ -248,7 +248,7 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
 
     init {
         name = existingFile?.name ?: "New Editor"
-        toolTipText = existingFile?.absolutePathString()
+        toolTipText = existingFile?.absolutePathString() ?: ""
 
         add(
             HorizontalSplitPane(
