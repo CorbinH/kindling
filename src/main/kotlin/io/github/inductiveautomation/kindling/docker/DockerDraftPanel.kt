@@ -14,14 +14,14 @@ import io.github.inductiveautomation.kindling.core.EditorTool
 import io.github.inductiveautomation.kindling.core.Kindling
 import io.github.inductiveautomation.kindling.core.Theme.Companion.theme
 import io.github.inductiveautomation.kindling.core.ToolPanel
-import io.github.inductiveautomation.kindling.docker.model.DefaultDockerServiceModel
-import io.github.inductiveautomation.kindling.docker.model.DefaultDockerServiceModel.Companion.DEFAULT_GENERIC_IMAGE
 import io.github.inductiveautomation.kindling.docker.model.DockerNetwork
 import io.github.inductiveautomation.kindling.docker.model.DockerServiceModel
+import io.github.inductiveautomation.kindling.docker.model.DockerServiceModel.Companion.DEFAULT_GENERIC_IMAGE
 import io.github.inductiveautomation.kindling.docker.model.DockerVolume
 import io.github.inductiveautomation.kindling.docker.model.GatewayEnvironmentVariableDefinition.Companion.getConnectionVariableIndex
 import io.github.inductiveautomation.kindling.docker.model.GatewayServiceModel
 import io.github.inductiveautomation.kindling.docker.model.GatewayServiceModel.Companion.DEFAULT_IMAGE
+import io.github.inductiveautomation.kindling.docker.model.GatewayServiceModel.Companion.toGatewayServiceModelOrNull
 import io.github.inductiveautomation.kindling.docker.model.PortMapping
 import io.github.inductiveautomation.kindling.docker.ui.AbstractDockerServiceNode
 import io.github.inductiveautomation.kindling.docker.ui.Canvas
@@ -161,7 +161,7 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
                 "Generic Docker Node",
             ) {
                 GenericDockerServiceNode(
-                    DefaultDockerServiceModel(
+                    DockerServiceModel(
                         image = DEFAULT_GENERIC_IMAGE,
                         containerName = "Container-${nodeIdManager.generateID()}",
                     ),
@@ -248,7 +248,7 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
 
     init {
         name = existingFile?.name ?: "New Editor"
-        toolTipText = existingFile?.absolutePathString()
+        toolTipText = existingFile?.absolutePathString() ?: ""
 
         add(
             HorizontalSplitPane(
@@ -330,16 +330,17 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
     private fun import(importFile: Path) {
         fun createNodes(services: List<DockerServiceModel>): List<AbstractDockerServiceNode<*>> {
             return services.map { model ->
-                when (model) {
+                val actualModel = model.toGatewayServiceModelOrNull() ?: model
+                when (actualModel) {
                     is GatewayServiceModel -> {
-                        GatewayServiceNode(model, volumes, networks).apply {
+                        GatewayServiceNode(actualModel, volumes, networks).apply {
                             bindYamlPreview()
                             connectionObserver.observeConnection(this)
                         }
                     }
 
-                    is DefaultDockerServiceModel -> {
-                        GenericDockerServiceNode(model, volumes, networks).apply {
+                    else -> {
+                        GenericDockerServiceNode(actualModel, volumes, networks).apply {
                             bindYamlPreview()
                         }
                     }
@@ -418,6 +419,7 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
                 "Import Error",
                 JOptionPane.ERROR_MESSAGE,
             )
+            e.printStackTrace()
             return
         }
 
@@ -499,14 +501,17 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
                 val connection = GatewayNodeConnector(node, index, canvas)
                 node.connections[index] = connection
 
-                canvas.add(connection, canvas.CONNECTION_LAYER)
-                canvas.setLayer(connection, canvas.CONNECTION_LAYER)
+                canvas.add(connection, Canvas.CONNECTION_LAYER)
+                canvas.setLayer(connection, Canvas.CONNECTION_LAYER)
 
                 inProgressConnection = connection
             } else {
                 if (validateConnection(inProgressConnection!!.from, node)) {
                     inProgressConnection!!.to = node
                     inProgressConnection = null
+                    SwingUtilities.invokeLater {
+                        canvas.repaint()
+                    }
                 } else {
                     JOptionPane.showMessageDialog(
                         null,

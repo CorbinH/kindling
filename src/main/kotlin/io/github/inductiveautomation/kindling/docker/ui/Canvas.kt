@@ -23,8 +23,6 @@ class Canvas(
     private val label: String,
 ) : JLayeredPane() {
     private lateinit var canvasDragPoint: Point
-    val NODE_LAYER = 2
-    val CONNECTION_LAYER = 1
 
     init {
         isOpaque = true
@@ -62,8 +60,7 @@ class Canvas(
 
         transferHandler = object : TransferHandler() {
             override fun canImport(support: TransferSupport?): Boolean {
-                return support?.isDataFlavorSupported(NodeInitializerTransferHandler.NODE_INITIALIZER_DATA_FLAVOR)
-                    ?: false
+                return support?.isDataFlavorSupported(NodeInitializerTransferHandler.NODE_INITIALIZER_DATA_FLAVOR) == true
             }
 
             override fun importData(support: TransferSupport?): Boolean {
@@ -212,5 +209,8 @@ class Canvas(
 
     companion object {
         private val labelFont: Font = Font(Font.SANS_SERIF, Font.BOLD, 24)
+
+        const val NODE_LAYER = 2
+        const val CONNECTION_LAYER = 1
     }
 }
