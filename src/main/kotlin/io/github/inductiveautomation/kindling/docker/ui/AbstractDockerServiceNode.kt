@@ -22,6 +22,7 @@ import javax.swing.JButton
 import javax.swing.JComponent
 import javax.swing.JLabel
 import javax.swing.JPanel
+import javax.swing.SwingUtilities
 import kotlin.time.Duration.Companion.milliseconds
 import net.miginfocom.swing.MigLayout
 
@@ -37,8 +38,41 @@ abstract class AbstractDockerServiceNode<T : DockerServiceModel> : JPanel(MigLay
 
     abstract val header: JComponent
 
-    private val serviceNameLabel = JLabel()
-    private val hostNameLabel = JLabel()
+    private val serviceNameLabel = object : JLabel() {
+        var internalText: String = text
+            set(value) {
+                field = value
+                text = buildString {
+                    tag("html") {
+                        tag("b") {
+                            append("Name: ")
+                        }
+                        append(model.containerName)
+                    }
+                }
+            }
+    }
+
+    private val hostNameLabel = object : JLabel() {
+        var internalText: String? = text
+            set(value) {
+                field = value
+                text = buildString {
+                    tag("html") {
+                        tag("b") {
+                            append("Hostname: ")
+                        }
+                        if (model.hostName.isNullOrEmpty()) {
+                            tag("i") {
+                                append("(default)")
+                            }
+                        } else {
+                            append(model.hostName)
+                        }
+                    }
+                }
+            }
+    }
 
     protected val configWindow by lazy {
         jFrame("Edit Docker Config", 1000, 600) {
@@ -72,37 +106,32 @@ abstract class AbstractDockerServiceNode<T : DockerServiceModel> : JPanel(MigLay
         )
 
         addServiceModelChangeListener {
-            if (model.hostName != hostNameLabel.text) updateHostNameText()
-            if (model.containerName != serviceNameLabel.text) updateContainerNameText()
+            if (model.hostName != hostNameLabel.internalText) {
+                updateHostNameText()
+                SwingUtilities.invokeLater {
+                    setBounds(x, y, preferredSize.width, preferredSize.height)
+                    revalidate()
+                    repaint()
+                }
+            }
+
+            if (model.containerName != serviceNameLabel.internalText) {
+                updateContainerNameText()
+                SwingUtilities.invokeLater {
+                    setBounds(x, y, preferredSize.width, preferredSize.height)
+                    revalidate()
+                    repaint()
+                }
+            }
         }
     }
 
     protected fun updateHostNameText() {
-        hostNameLabel.text = buildString {
-            tag("html") {
-                tag("b") {
-                    append("Hostname: ")
-                }
-                if (model.hostName.isNullOrEmpty()) {
-                    tag("i") {
-                        append("(default)")
-                    }
-                } else {
-                    append(model.hostName)
-                }
-            }
-        }
+        hostNameLabel.internalText = model.hostName
     }
 
     protected fun updateContainerNameText() {
-        serviceNameLabel.text = buildString {
-            tag("html") {
-                tag("b") {
-                    append("Name: ")
-                }
-                append(model.containerName)
-            }
-        }
+        serviceNameLabel.internalText = model.containerName
     }
 
     fun addServiceModelChangeListener(l: ServiceModelChangeListener) = listenerList.add(l)
