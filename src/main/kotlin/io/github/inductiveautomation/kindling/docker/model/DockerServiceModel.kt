@@ -1,19 +1,13 @@
 package io.github.inductiveautomation.kindling.docker.model
 
 import io.github.inductiveautomation.kindling.docker.serializers.CommandLineArgumentListSerializer
-import io.github.inductiveautomation.kindling.docker.serializers.DockerServiceModelSerializer
-import io.github.inductiveautomation.kindling.docker.serializers.EnvironmentVariableListSerializer
+import io.github.inductiveautomation.kindling.docker.serializers.EnvironmentVariableSerializer
 import io.github.inductiveautomation.kindling.docker.serializers.PointAsStringSerializer
 import java.awt.Point
-import kotlinx.serialization.ExperimentalSerializationApi
-import kotlinx.serialization.KeepGeneratedSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.Transient
 
-@OptIn(ExperimentalSerializationApi::class)
-@Serializable(with = DockerServiceModelSerializer::class)
-@KeepGeneratedSerializer
+@Serializable
 open class DockerServiceModel(
     var image: String,
     @SerialName("hostname")
@@ -21,9 +15,8 @@ open class DockerServiceModel(
     @SerialName("container_name")
     var containerName: String = "",
     val ports: MutableList<PortMapping> = mutableListOf(),
-    @SerialName("environment")
-    @Serializable(with = EnvironmentVariableListSerializer::class)
-    var envList: List<EnvironmentVariable> = emptyList(),
+    @Serializable(with = EnvironmentVariableSerializer::class)
+    val environment: MutableMap<String, String> = mutableMapOf(),
     @SerialName("command")
     @Serializable(with = CommandLineArgumentListSerializer::class)
     val commands: MutableList<CliArgument> = mutableListOf(),
@@ -31,9 +24,6 @@ open class DockerServiceModel(
     val networks: MutableList<String> = mutableListOf(),
     val labels: List<String> = emptyList(),
 ) {
-    @Transient
-    val environment: MutableMap<String, String> = envList.toMap().toMutableMap()
-
     @SerialName("x-canvas.location")
     @Serializable(with = PointAsStringSerializer::class)
     var canvasLocation: Point? = null

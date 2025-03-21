@@ -43,8 +43,8 @@ import io.github.inductiveautomation.kindling.utils.TrivialListDataListener
 import io.github.inductiveautomation.kindling.utils.add
 import io.github.inductiveautomation.kindling.utils.chooseFiles
 import io.github.inductiveautomation.kindling.utils.getAll
+import io.github.inductiveautomation.kindling.utils.scrollToTop
 import io.github.inductiveautomation.kindling.utils.traverseChildren
-import java.awt.EventQueue
 import java.awt.Font
 import java.awt.KeyboardFocusManager
 import java.awt.Point
@@ -126,12 +126,6 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
         }
 
     private val connectionObserver = ConnectionObserver()
-
-    init {
-        if (existingFile != null) {
-            import(existingFile)
-        }
-    }
 
     private val optionsLabel = JLabel("Components").apply {
         font = font.deriveFont(Font.BOLD, 14F)
@@ -219,6 +213,8 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
     private val importButton = JButton("Import Compose File")
     private val exportButton = JButton("Export Compose File")
 
+    val previewScrollPane = FlatScrollPane(yamlPreview)
+
     private val sidebar = JPanel(MigLayout("flowy, nogrid, fill")).apply {
         add(
             JPanel(MigLayout("fill, ins 0")).apply {
@@ -234,7 +230,7 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
         add(networksLabel, "gapbottom 3")
         add(networksList, "grow, gapbottom 10, sg, hmin 100")
         add(previewLabel, "gapbottom 3")
-        add(FlatScrollPane(yamlPreview), "pushy, grow, wmin 300")
+        add(previewScrollPane, "pushy, grow, wmin 300")
     }
 
     private val composeFile: DockerComposeFile
@@ -250,21 +246,14 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
         name = existingFile?.name ?: "New Editor"
         toolTipText = existingFile?.absolutePathString() ?: ""
 
-        add(
-            HorizontalSplitPane(
-                left = canvas,
-                right = sidebar,
-                resizeWeight = 0.5,
-                expandableSide = FlatSplitPane.ExpandableSide.left,
-            ) {
-                EventQueue.invokeLater {
-                    dividerLocation = this@HorizontalSplitPane.size.width -
-                            this@HorizontalSplitPane.insets.right -
-                            rightComponent.minimumSize.width - dividerSize
-                }
-            },
-            "push, grow",
+        val splitPane = HorizontalSplitPane(
+            left = canvas,
+            right = sidebar,
+            resizeWeight = 0.5,
+            expandableSide = FlatSplitPane.ExpandableSide.left,
         )
+
+        add(splitPane, "push, grow")
 
         canvas.addContainerListener(
             object : ContainerListener {
@@ -304,7 +293,19 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
         }
 
         SwingUtilities.invokeLater {
-            updatePreview()
+            splitPane.apply {
+                dividerLocation = this@apply.size.width -
+                    this@apply.insets.right -
+                    rightComponent.minimumSize.width - dividerSize
+            }
+
+            SwingUtilities.invokeLater {
+                if (existingFile != null) {
+                    import(existingFile)
+                }
+
+                updatePreview()
+            }
         }
     }
 
@@ -444,6 +445,8 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
         }.getOrElse { error ->
             error.stackTraceToString()
         }
+
+        previewScrollPane.scrollToTop()
     }
 
     companion object {

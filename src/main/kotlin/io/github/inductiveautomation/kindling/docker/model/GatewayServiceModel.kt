@@ -10,7 +10,7 @@ class GatewayServiceModel(
     volumes: MutableList<BindMount> = mutableListOf(),
     networks: MutableList<String> = mutableListOf(),
     labels: List<String> = emptyList(),
-) : DockerServiceModel(image, hostName, containerName, ports, environment.toList(), commands, volumes, networks, labels) {
+) : DockerServiceModel(image, hostName, containerName, ports, environment, commands, volumes, networks, labels) {
 
     init {
         if (this.hostName == null) {

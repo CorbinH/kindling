@@ -1,11 +1,14 @@
 package io.github.inductiveautomation.kindling.docker.serializers
 
 import io.github.inductiveautomation.kindling.docker.model.EnvironmentVariable
+import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.descriptors.SerialKind
+import kotlinx.serialization.descriptors.buildSerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 
@@ -13,7 +16,11 @@ object EnvironmentVariableSerializer : KSerializer<MutableMap<String, String>> {
     private val listDelegate = ListSerializer(EnvironmentVariableAsStringSerializer)
     private val mapDelegate = MapSerializer(String.serializer(), String.serializer())
 
-    override val descriptor: SerialDescriptor = SerialDescriptor("EnvironmentVariable", mapDelegate.descriptor)
+    @OptIn(InternalSerializationApi::class)
+    override val descriptor: SerialDescriptor = buildSerialDescriptor("EnvironmentVariables", SerialKind.CONTEXTUAL) {
+        element("list", listDelegate.descriptor)
+        element("map", mapDelegate.descriptor)
+    }
 
     @Suppress("unchecked_cast")
     override fun deserialize(decoder: Decoder): MutableMap<String, String> {
