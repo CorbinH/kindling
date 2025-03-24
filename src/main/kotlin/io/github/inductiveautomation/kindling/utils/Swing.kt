@@ -21,6 +21,7 @@ import javax.swing.JComboBox
 import javax.swing.JComponent
 import javax.swing.JFileChooser
 import javax.swing.JPopupMenu
+import javax.swing.JScrollPane
 import javax.swing.JTextField
 import javax.swing.SwingUtilities
 import javax.swing.UIManager
@@ -31,6 +32,7 @@ import javax.swing.text.Document
 import javax.swing.text.JTextComponent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.swing.Swing
 import org.jdesktop.swingx.decorator.AbstractHighlighter
 import org.jdesktop.swingx.decorator.ColorHighlighter
@@ -137,6 +139,10 @@ var JTextField.rightBuddy: JComponent?
     set(buddy) {
         BuddySupport.addRight(buddy, this)
     }
+
+fun JScrollPane.scrollToTop() = EDT_SCOPE.launch {
+    viewport.viewPosition = Point(0, 0)
+}
 
 @Suppress("FunctionName")
 fun DocumentAdapter(block: (e: DocumentEvent) -> Unit): DocumentListener = object : DocumentListener {
