@@ -1,15 +1,13 @@
 package io.github.inductiveautomation.kindling.log
 
-import com.formdev.flatlaf.extras.FlatSVGIcon
 import com.jidesoft.comparator.AlphanumComparator
 import io.github.inductiveautomation.kindling.core.Kindling.Preferences.General.ShowFullLoggerNames
-import io.github.inductiveautomation.kindling.log.LogViewer.TimeStampFormatter
 import io.github.inductiveautomation.kindling.utils.Column
 import io.github.inductiveautomation.kindling.utils.ColumnList
+import io.github.inductiveautomation.kindling.utils.FlatActionIcon
 import io.github.inductiveautomation.kindling.utils.ReifiedLabelProvider
 import io.github.inductiveautomation.kindling.utils.ReifiedListTableModel
 import io.github.inductiveautomation.kindling.utils.StringProvider
-import io.github.inductiveautomation.kindling.utils.asActionIcon
 import org.jdesktop.swingx.renderer.DefaultTableRenderer
 import org.jdesktop.swingx.renderer.StringValues
 import java.time.Instant
@@ -64,7 +62,7 @@ sealed class LogColumnList<T : LogEvent> : ColumnList<T>() {
             maxWidth = 25
             toolTipText = "Marked Logs"
             headerRenderer = DefaultTableRenderer(StringValues.EMPTY) {
-                FlatSVGIcon("icons/bx-star.svg").asActionIcon()
+                FlatActionIcon("icons/bx-star.svg")
             }
         },
         getValue = LogEvent::marked,
@@ -85,7 +83,7 @@ sealed class LogColumnList<T : LogEvent> : ColumnList<T>() {
             minWidth = 155
             maxWidth = 155
             cellRenderer = DefaultTableRenderer {
-                (it as? Instant)?.let(TimeStampFormatter::format)
+                (it as? Instant)?.let(LogViewer::format)
             }
         },
         getValue = LogEvent::timestamp,

@@ -4,7 +4,6 @@ import com.jidesoft.swing.CheckBoxListSelectionModel
 import java.io.InputStream
 import java.io.OutputStream
 import java.util.Properties
-import java.util.ServiceLoader
 import kotlin.math.log2
 import kotlin.math.pow
 import kotlin.reflect.KProperty
@@ -74,8 +73,8 @@ fun Properties(
 private val prefix = arrayOf("", "k", "m", "g", "t", "p", "e", "z", "y")
 
 fun Long.toFileSizeLabel(): String =
-    when {
-        this == 0L -> "0B"
+    when (this) {
+        0L -> "0B"
         else -> {
             val digits = log2(toDouble()).toInt() / 10
             val precision = digits.coerceIn(0, 2)
@@ -88,10 +87,6 @@ operator fun MatchGroupCollection.getValue(
     property: KProperty<*>,
 ): MatchGroup {
     return requireNotNull(get(property.name))
-}
-
-inline fun <reified S> loadService(): ServiceLoader<S> {
-    return ServiceLoader.load(S::class.java)
 }
 
 fun String.escapeHtml(): String {
@@ -133,44 +128,64 @@ infix fun InputStream.transferTo(output: OutputStream) {
 
 fun CheckBoxListSelectionModel.isAllSelected() = isSelectedIndex(allEntryIndex)
 
-/*
-class MutableListenableList<T>(
-    private val onListEdit: (editType: ListEditEvent, oldValue: T?, newValue: T?, index: Int) -> Unit,
-) : AbstractMutableList<T>() {
+/**
+ * Converts the contents of the InputStream to a human-readable binary string, with raw hex bytes on the left and
+ * best effort ASCII decoding on the right.
+ * Closes the input stream.
+ */
+fun InputStream.toHumanReadableBinary(): String {
+    use { file ->
+        val windowSize = 16
+        return sequence {
+            val buffer = ByteArray(windowSize)
+            var numberOfBytesRead: Int
+            do {
+                numberOfBytesRead = file.readNBytes(buffer, 0, windowSize)
 
-    fun onListAdd(callback: (element: T, index: Int) -> Unit) {
+                // the last read might not be complete, so there could be stale data in the buffer
+                val toRead = buffer.sliceArray(0 until numberOfBytesRead)
 
-    }
-
-    private val backingList = mutableListOf<T>()
-
-    override fun set(index: Int, element: T): T {
-        val oldValue = backingList[index]
-        if (oldValue === element) return element
-        backingList[index] = element
-        onListEdit(ListEditEvent.SET, oldValue, element, index)
-        return element
-    }
-
-    override val size: Int = backingList.size
-
-    override fun add(index: Int, element: T) {
-        backingList.add(index, element)
-        onListEdit(ListEditEvent.ADD, null, element, index)
-    }
-
-    override fun get(index: Int): T {
-        return backingList[index]
-    }
-
-    override fun removeAt(index: Int): T {
-        val removed = backingList.removeAt(index)
-        onListEdit(ListEditEvent.REMOVE, removed, null, index)
-        return removed
-    }
-
-    fun interface ListAddListener<T> {
-        fun onListAdd(element: T, index: Int)
+                @OptIn(ExperimentalStdlibApi::class)
+                val hexBytes = toRead.toHexString(HEX_FORMAT)
+                val decodedBytes = decodeBytes(toRead)
+                yield("${hexBytes.padEnd(47)}  $decodedBytes")
+            } while (numberOfBytesRead == windowSize)
+        }.joinToString(separator = "\n")
     }
 }
-*/
+
+private fun decodeBytes(toRead: ByteArray): String {
+    return String(
+        CharArray(toRead.size) { i ->
+            val byte = toRead[i]
+            if (byte >= 0 && !Character.isISOControl(byte.toInt())) {
+                Char(byte.toUShort())
+            } else {
+                '.'
+            }
+        },
+    )
+}
+
+@OptIn(ExperimentalStdlibApi::class)
+private val HEX_FORMAT = HexFormat {
+    bytes {
+        byteSeparator = " "
+    }
+}
+
+fun <T> Iterator<T>.nextOrNull(): T? {
+    return if (hasNext()) next() else null
+}
+
+fun String.containsInOrder(pattern: String, ignoreCase: Boolean): Boolean {
+    if (pattern.isEmpty()) return true // An empty pattern is always found
+
+    var patternIndex = 0
+    for (charInString in this) {
+        if (patternIndex < pattern.length && charInString.equals(pattern[patternIndex], ignoreCase)) {
+            patternIndex++
+        }
+    }
+    return patternIndex == pattern.length
+}

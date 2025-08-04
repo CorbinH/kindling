@@ -12,10 +12,10 @@ import io.github.inductiveautomation.kindling.utils.Column
 import io.github.inductiveautomation.kindling.utils.FileFilterResponsive
 import io.github.inductiveautomation.kindling.utils.FilterList
 import io.github.inductiveautomation.kindling.utils.FilterModel
+import io.github.inductiveautomation.kindling.utils.FlatActionIcon
 import io.github.inductiveautomation.kindling.utils.FlatScrollPane
 import io.github.inductiveautomation.kindling.utils.NoSelectionModel
 import io.github.inductiveautomation.kindling.utils.PopupMenuCustomizer
-import io.github.inductiveautomation.kindling.utils.asActionIcon
 import io.github.inductiveautomation.kindling.utils.attachPopupMenu
 import io.github.inductiveautomation.kindling.utils.collapseAll
 import io.github.inductiveautomation.kindling.utils.expandAll
@@ -147,7 +147,7 @@ class LoggerNamePanel<T : LogEvent>(private val rawData: List<T>) :
 
             newExpandedPaths.forEach(filterTree::expandPath)
         }
-        filterList.model = FilterModel.fromRawData(data, filterList.comparator) { it.logger }
+        filterList.model = FilterModel.fromRawData(data, filterList.comparator, sortKey = ::getSortKey) { it.logger }
     }
 
     override fun filter(item: T): Boolean = if (isTreeMode) {
@@ -172,12 +172,18 @@ class LoggerNamePanel<T : LogEvent>(private val rawData: List<T>) :
     private val mainTreeComponent = ButtonPanel(
         listOf(
             JButton(
-                Action(description = "Expand All", icon = expandIcon) {
+                Action(
+                    description = "Expand All",
+                    icon = FlatActionIcon("icons/bx-expand-vertical.svg"),
+                ) {
                     filterTree.expandAll()
                 },
             ),
             JButton(
-                Action(description = "Collapse All", icon = collapseIcon) {
+                Action(
+                    description = "Collapse All",
+                    icon = FlatActionIcon("icons/bx-collapse-vertical.svg"),
+                ) {
                     filterTree.collapseAll()
                 },
             ),
@@ -290,8 +296,6 @@ class LoggerNamePanel<T : LogEvent>(private val rawData: List<T>) :
     }
 
     companion object {
-        private val expandIcon = FlatSVGIcon("icons/bx-expand-vertical.svg").asActionIcon()
-        private val collapseIcon = FlatSVGIcon("icons/bx-collapse-vertical.svg").asActionIcon()
 
         /*
          * return a TreePath given a fully qualified logger name.

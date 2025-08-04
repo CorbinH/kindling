@@ -1,4 +1,3 @@
-
 package io.github.inductiveautomation.kindling.utils
 
 import com.jidesoft.comparator.AlphanumComparator
@@ -16,7 +15,11 @@ import kotlin.io.path.isRegularFile
 import kotlin.io.path.name
 import kotlin.io.path.walk
 
-data class PathNode(override val userObject: Path) : TypedTreeNode<Path>()
+data class PathNode(override val userObject: Path) : TypedTreeNode<Path>() {
+    override fun toString(): String {
+        return userObject.name
+    }
+}
 
 @OptIn(ExperimentalPathApi::class)
 class RootNode(zipFile: FileSystem) : AbstractTreeNode() {
@@ -57,7 +60,7 @@ class ZipFileTree(fileSystem: FileSystem) : JTree(ZipFileModel(fileSystem)) {
                     toolTipText = path.toString()
                     text = path.last().toString()
                     icon = if (path.isRegularFile()) {
-                        Tool.find(path)?.icon?.asActionIcon(selected) ?: icon
+                        Tool.find(path)?.icon?.derive(ACTION_ICON_SCALE_FACTOR) ?: icon
                     } else {
                         icon
                     }

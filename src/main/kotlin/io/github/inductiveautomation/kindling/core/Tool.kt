@@ -6,10 +6,11 @@ import io.github.inductiveautomation.kindling.cache.CacheViewer
 import io.github.inductiveautomation.kindling.docker.DockerTool
 import io.github.inductiveautomation.kindling.gatewaynetwork.GatewayNetworkTool
 import io.github.inductiveautomation.kindling.idb.IdbViewer
+import io.github.inductiveautomation.kindling.localization.TranslationTool
 import io.github.inductiveautomation.kindling.log.LogViewer
+import io.github.inductiveautomation.kindling.serial.SerialViewer
 import io.github.inductiveautomation.kindling.thread.MultiThreadViewer
 import io.github.inductiveautomation.kindling.utils.FileFilter
-import io.github.inductiveautomation.kindling.utils.loadService
 import io.github.inductiveautomation.kindling.xml.XmlTool
 import io.github.inductiveautomation.kindling.zip.ZipViewer
 import java.io.File
@@ -40,24 +41,31 @@ interface Tool : KindlingSerializable {
     val requiresHiddenFiles: Boolean
         get() = false
 
+    /**
+     * True if this tool is primarily intended for "advanced" users, and as such should be de-emphasized in the main UI.
+     */
+    val isAdvanced: Boolean
+        get() = false
+
     fun open(path: Path): ToolPanel
 
     val filter: FileFilter
 
     companion object {
         val tools: List<Tool> by lazy {
-            buildList {
-                add(ZipViewer)
-                add(MultiThreadViewer)
-                add(LogViewer)
-                add(IdbViewer)
-                add(CacheViewer)
-                add(GatewayNetworkTool)
-                add(AlarmViewer)
-                add(XmlTool)
-                add(DockerTool)
-                addAll(loadService<Tool>())
-            }
+            listOf(
+                ZipViewer,
+                MultiThreadViewer,
+                LogViewer,
+                IdbViewer,
+                CacheViewer,
+                GatewayNetworkTool,
+                AlarmViewer,
+                XmlTool,
+                SerialViewer,
+                TranslationTool,
+                DockerTool
+            )
         }
 
         val sortedByTitle: List<Tool> by lazy {

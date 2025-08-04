@@ -54,17 +54,13 @@ application {
     )
 }
 
-private val javadocDirectory = project.layout.buildDirectory.dir("javadocs")
+val javadocDirectory = project.layout.buildDirectory.dir("javadocs")
 
 tasks {
     test {
         useJUnitPlatform()
     }
-    val createDirectory by registering(Task::class) {
-        doFirst {
-            javadocDirectory.get().asFile.mkdirs()
-        }
-    }
+
     val download79 by registering(DownloadJavadocs::class) {
         version = "7.9"
         urls = listOf(
@@ -72,8 +68,7 @@ tasks {
             "https://docs.oracle.com/javase/8/docs/api/allclasses-noframe.html",
             "https://www.javadoc.io/static/org.python/jython-standalone/2.5.3/allclasses-noframe.html",
         )
-        tempDirectory = javadocDirectory
-        dependsOn(createDirectory)
+        baseOutputDirectory = javadocDirectory
     }
     val download80 by registering(DownloadJavadocs::class) {
         version = "8.0"
@@ -82,18 +77,16 @@ tasks {
             "https://docs.oracle.com/en/java/javase/11/docs/api/allclasses.html",
             "https://www.javadoc.io/static/org.python/jython-standalone/2.7.1/allclasses-noframe.html",
         )
-        tempDirectory = javadocDirectory
-        dependsOn(createDirectory)
+        baseOutputDirectory = javadocDirectory
     }
     val download81 by registering(DownloadJavadocs::class) {
         version = "8.1"
         urls = listOf(
-            "https://files.inductiveautomation.com/sdk/javadoc/ignition81/8.1.41/allclasses-index.html",
+            "https://files.inductiveautomation.com/sdk/javadoc/ignition81/8.1.48/allclasses-index.html",
             "https://docs.oracle.com/en/java/javase/17/docs/api/allclasses-index.html",
             "https://www.javadoc.io/static/org.python/jython-standalone/2.7.3/allclasses-noframe.html",
         )
-        tempDirectory = javadocDirectory
-        dependsOn(createDirectory)
+        baseOutputDirectory = javadocDirectory
     }
     processResources {
         duplicatesStrategy = DuplicatesStrategy.WARN

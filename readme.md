@@ -1,9 +1,11 @@
 # Kindling
 
-<img src="src/main/resources/logo.svg" width="250" alt="Kindling">
+<img src="src/main/resources/logo.svg" width="250" alt="Kindling Logo">
 
 A standalone desktop application targeted to advanced [Ignition](https://inductiveautomation.com/) users.
 Features various tools to read and access Ignition's myriad data export formats.
+
+<img width="1013" height="838" alt="Kindling UI Screenshot" src="https://github.com/user-attachments/assets/cc756296-31b9-4e68-b984-b959d6185742" />
 
 ## Tools
 
@@ -21,6 +23,7 @@ Has special handling for:
 - Metrics files
 - System logs
 - Images in the configuration DB
+- Tag configuration data
 
 ### Log Viewer
 
@@ -39,7 +42,8 @@ Opens the [HSQLDB](http://hsqldb.org/) file that contains the Store and Forward 
 Java-serialized data within into its object representation. If unable to deserialize (e.g. due to a missing class),
 falls back to a string explanation of the serialized data.
 
-Note: If you encounter any issues with missing classes, please file an issue.
+> [!NOTE]
+> If you encounter any issues with missing classes, please [file an issue](https://github.com/inductiveautomation/kindling/issues/new/choose).
 
 ### Alarm Cache Viewer
 
@@ -47,7 +51,8 @@ Opens the Java serialized `.alarms_$timestamp` files Ignition uses to persist al
 restarts.
 Only works for alarm caches from 8.1.20 and up gateways.
 
-Note: If you encounter any issues with missing classes, please file an issue.
+> [!NOTE]
+> If you encounter any issues with missing classes, please [file an issue](https://github.com/inductiveautomation/kindling/issues/new/choose).
 
 ### Gateway Network Diagram Viewer
 
@@ -69,6 +74,17 @@ Has special handling for:
 
 - Logback configuration files, with a special interactive editor
 - Store and Forward quarantine files, with an _attempt_ made to deserialize any Java-serialized data within
+
+### Translation Bundle Editor
+
+Opens Ignition translation manager files (`.properties` or `.xml`) and presents a simple table based UI.
+From this UI, you can import/export CSV or TSV (suitable for copying to e.g. Excel) and export back out to an Ignition
+suitable format to be reimported back into the Ignition designer.
+
+### Java Serialized Data Viewer
+
+An 'advanced' tool, only accessible via the menu bar, you can open any arbitrary binary file containing Java serialized 
+data and get a human readable string formatted explanation of the data in that file.
 
 ## Usage
 

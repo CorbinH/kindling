@@ -9,11 +9,12 @@ import io.github.inductiveautomation.kindling.core.Theme.Companion.theme
 import io.github.inductiveautomation.kindling.core.ToolPanel
 import io.github.inductiveautomation.kindling.utils.Action
 import io.github.inductiveautomation.kindling.utils.ButtonPanel
+import io.github.inductiveautomation.kindling.utils.FlatActionIcon
 import io.github.inductiveautomation.kindling.utils.FlatScrollPane
 import io.github.inductiveautomation.kindling.utils.HorizontalSplitPane
 import io.github.inductiveautomation.kindling.utils.VerticalSplitPane
-import io.github.inductiveautomation.kindling.utils.asActionIcon
 import io.github.inductiveautomation.kindling.utils.attachPopupMenu
+import io.github.inductiveautomation.kindling.utils.containsInOrder
 import io.github.inductiveautomation.kindling.utils.executeQuery
 import io.github.inductiveautomation.kindling.utils.get
 import io.github.inductiveautomation.kindling.utils.javaType
@@ -25,8 +26,8 @@ import org.fife.ui.rsyntaxtextarea.SyntaxConstants
 import org.fife.ui.rtextarea.RTextScrollPane
 import java.awt.event.KeyEvent
 import java.sql.Connection
+import java.sql.Date
 import java.sql.JDBCType
-import java.sql.Timestamp
 import java.util.Collections
 import java.util.Enumeration
 import javax.swing.ButtonGroup
@@ -47,22 +48,22 @@ enum class TableComparator(
 ) : Comparator<Table> by comparator {
     ByNameAscending(
         tooltip = "Sort A-Z",
-        icon = FlatSVGIcon("icons/bx-sort-a-z.svg"),
+        icon = FlatActionIcon("icons/bx-sort-a-z.svg"),
         comparator = compareBy(nullsFirst(AlphanumComparator(false))) { it.name },
     ),
     ByNameDescending(
         tooltip = "Sort Z-A",
-        icon = FlatSVGIcon("icons/bx-sort-z-a.svg"),
+        icon = FlatActionIcon("icons/bx-sort-z-a.svg"),
         comparator = ByNameAscending.reversed(),
     ),
     BySizeAscending(
         tooltip = "Sort by Size",
-        icon = FlatSVGIcon("icons/bx-sort-up.svg"),
+        icon = FlatActionIcon("icons/bx-sort-up.svg"),
         comparator = compareBy(Table::size),
     ),
     BySizeDescending(
         tooltip = "Sort by Size (descending)",
-        icon = FlatSVGIcon("icons/bx-sort-down.svg"),
+        icon = FlatActionIcon("icons/bx-sort-down.svg"),
         comparator = BySizeAscending.reversed(),
     ),
 }
@@ -97,7 +98,7 @@ class SortableTree(val tables: List<Table>) {
 
     inner class SortAction(comparator: TableComparator) : Action(
         description = comparator.tooltip,
-        icon = comparator.icon.asActionIcon(),
+        icon = comparator.icon,
         selected = this@SortableTree.comparator == comparator,
         action = {
             this@SortableTree.comparator = comparator
@@ -173,7 +174,7 @@ class GenericView(connection: Connection) : ToolPanel("ins 0, fill, hidemode 3")
     private val execute = Action(
         name = "Execute",
         description = "Execute (${if (SystemInfo.isMacOS) "⌘" else "Ctrl"} + Enter)",
-        icon = FlatSVGIcon("icons/bx-subdirectory-left.svg").asActionIcon(),
+        icon = FlatActionIcon("icons/bx-subdirectory-left.svg"),
         accelerator = KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, menuShortcutKeyMaskEx),
     ) {
         results.result = if (!query.text.isNullOrEmpty()) {
@@ -185,13 +186,9 @@ class GenericView(connection: Connection) : ToolPanel("ins 0, fill, hidemode 3")
                             resultSet.metaData.getColumnName(i + 1)
                         }
                         val types = List(columnCount) { i ->
-                            val timestamp =
-                                TIMESTAMP_COLUMN_NAMES.any {
-                                    resultSet.metaData.getColumnName(i + 1).contains(it, true)
-                                }
-
-                            if (timestamp) {
-                                Timestamp::class.java
+                            val isTimestamp = names[i].containsInOrder("tsmp", true)
+                            if (isTimestamp) {
+                                Date::class.java
                             } else {
                                 val sqlType = resultSet.metaData.getColumnType(i + 1)
                                 val jdbcType = JDBCType.valueOf(sqlType)
@@ -201,11 +198,11 @@ class GenericView(connection: Connection) : ToolPanel("ins 0, fill, hidemode 3")
 
                         val data = resultSet.toList {
                             List(columnCount) { i ->
-                                // SQLite stores booleans as ints, we'll use actual booleans to make things easier
-                                if (types[i] == Boolean::class.javaObjectType) {
-                                    resultSet.getObject(i + 1) == 1
-                                } else {
-                                    resultSet.getObject(i + 1)
+                                val value = resultSet.getObject(i + 1)
+                                when {
+                                    types[i] == Boolean::class.javaObjectType -> value == 1
+                                    types[i] == Date::class.java && value is Number -> Date(value.toLong())
+                                    else -> value
                                 }
                             }
                         }
@@ -278,8 +275,4 @@ class GenericView(connection: Connection) : ToolPanel("ins 0, fill, hidemode 3")
     }
 
     override val icon: Icon? = null
-
-    companion object {
-        private val TIMESTAMP_COLUMN_NAMES = setOf("timestamp", "timestmp", "t_stamp", "tstamp")
-    }
 }

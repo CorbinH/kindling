@@ -3,10 +3,13 @@ package io.github.inductiveautomation.kindling.zip.views
 import com.formdev.flatlaf.extras.FlatSVGIcon
 import io.github.inductiveautomation.kindling.core.Kindling.Preferences.UI.Theme
 import io.github.inductiveautomation.kindling.core.Theme.Companion.theme
-import io.github.inductiveautomation.kindling.utils.asActionIcon
+import io.github.inductiveautomation.kindling.utils.FlatActionIcon
 import io.github.inductiveautomation.kindling.utils.configureCellRenderer
+import io.github.inductiveautomation.kindling.utils.toHumanReadableBinary
 import io.github.inductiveautomation.kindling.zip.views.FileView.SyntaxStyle.CSS
+import io.github.inductiveautomation.kindling.zip.views.FileView.SyntaxStyle.INI
 import io.github.inductiveautomation.kindling.zip.views.FileView.SyntaxStyle.JSON
+import io.github.inductiveautomation.kindling.zip.views.FileView.SyntaxStyle.Markdown
 import io.github.inductiveautomation.kindling.zip.views.FileView.SyntaxStyle.Plaintext
 import io.github.inductiveautomation.kindling.zip.views.FileView.SyntaxStyle.Properties
 import io.github.inductiveautomation.kindling.zip.views.FileView.SyntaxStyle.Python
@@ -102,7 +105,7 @@ class FileView(override val provider: FileSystemProvider, override val path: Pat
         theme = Theme.currentValue
     }
 
-    override val icon: FlatSVGIcon = FlatSVGIcon("icons/bx-file.svg").asActionIcon()
+    override val icon: FlatSVGIcon = FlatActionIcon("icons/bx-file.svg")
 
     init {
         updateText()
@@ -135,7 +138,7 @@ class FileView(override val provider: FileSystemProvider, override val path: Pat
         val text = if (charset != null) {
             readFileAsString(charset)
         } else {
-            readFileAsBytes()
+            provider.newInputStream(path).toHumanReadableBinary()
         }
 
         textArea.text = if (syntaxCombo.selectedItem as SyntaxStyle == JSON) {
@@ -157,51 +160,11 @@ class FileView(override val provider: FileSystemProvider, override val path: Pat
         }
     }
 
-    @OptIn(ExperimentalStdlibApi::class)
-    private fun readFileAsBytes(): String {
-        provider.newInputStream(path).use { file ->
-            val windowSize = 16
-            return sequence {
-                val buffer = ByteArray(windowSize)
-                var numberOfBytesRead: Int
-                do {
-                    numberOfBytesRead = file.readNBytes(buffer, 0, windowSize)
-
-                    // the last read might not be complete, so there could be stale data in the buffer
-                    val toRead = buffer.sliceArray(0 until numberOfBytesRead)
-                    val hexBytes = toRead.toHexString(HEX_FORMAT)
-                    val decodedBytes = decodeBytes(toRead)
-                    yield("${hexBytes.padEnd(47)}  $decodedBytes")
-                } while (numberOfBytesRead == windowSize)
-            }.joinToString(separator = "\n")
-        }
-    }
-
-    private fun decodeBytes(toRead: ByteArray): String {
-        return String(
-            CharArray(toRead.size) { i ->
-                val byte = toRead[i]
-                if (byte >= 0 && !Character.isISOControl(byte.toInt())) {
-                    Char(byte.toUShort())
-                } else {
-                    '.'
-                }
-            },
-        )
-    }
-
     companion object {
         @OptIn(ExperimentalSerializationApi::class)
         private val JSON_FORMAT = Json {
             prettyPrint = true
             prettyPrintIndent = "  "
-        }
-
-        @OptIn(ExperimentalStdlibApi::class)
-        private val HEX_FORMAT = HexFormat {
-            bytes {
-                byteSeparator = " "
-            }
         }
 
         private val KNOWN_EXTENSIONS: Map<String, SyntaxStyle> = mapOf(
@@ -213,10 +176,10 @@ class FileView(override val provider: FileSystemProvider, override val path: Pat
             "xml" to XML,
             "css" to CSS,
             "txt" to Plaintext,
-            "md" to Plaintext,
+            "md" to Markdown,
             "p7b" to Plaintext,
             "log" to Plaintext,
-            "ini" to Plaintext,
+            "ini" to INI,
         )
 
         private val KNOWN_FILENAMES = setOf(

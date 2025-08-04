@@ -29,16 +29,19 @@ import io.github.inductiveautomation.kindling.internal.FileTransferHandler
 import io.github.inductiveautomation.kindling.utils.Action
 import io.github.inductiveautomation.kindling.utils.EmptyBorder
 import io.github.inductiveautomation.kindling.utils.FlatScrollPane
+import io.github.inductiveautomation.kindling.utils.RendererBase
 import io.github.inductiveautomation.kindling.utils.StyledLabel
 import io.github.inductiveautomation.kindling.utils.TabStrip
 import io.github.inductiveautomation.kindling.utils.attachPopupMenu
 import io.github.inductiveautomation.kindling.utils.chooseFiles
+import io.github.inductiveautomation.kindling.utils.clipboardString
 import io.github.inductiveautomation.kindling.utils.getLogger
 import io.github.inductiveautomation.kindling.utils.jFrame
 import io.github.inductiveautomation.kindling.utils.menuShortcutKeyMaskEx
 import io.github.inductiveautomation.kindling.utils.render
 import io.github.inductiveautomation.kindling.utils.traverseChildren
 import java.awt.BorderLayout
+import java.awt.Color
 import java.awt.Component
 import java.awt.Cursor
 import java.awt.Cursor.HAND_CURSOR
@@ -52,7 +55,6 @@ import java.awt.PopupMenu
 import java.awt.Taskbar
 import java.awt.Toolkit
 import java.awt.Window
-import java.awt.datatransfer.DataFlavor
 import java.awt.desktop.QuitStrategy
 import java.awt.event.KeyEvent
 import java.awt.event.MouseAdapter
@@ -60,6 +62,7 @@ import java.awt.event.MouseEvent
 import java.awt.image.BufferedImage
 import java.io.File
 import java.nio.charset.Charset
+import java.util.function.BiFunction
 import javax.swing.Icon
 import javax.swing.JButton
 import javax.swing.JComboBox
@@ -142,7 +145,7 @@ class MainPanel : JPanel(MigLayout("ins 6, fill, hidemode 3")) {
                 putClientProperty("FlatLaf.styleClass", "h1")
             },
         )
-        for (tools in Tool.sortedByTitle.chunked(3)) {
+        for (tools in Tool.sortedByTitle.filterNot { it.isAdvanced }.chunked(3)) {
             add(toolTile(tools[0]), "sg tile, h 200!, newline, split, gaptop 20")
             for (tool in tools.drop(1)) {
                 add(toolTile(tool), "sg tile, gap 20 0 20 0")
@@ -193,7 +196,7 @@ class MainPanel : JPanel(MigLayout("ins 6, fill, hidemode 3")) {
         border = EmptyBorder()
     }
 
-    private val tabs = object : TabStrip() {
+    private val tabs = object : TabStrip(tabsEditable = true) {
         init {
             name = "MainTabStrip"
             isVisible = false
@@ -211,6 +214,23 @@ class MainPanel : JPanel(MigLayout("ins 6, fill, hidemode 3")) {
                     JButton(openAction).apply {
                         hideActionText = true
                         icon = FlatSVGIcon("icons/bx-plus.svg")
+                        attachPopupMenu {
+                            JPopupMenu().apply {
+                                for (tool in Tool.sortedByTitle) {
+                                    add(
+                                        Action(
+                                            name = "Open ${tool.title}",
+                                            icon = tool.icon,
+                                        ) {
+                                            fileChooser.fileFilter = tool.filter
+                                            fileChooser.chooseFiles(this@MainPanel)?.let { selectedFiles ->
+                                                openFiles(selectedFiles, tool)
+                                            }
+                                        },
+                                    )
+                                }
+                            }
+                        }
                     },
                     BorderLayout.WEST,
                 )
@@ -283,14 +303,13 @@ class MainPanel : JPanel(MigLayout("ins 6, fill, hidemode 3")) {
                 Action(
                     name = "Paste ${clipboardTool.title}",
                 ) {
-                    val clipboard = Toolkit.getDefaultToolkit().systemClipboard
-                    if (clipboard.isDataFlavorAvailable(DataFlavor.stringFlavor)) {
-                        val clipString = clipboard.getData(DataFlavor.stringFlavor) as String
-                        openOrError(clipboardTool.title, "clipboard data") {
-                            clipboardTool.open(clipString)
-                        }
-                    } else {
+                    val pasteData = Toolkit.getDefaultToolkit().clipboardString
+                    if (pasteData.isNullOrBlank()) {
                         LOGGER.info("No string data found on clipboard")
+                    } else {
+                        openOrError(clipboardTool.title, "clipboard data") {
+                            clipboardTool.open(pasteData)
+                        }
                     }
                 },
             )
@@ -337,7 +356,7 @@ class MainPanel : JPanel(MigLayout("ins 6, fill, hidemode 3")) {
                 add(JLabel(FlatSVGIcon("logo.svg").derive(64, 64), CENTER))
                 add(
                     JLabel("Kindling", CENTER).apply {
-                        font = UIManager.getFont("h1.font")
+                        putClientProperty("FlatLaf.styleClass", "h1.regular")
                     },
                 )
                 add(JLabel("Version ${System.getProperty("app.version") ?: "(Dev)"}", CENTER))
@@ -462,6 +481,14 @@ class MainPanel : JPanel(MigLayout("ins 6, fill, hidemode 3")) {
                 put("TabbedPane.tabType", "card")
                 put("MenuItem.minimumIconSize", Dimension()) // https://github.com/JFormDesigner/FlatLaf/issues/328
                 put("Tree.showDefaultIcons", true)
+            }
+
+            FlatSVGIcon.ColorFilter.getInstance().mapperEx = BiFunction<Component, Color, Color> { component, color ->
+                if (component is RendererBase && component.selected && component.focused) {
+                    UIManager.getColor("Tree.selectionForeground")
+                } else {
+                    color
+                }
             }
 
             PlatformDefaults.setGridCellGap(UnitValue(2.0F), UnitValue(2.0F))

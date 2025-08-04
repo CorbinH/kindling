@@ -1,6 +1,5 @@
 package io.github.inductiveautomation.kindling.log
 
-import com.formdev.flatlaf.extras.FlatSVGIcon
 import io.github.inductiveautomation.kindling.core.Detail.BodyLine
 import io.github.inductiveautomation.kindling.core.DetailsPane
 import io.github.inductiveautomation.kindling.core.Filter
@@ -11,20 +10,21 @@ import io.github.inductiveautomation.kindling.core.Kindling.Preferences.General.
 import io.github.inductiveautomation.kindling.core.LinkHandlingStrategy
 import io.github.inductiveautomation.kindling.core.ToolOpeningException
 import io.github.inductiveautomation.kindling.core.ToolPanel
-import io.github.inductiveautomation.kindling.log.LogViewer.TimeStampFormatter
 import io.github.inductiveautomation.kindling.utils.Action
 import io.github.inductiveautomation.kindling.utils.ColorHighlighter
 import io.github.inductiveautomation.kindling.utils.EDT_SCOPE
 import io.github.inductiveautomation.kindling.utils.FilterSidebar
+import io.github.inductiveautomation.kindling.utils.FlatActionIcon
 import io.github.inductiveautomation.kindling.utils.FlatScrollPane
 import io.github.inductiveautomation.kindling.utils.HorizontalSplitPane
 import io.github.inductiveautomation.kindling.utils.MajorVersion
 import io.github.inductiveautomation.kindling.utils.ReifiedJXTable
 import io.github.inductiveautomation.kindling.utils.VerticalSplitPane
-import io.github.inductiveautomation.kindling.utils.asActionIcon
 import io.github.inductiveautomation.kindling.utils.attachPopupMenu
 import io.github.inductiveautomation.kindling.utils.configureCellRenderer
 import io.github.inductiveautomation.kindling.utils.debounce
+import io.github.inductiveautomation.kindling.utils.maxSelectedIndex
+import io.github.inductiveautomation.kindling.utils.minSelectedIndex
 import io.github.inductiveautomation.kindling.utils.selectedRowIndices
 import io.github.inductiveautomation.kindling.utils.toBodyLine
 import java.awt.BorderLayout
@@ -102,18 +102,22 @@ sealed class LogPanel<T : LogEvent>(
     protected val filters = mutableListOf<Filter<T>>(
         object : Filter<T> {
             override fun filter(item: T): Boolean {
-                return header.markedBehavior.selectedItem != "Only Show Marked" ||
-                    item.marked
+                val behavior = header.markedBehavior.selectedItem as MarkedBehavior
+                return when (behavior) {
+                    MarkedBehavior.ShowAll -> true
+                    MarkedBehavior.OnlyMarked -> item.marked
+                    MarkedBehavior.OnlyUnmarked -> !item.marked
+                    MarkedBehavior.AlwaysShowMarked -> true
+                }
             }
         },
     )
 
     private val dataUpdater = debounce(50.milliseconds, BACKGROUND) {
         val selectedEvents = table.selectedRowIndices().map { row -> table.model[row].hashCode() }
+        val behavior = header.markedBehavior.selectedItem as? MarkedBehavior ?: MarkedBehavior.ShowAll
         val filteredData = selectedData.filter { event ->
-            filters.all { filter ->
-                filter.filter(event)
-            } || (header.markedBehavior.selectedItem == "Always Show Marked" && event.marked)
+            filters.all { it.filter(event) } || (behavior == MarkedBehavior.AlwaysShowMarked && event.marked)
         }
 
         EDT_SCOPE.launch {
@@ -143,50 +147,21 @@ sealed class LogPanel<T : LogEvent>(
 
     override val icon: Icon = LogViewer.icon
 
-    private fun getNextMarkedIndex(): Int {
-        val currentSelectionIndex = table.selectionModel.selectedIndices?.lastOrNull() ?: 0
-        val markedEvents = table.model.data
-            .filter { it.marked }
-            .sortedBy { table.convertRowIndexToView(table.model.data.indexOf(it)) }
-        val rowIndex = when (markedEvents.size) {
-            0 -> -1
-            1 -> table.model.data.indexOf(markedEvents.first())
-            else -> {
-                val nextMarkedEvent =
-                    markedEvents.firstOrNull { event ->
-                        table.convertRowIndexToView(table.model.data.indexOf(event)) > currentSelectionIndex
-                    }
-                if (nextMarkedEvent == null) {
-                    table.model.data.indexOf(markedEvents.first())
-                } else {
-                    table.model.data.indexOf(nextMarkedEvent)
-                }
-            }
-        }
-        return if (rowIndex != -1) table.convertRowIndexToView(rowIndex) else -1
-    }
+    private fun getNextMarkedIndex(forward: Boolean): Int? {
+        val viewRowCount = table.rowSorter.viewRowCount
 
-    private fun getPrevMarkedIndex(): Int {
-        val currentSelectionIndex = table.selectionModel.selectedIndices?.firstOrNull() ?: 0
-        val markedEvents = table.model.data
-            .filter { it.marked }
-            .sortedBy { table.convertRowIndexToView(table.model.data.indexOf(it)) }
-        val rowIndex = when (markedEvents.size) {
-            0 -> -1
-            1 -> table.model.data.indexOf(markedEvents.first())
-            else -> {
-                val prevMarkedEvent =
-                    markedEvents.lastOrNull { event ->
-                        table.convertRowIndexToView(table.model.data.indexOf(event)) < currentSelectionIndex
-                    }
-                if (prevMarkedEvent == null) {
-                    table.model.data.indexOf(markedEvents.last())
-                } else {
-                    table.model.data.indexOf(prevMarkedEvent)
-                }
-            }
+        val indicesToSearch = if (forward) {
+            val startIndex = table.selectionModel.minSelectedIndex?.let { it + 1 } ?: 0
+            startIndex until viewRowCount
+        } else {
+            val startIndex = table.selectionModel.maxSelectedIndex?.let { it - 1 } ?: (viewRowCount - 1)
+            startIndex downTo 0
         }
-        return if (rowIndex != -1) table.convertRowIndexToView(rowIndex) else -1
+
+        return indicesToSearch.find { viewIndex ->
+            val modelIndex = table.convertRowIndexToModel(viewIndex)
+            table.model.data[modelIndex].marked
+        }
     }
 
     private val markHighlighter = ColorHighlighter(
@@ -259,7 +234,11 @@ sealed class LogPanel<T : LogEvent>(
                             add(
                                 Action("Mark all with same message") {
                                     model.markRows { row ->
-                                        (row.message == event.message).takeIf { it }
+                                        if (row.marked) {
+                                            null // Leave existing marked messages marked
+                                        } else {
+                                            row.message == event.message
+                                        }
                                     }
                                 },
                             )
@@ -307,25 +286,21 @@ sealed class LogPanel<T : LogEvent>(
                 table.repaint()
             }
 
-            fun updateSelection(index: Int) {
-                table.selectionModel.setSelectionInterval(index, index)
-                val rect = table.bounds
-                rect.y = index * table.rowHeight
-                rect.height = tableScrollPane.height - table.tableHeader.height - 2
-                table.scrollRectToVisible(rect)
-                table.updateUI()
+            fun updateSelection(viewIndex: Int) {
+                if (viewIndex < 0 || viewIndex >= table.rowCount) return
+                table.selectionModel.setSelectionInterval(viewIndex, viewIndex)
+                val cellRect = table.getCellRect(viewIndex, 0, true)
+                table.scrollRectToVisible(cellRect)
             }
             clearMarked.addActionListener {
                 table.model.markRows { false }
                 updateData()
             }
             prevMarked.addActionListener {
-                val prevMarkedIndex = getPrevMarkedIndex()
-                if (prevMarkedIndex != -1) updateSelection(prevMarkedIndex)
+                getNextMarkedIndex(forward = false)?.let(::updateSelection)
             }
             nextMarked.addActionListener {
-                val nextMarkedIndex = getNextMarkedIndex()
-                if (nextMarkedIndex != -1) updateSelection(nextMarkedIndex)
+                getNextMarkedIndex(forward = true)?.let(::updateSelection)
             }
         }
 
@@ -357,8 +332,8 @@ sealed class LogPanel<T : LogEvent>(
                 .map { event ->
                     DetailEvent(
                         title = when (event) {
-                            is SystemLogEvent -> "${TimeStampFormatter.format(event.timestamp)} ${event.thread}"
-                            else -> TimeStampFormatter.format(event.timestamp)
+                            is SystemLogEvent -> "${LogViewer.format(event.timestamp)} ${event.thread}"
+                            else -> LogViewer.format(event.timestamp)
                         },
                         message = event.message,
                         body = event.stacktrace.map { element ->
@@ -394,19 +369,27 @@ sealed class LogPanel<T : LogEvent>(
             add(version, "growy")
         }
 
-        val highlightMarked = JToggleButton(FlatSVGIcon("icons/bx-highlight.svg").asActionIcon()).apply {
+        val highlightMarked = JToggleButton(FlatActionIcon("icons/bx-highlight.svg")).apply {
             toolTipText = "Highlight all marked log events"
         }
-        val clearMarked = JButton(FlatSVGIcon("icons/bxs-eraser.svg").asActionIcon()).apply {
+        val clearMarked = JButton(FlatActionIcon("icons/bxs-eraser.svg")).apply {
             toolTipText = "Clear all visible marks"
         }
-        val prevMarked = JButton(FlatSVGIcon("icons/bx-arrow-up.svg").asActionIcon()).apply {
-            toolTipText = "Jump to previous marked log event"
+        val prevMarked = JButton(FlatActionIcon("icons/bx-arrow-up.svg")).apply {
+            toolTipText = "Jump to previous marked event"
         }
-        val nextMarked = JButton(FlatSVGIcon("icons/bx-arrow-down.svg").asActionIcon()).apply {
-            toolTipText = "Jump to next marked log event"
+        val nextMarked = JButton(FlatActionIcon("icons/bx-arrow-down.svg")).apply {
+            toolTipText = "Jump to next marked event"
         }
-        val markedBehavior = JComboBox(arrayOf("Show All Events", "Only Show Marked", "Always Show Marked"))
+
+        @Suppress("EnumValuesSoftDeprecate") // not a performance sensitive enum.values() call
+        val markedBehavior = JComboBox(MarkedBehavior.values()).apply {
+            selectedItem = MarkedBehavior.ShowAll
+
+            configureCellRenderer { _, value, _, _, _ ->
+                text = value?.displayName.orEmpty()
+            }
+        }
 
         private val markedPanel = JPanel(MigLayout("fill, ins 0 2 0 2")).apply {
             border = BorderFactory.createTitledBorder("Marking")
@@ -458,7 +441,9 @@ sealed class LogPanel<T : LogEvent>(
             }
 
         private val events = JLabel("Showing $displayedRows of $totalRows events")
-        private val selectedRow = JLabel("Selected Row(s): ${selectedRows?.toString().orEmpty()}")
+        private val selectedRow = JLabel(
+            "Selected Row(s): ${selectedRows?.joinToString(prefix = "[", postfix = "]") ?: "None"}",
+        )
 
         init {
             add(events, "growx")
@@ -469,5 +454,12 @@ sealed class LogPanel<T : LogEvent>(
 
     companion object {
         private val BACKGROUND = CoroutineScope(Dispatchers.Default)
+    }
+
+    protected enum class MarkedBehavior(val displayName: String) {
+        ShowAll("Show All Events"),
+        OnlyMarked("Only Show Marked"),
+        OnlyUnmarked("Only Show Unmarked"),
+        AlwaysShowMarked("Always Show Marked"),
     }
 }

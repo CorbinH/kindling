@@ -3,12 +3,25 @@ package io.github.inductiveautomation.kindling.utils
 import com.formdev.flatlaf.extras.FlatSVGIcon
 import com.github.weisj.jsvg.SVGDocument
 import com.github.weisj.jsvg.attributes.ViewBox
+import com.github.weisj.jsvg.view.ViewBox
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.swing.Swing
+import org.jdesktop.swingx.decorator.AbstractHighlighter
+import org.jdesktop.swingx.decorator.ColorHighlighter
+import org.jdesktop.swingx.decorator.ComponentAdapter
+import org.jdesktop.swingx.decorator.Highlighter
+import org.jdesktop.swingx.prompt.BuddySupport
 import java.awt.Color
 import java.awt.Component
 import java.awt.Container
 import java.awt.Point
 import java.awt.RenderingHints
 import java.awt.Toolkit
+import java.awt.datatransfer.DataFlavor
+import java.awt.datatransfer.StringSelection
+import java.awt.event.KeyEvent
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import java.awt.event.MouseListener
@@ -19,26 +32,20 @@ import java.util.EventListener
 import javax.swing.InputVerifier
 import javax.swing.JComboBox
 import javax.swing.JComponent
+import javax.swing.JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT
 import javax.swing.JFileChooser
+import javax.swing.JFrame
 import javax.swing.JPopupMenu
 import javax.swing.JScrollPane
 import javax.swing.JTextField
+import javax.swing.KeyStroke
+import javax.swing.ListSelectionModel
 import javax.swing.SwingUtilities
-import javax.swing.UIManager
 import javax.swing.event.DocumentEvent
 import javax.swing.event.DocumentListener
 import javax.swing.event.EventListenerList
 import javax.swing.text.Document
 import javax.swing.text.JTextComponent
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.swing.Swing
-import org.jdesktop.swingx.decorator.AbstractHighlighter
-import org.jdesktop.swingx.decorator.ColorHighlighter
-import org.jdesktop.swingx.decorator.ComponentAdapter
-import org.jdesktop.swingx.decorator.Highlighter
-import org.jdesktop.swingx.prompt.BuddySupport
 
 /**
  * A common CoroutineScope bound to the event dispatch thread (see [Dispatchers.Swing]).
@@ -47,12 +54,34 @@ val EDT_SCOPE by lazy { CoroutineScope(Dispatchers.Swing) }
 
 val menuShortcutKeyMaskEx = Toolkit.getDefaultToolkit().menuShortcutKeyMaskEx
 
+/**
+ * A convenience property to get or set the contents of the system clipboard as a string.
+ */
+var Toolkit.clipboardString: String?
+    get() {
+        return runCatching {
+            systemClipboard.getData(DataFlavor.stringFlavor) as? String
+        }.getOrNull()
+    }
+    set(value) {
+        systemClipboard.setContents(StringSelection(value), null)
+    }
+
 val Document.text: String
     get() = getText(0, length)
 
-inline fun <T : Component> T.attachPopupMenu(
-    crossinline menuFn: T.(event: MouseEvent) -> JPopupMenu?,
-) {
+fun JFrame.dismissOnEscape() {
+    rootPane.actionMap.put(
+        "dismiss",
+        Action {
+            dispose()
+        },
+    )
+    rootPane.getInputMap(WHEN_ANCESTOR_OF_FOCUSED_COMPONENT)
+        .put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "dismiss")
+}
+
+inline fun <T : Component> T.attachPopupMenu(crossinline menuFn: T.(event: MouseEvent) -> JPopupMenu?) {
     addMouseListener(
         object : MouseAdapter() {
             override fun mousePressed(e: MouseEvent) {
@@ -73,13 +102,10 @@ inline fun <T : Component> T.attachPopupMenu(
     )
 }
 
-fun FlatSVGIcon.asActionIcon(selected: Boolean = false): FlatSVGIcon {
-    return FlatSVGIcon(name, 0.75F).apply {
-        if (selected) {
-            colorFilter = FlatSVGIcon.ColorFilter { UIManager.getColor("Tree.selectionForeground") }
-        }
-    }
-}
+const val ACTION_ICON_SCALE_FACTOR = 0.75F
+
+@Suppress("FunctionName")
+fun FlatActionIcon(path: String): FlatSVGIcon = FlatSVGIcon(path, ACTION_ICON_SCALE_FACTOR)
 
 fun JFileChooser.chooseFiles(parent: JComponent?): List<File>? {
     return if (showOpenDialog(parent) == JFileChooser.APPROVE_OPTION) {
@@ -287,3 +313,9 @@ object PointHelpers {
         return SwingUtilities.convertPoint(from, this, to)
     }
 }
+
+val ListSelectionModel.minSelectedIndex: Int?
+    get() = minSelectionIndex.takeIf { it != -1 }
+
+val ListSelectionModel.maxSelectedIndex: Int?
+    get() = maxSelectionIndex.takeIf { it != -1 }

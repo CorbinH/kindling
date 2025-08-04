@@ -1,5 +1,6 @@
 package io.github.inductiveautomation.kindling.utils
 
+import com.formdev.flatlaf.FlatLaf
 import com.formdev.flatlaf.extras.FlatSVGIcon
 import org.jdesktop.swingx.JXTable
 import org.jdesktop.swingx.renderer.CellContext
@@ -14,6 +15,7 @@ import javax.swing.JLabel
 import javax.swing.JList
 import javax.swing.JTree
 import javax.swing.ListCellRenderer
+import javax.swing.UIManager
 import javax.swing.plaf.basic.BasicComboBoxRenderer
 import javax.swing.tree.DefaultTreeCellRenderer
 import javax.swing.tree.TreeCellRenderer
@@ -32,7 +34,6 @@ class ReifiedLabelProvider<T : Any>(
     override fun createRendererComponent(): JLabel = JRendererLabel()
 
     override fun configureState(context: CellContext) {
-        // TODO - Color icon when selected
         rendererComponent.horizontalAlignment = horizontalAlignment
     }
 
@@ -40,17 +41,23 @@ class ReifiedLabelProvider<T : Any>(
         rendererComponent.apply {
             val value = valueClass.safeCast(context.value)
             text = getText(value)
-            icon = getIcon(value)
+            val icon = getIcon(value)
+            if (icon is FlatSVGIcon && context.isSelected) {
+                icon.colorFilter = FlatSVGIcon.ColorFilter { UIManager.getColor("Tree.selectionForeground") }
+            }
+            this.icon = icon
             toolTipText = getTooltip(value)
         }
     }
 
     companion object {
-        private val NULL_ICON = FlatSVGIcon("icons/null.svg")
-
         fun <T> defaultIconFunction(): IconProvider<T> = {
             if (it == null) {
-                NULL_ICON
+                FlatSVGIcon("icons/null.svg").apply {
+                    if (!FlatLaf.isLafDark()) {
+                        colorFilter = FlatSVGIcon.ColorFilter { UIManager.getColor("Table.foreground") }
+                    }
+                }
             } else {
                 null
             }
@@ -77,6 +84,11 @@ class ReifiedLabelProvider<T : Any>(
     }
 }
 
+interface RendererBase {
+    val selected: Boolean
+    val focused: Boolean
+}
+
 inline fun <reified T> listCellRenderer(
     crossinline customize: JLabel.(
         list: JList<*>,
@@ -86,7 +98,10 @@ inline fun <reified T> listCellRenderer(
         focused: Boolean,
     ) -> Unit,
 ): ListCellRenderer<Any> {
-    return object : DefaultListCellRenderer() {
+    return object : RendererBase, DefaultListCellRenderer() {
+        override var selected: Boolean = false
+        override var focused: Boolean = false
+
         override fun getListCellRendererComponent(
             list: JList<*>,
             value: Any?,
@@ -94,6 +109,9 @@ inline fun <reified T> listCellRenderer(
             selected: Boolean,
             focused: Boolean,
         ): Component {
+            this.selected = selected
+            this.focused = focused
+
             return super.getListCellRendererComponent(list, value, index, selected, focused).apply {
                 try {
                     if (value is T) {
@@ -118,7 +136,16 @@ fun treeCellRenderer(
         hasFocus: Boolean,
     ) -> Component,
 ): TreeCellRenderer {
-    return object : DefaultTreeCellRenderer() {
+    return object : RendererBase, DefaultTreeCellRenderer() {
+        override var selected: Boolean = false
+        override var focused: Boolean = false
+
+        init {
+            openIcon = FlatActionIcon("icons/bx-folder-open.svg")
+            closedIcon = FlatActionIcon("icons/bx-folder.svg")
+            leafIcon = FlatActionIcon("icons/bx-detail.svg")
+        }
+
         override fun getTreeCellRendererComponent(
             tree: JTree,
             value: Any?,
@@ -128,6 +155,9 @@ fun treeCellRenderer(
             row: Int,
             hasFocus: Boolean,
         ): Component {
+            this.selected = sel
+            this.focused = hasFocus
+
             val soup = super.getTreeCellRendererComponent(tree, value, sel, expanded, leaf, row, hasFocus)
             return customize.invoke(soup as DefaultTreeCellRenderer, tree, value, sel, expanded, leaf, row, hasFocus)
         }
@@ -143,7 +173,10 @@ inline fun <reified T> JComboBox<T>.configureCellRenderer(
         cellHasFocus: Boolean,
     ) -> Unit,
 ) {
-    renderer = object : BasicComboBoxRenderer() {
+    renderer = object : RendererBase, BasicComboBoxRenderer() {
+        override var selected: Boolean = false
+        override var focused: Boolean = false
+
         override fun getListCellRendererComponent(
             list: JList<*>,
             value: Any?,
@@ -151,6 +184,9 @@ inline fun <reified T> JComboBox<T>.configureCellRenderer(
             isSelected: Boolean,
             cellHasFocus: Boolean,
         ): Component {
+            this.selected = isSelected
+            this.focused = cellHasFocus
+
             super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus)
             block(list, value as T?, index, isSelected, cellHasFocus)
             return this
