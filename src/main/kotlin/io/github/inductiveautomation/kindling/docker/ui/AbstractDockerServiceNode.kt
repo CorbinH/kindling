@@ -4,27 +4,16 @@ import io.github.inductiveautomation.kindling.docker.model.DockerNetwork
 import io.github.inductiveautomation.kindling.docker.model.DockerServiceModel
 import io.github.inductiveautomation.kindling.docker.model.DockerVolume
 import io.github.inductiveautomation.kindling.docker.model.ServiceModelChangeListener
-import io.github.inductiveautomation.kindling.utils.EDT_SCOPE
-import io.github.inductiveautomation.kindling.utils.add
-import io.github.inductiveautomation.kindling.utils.debounce
-import io.github.inductiveautomation.kindling.utils.getAll
-import io.github.inductiveautomation.kindling.utils.jFrame
-import io.github.inductiveautomation.kindling.utils.remove
-import io.github.inductiveautomation.kindling.utils.tag
+import io.github.inductiveautomation.kindling.utils.*
+import net.miginfocom.swing.MigLayout
 import java.awt.Color
 import java.awt.Font
 import java.awt.Frame
 import java.awt.Point
 import java.awt.event.ComponentEvent
-import java.util.EventListener
-import javax.swing.BorderFactory
-import javax.swing.JButton
-import javax.swing.JComponent
-import javax.swing.JLabel
-import javax.swing.JPanel
-import javax.swing.SwingUtilities
+import java.util.*
+import javax.swing.*
 import kotlin.time.Duration.Companion.milliseconds
-import net.miginfocom.swing.MigLayout
 
 @Suppress("LeakingThis")
 abstract class AbstractDockerServiceNode<T : DockerServiceModel> : JPanel(MigLayout("fill, ins 4")) {
@@ -160,7 +149,7 @@ fun interface NodeDeleteListener : EventListener {
     fun onNodeDelete()
 }
 
-abstract class NodeConfigPanel(constraints: String) : JPanel(MigLayout(constraints)) {
+abstract class NodeConfigPanel() : TabStrip() {
     protected abstract val node: AbstractDockerServiceNode<out DockerServiceModel>
 
     protected abstract val generalSection: ConfigSection
@@ -176,12 +165,20 @@ abstract class NodeConfigPanel(constraints: String) : JPanel(MigLayout(constrain
         }
         return this
     }
+
+    init {
+        isTabsClosable = false
+    }
 }
 
 abstract class ConfigSection(
     title: String,
     constraints: String = "fill, ins 0",
-) : JPanel(MigLayout(constraints)) {
+) : JPanel(MigLayout(constraints)), FloatableComponent {
+    override val icon: Icon? = null
+    override val tabTooltip: String? = null
+    override val tabName: String = title
+
     init {
         border = BorderFactory.createTitledBorder(BorderFactory.createEmptyBorder(), title).apply {
             this.titleFont = titleFont.deriveFont(Font.BOLD, 14F)

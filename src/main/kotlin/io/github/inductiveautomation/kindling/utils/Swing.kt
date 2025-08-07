@@ -1,41 +1,9 @@
 package io.github.inductiveautomation.kindling.utils
 
 import com.formdev.flatlaf.extras.FlatSVGIcon
+import com.formdev.flatlaf.extras.components.FlatTextField
 import com.github.weisj.jsvg.SVGDocument
 import com.github.weisj.jsvg.view.ViewBox
-import java.awt.Color
-import java.awt.Component
-import java.awt.Container
-import java.awt.Point
-import java.awt.RenderingHints
-import java.awt.Toolkit
-import java.awt.datatransfer.DataFlavor
-import java.awt.datatransfer.StringSelection
-import java.awt.event.KeyEvent
-import java.awt.event.MouseAdapter
-import java.awt.event.MouseEvent
-import java.awt.event.MouseListener
-import java.awt.event.MouseMotionListener
-import java.awt.image.BufferedImage
-import java.io.File
-import java.util.EventListener
-import javax.swing.InputVerifier
-import javax.swing.JComboBox
-import javax.swing.JComponent
-import javax.swing.JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT
-import javax.swing.JFileChooser
-import javax.swing.JFrame
-import javax.swing.JPopupMenu
-import javax.swing.JScrollPane
-import javax.swing.JTextField
-import javax.swing.KeyStroke
-import javax.swing.ListSelectionModel
-import javax.swing.SwingUtilities
-import javax.swing.event.DocumentEvent
-import javax.swing.event.DocumentListener
-import javax.swing.event.EventListenerList
-import javax.swing.text.Document
-import javax.swing.text.JTextComponent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -45,6 +13,20 @@ import org.jdesktop.swingx.decorator.ColorHighlighter
 import org.jdesktop.swingx.decorator.ComponentAdapter
 import org.jdesktop.swingx.decorator.Highlighter
 import org.jdesktop.swingx.prompt.BuddySupport
+import java.awt.*
+import java.awt.datatransfer.DataFlavor
+import java.awt.datatransfer.StringSelection
+import java.awt.event.*
+import java.awt.image.BufferedImage
+import java.io.File
+import java.util.*
+import javax.swing.*
+import javax.swing.JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT
+import javax.swing.event.DocumentEvent
+import javax.swing.event.DocumentListener
+import javax.swing.event.EventListenerList
+import javax.swing.text.Document
+import javax.swing.text.JTextComponent
 
 /**
  * A common CoroutineScope bound to the event dispatch thread (see [Dispatchers.Swing]).
@@ -318,3 +300,33 @@ val ListSelectionModel.minSelectedIndex: Int?
 
 val ListSelectionModel.maxSelectedIndex: Int?
     get() = maxSelectionIndex.takeIf { it != -1 }
+
+fun FlatTextField.attachValidator(validator: (s: String?) -> Boolean) {
+    inputVerifier = object : InputVerifier() {
+        override fun shouldYieldFocus(source: JComponent?, target: JComponent?) = true
+        override fun verify(input: JComponent?): Boolean {
+            return validator((input as? JTextField)?.text)
+        }
+    }
+    document.addDocumentListener(object : DocumentListener {
+        private fun validate() {
+            outline = if (inputVerifier.verify(this@attachValidator)) null else "error"
+        }
+
+        override fun insertUpdate(e: DocumentEvent?) {
+            validate()
+        }
+
+        override fun removeUpdate(e: DocumentEvent?) {
+            validate()
+        }
+
+        override fun changedUpdate(e: DocumentEvent?) {
+            validate()
+        }
+
+        init {
+            validate()
+        }
+    })
+}

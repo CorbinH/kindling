@@ -4,29 +4,25 @@ import io.github.inductiveautomation.kindling.docker.model.Docker.ignitionImageV
 import io.github.inductiveautomation.kindling.docker.model.DockerNetwork
 import io.github.inductiveautomation.kindling.docker.model.DockerVolume
 import io.github.inductiveautomation.kindling.docker.ui.GenericDockerServiceNode.Companion.SERVICE_NAME_REGEX
-import io.github.inductiveautomation.kindling.docker.ui.editors.GatewayCliArgEditor
-import io.github.inductiveautomation.kindling.docker.ui.editors.GatewayEnvVariablesEditor
-import io.github.inductiveautomation.kindling.docker.ui.editors.NetworkEditor
-import io.github.inductiveautomation.kindling.docker.ui.editors.PortMappingEditor
-import io.github.inductiveautomation.kindling.docker.ui.editors.VolumeEditor
+import io.github.inductiveautomation.kindling.docker.ui.editors.*
 import io.github.inductiveautomation.kindling.utils.EDT_SCOPE
 import io.github.inductiveautomation.kindling.utils.RegexInputVerifier
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.jdesktop.swingx.JXFormattedTextField
 import java.awt.event.FocusAdapter
 import java.awt.event.FocusEvent
 import javax.swing.DefaultComboBoxModel
 import javax.swing.JComboBox
 import javax.swing.JLabel
 import javax.swing.JTextField
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import org.jdesktop.swingx.JXFormattedTextField
 
 class GatewayNodeConfigPanel(
     override val node: GatewayServiceNode,
     volumeOptions: List<DockerVolume>,
     networkOptions: List<DockerNetwork>,
-) : NodeConfigPanel("fill, ins 4, flowy") {
+) : NodeConfigPanel() {
     private val imageLabel = JLabel("Image")
     private val imageEntry = JTextField(node.model.image).apply {
         isEnabled = false
@@ -132,12 +128,12 @@ class GatewayNodeConfigPanel(
     var networkOptions: List<DockerNetwork> by networksSection::networkOptions
 
     init {
-        add(generalSection, "grow")
-        add(cliSection, "grow, spany 2, wrap")
-        add(envSection, "grow, spany")
-        add(portsSection, "grow, sg")
-        add(volumesSection, "grow, sg")
-        add(networksSection, "grow, sg")
+        addTab(generalSection, select=false)
+        addTab(volumesSection, select=false)
+        addTab(cliSection, select=false)
+        addTab(envSection, select=false)
+        addTab(portsSection, select=false)
+        addTab(networksSection, select=false)
     }
 
     fun resetNames() {

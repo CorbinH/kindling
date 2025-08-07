@@ -1,12 +1,6 @@
 package io.github.inductiveautomation.kindling.docker
 
-import com.charleskorn.kaml.MultiLineStringStyle
-import com.charleskorn.kaml.SequenceStyle
-import com.charleskorn.kaml.SingleLineStringStyle
-import com.charleskorn.kaml.Yaml
-import com.charleskorn.kaml.YamlConfiguration
-import com.charleskorn.kaml.decodeFromStream
-import com.charleskorn.kaml.encodeToStream
+import com.charleskorn.kaml.*
 import com.formdev.flatlaf.extras.FlatSVGIcon
 import com.formdev.flatlaf.extras.components.FlatSplitPane
 import io.github.inductiveautomation.kindling.core.CustomIconView
@@ -14,37 +8,20 @@ import io.github.inductiveautomation.kindling.core.EditorTool
 import io.github.inductiveautomation.kindling.core.Kindling
 import io.github.inductiveautomation.kindling.core.Theme.Companion.theme
 import io.github.inductiveautomation.kindling.core.ToolPanel
-import io.github.inductiveautomation.kindling.docker.model.DockerNetwork
-import io.github.inductiveautomation.kindling.docker.model.DockerServiceModel
+import io.github.inductiveautomation.kindling.docker.model.*
 import io.github.inductiveautomation.kindling.docker.model.DockerServiceModel.Companion.DEFAULT_GENERIC_IMAGE
-import io.github.inductiveautomation.kindling.docker.model.DockerVolume
 import io.github.inductiveautomation.kindling.docker.model.GatewayEnvironmentVariableDefinition.Companion.getConnectionVariableIndex
-import io.github.inductiveautomation.kindling.docker.model.GatewayServiceModel
 import io.github.inductiveautomation.kindling.docker.model.GatewayServiceModel.Companion.DEFAULT_IMAGE
 import io.github.inductiveautomation.kindling.docker.model.GatewayServiceModel.Companion.toGatewayServiceModelOrNull
-import io.github.inductiveautomation.kindling.docker.model.PortMapping
-import io.github.inductiveautomation.kindling.docker.ui.AbstractDockerServiceNode
-import io.github.inductiveautomation.kindling.docker.ui.Canvas
-import io.github.inductiveautomation.kindling.docker.ui.CanvasNodeList
-import io.github.inductiveautomation.kindling.docker.ui.ConnectionProgressChangeListener
-import io.github.inductiveautomation.kindling.docker.ui.GatewayNodeConnector
+import io.github.inductiveautomation.kindling.docker.ui.*
 import io.github.inductiveautomation.kindling.docker.ui.GatewayNodeConnector.Companion.midPoint
-import io.github.inductiveautomation.kindling.docker.ui.GatewayServiceNode
-import io.github.inductiveautomation.kindling.docker.ui.GenericDockerServiceNode
-import io.github.inductiveautomation.kindling.docker.ui.NetworksList
-import io.github.inductiveautomation.kindling.docker.ui.NodeInitializer
-import io.github.inductiveautomation.kindling.docker.ui.VolumesList
-import io.github.inductiveautomation.kindling.utils.FileFilter
-import io.github.inductiveautomation.kindling.utils.FlatScrollPane
-import io.github.inductiveautomation.kindling.utils.HorizontalSplitPane
+import io.github.inductiveautomation.kindling.utils.*
 import io.github.inductiveautomation.kindling.utils.PointHelpers.component1
 import io.github.inductiveautomation.kindling.utils.PointHelpers.component2
-import io.github.inductiveautomation.kindling.utils.TrivialListDataListener
-import io.github.inductiveautomation.kindling.utils.add
-import io.github.inductiveautomation.kindling.utils.chooseFiles
-import io.github.inductiveautomation.kindling.utils.getAll
-import io.github.inductiveautomation.kindling.utils.scrollToTop
-import io.github.inductiveautomation.kindling.utils.traverseChildren
+import kotlinx.serialization.encodeToString
+import net.miginfocom.swing.MigLayout
+import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
+import org.fife.ui.rsyntaxtextarea.SyntaxConstants.SYNTAX_STYLE_YAML
 import java.awt.Font
 import java.awt.KeyboardFocusManager
 import java.awt.Point
@@ -53,22 +30,13 @@ import java.awt.event.ContainerListener
 import java.awt.event.KeyEvent
 import java.nio.file.Files
 import java.nio.file.Path
-import javax.swing.JButton
-import javax.swing.JFileChooser
-import javax.swing.JLabel
-import javax.swing.JOptionPane
-import javax.swing.JPanel
-import javax.swing.SwingUtilities
+import javax.swing.*
 import javax.swing.filechooser.FileNameExtensionFilter
 import kotlin.io.path.absolutePathString
 import kotlin.io.path.inputStream
 import kotlin.io.path.name
 import kotlin.io.path.outputStream
 import kotlin.random.Random
-import kotlinx.serialization.encodeToString
-import net.miginfocom.swing.MigLayout
-import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
-import org.fife.ui.rsyntaxtextarea.SyntaxConstants.SYNTAX_STYLE_YAML
 
 @Suppress("unused")
 class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3") {
@@ -102,9 +70,14 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
             return newPort
         }
 
+
         fun listenForDeletion(node: AbstractDockerServiceNode<*>) {
             node.addNodeDeleteListener {
-                usedPorts.removeAll(node.model.ports.map { it.hostPort })
+                usedPorts.removeAll(
+                    node.model.ports.flatMap { mapping ->
+                        parsePorts(mapping.published)
+                    }
+                )
             }
         }
     }
@@ -140,7 +113,7 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
                     GatewayServiceModel(
                         image = DEFAULT_IMAGE,
                         containerName = "Ignition-${nodeIdManager.generateID()}",
-                        ports = mutableListOf(PortMapping(portMapper.generatePort(), 8088u)),
+                        ports = mutableListOf(PortMapping(portMapper.generatePort().toString(), "8088")),
                     ),
                     initialNetworkOptions = networks,
                     initialVolumeOptions = volumes,
@@ -337,6 +310,7 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
                         GatewayServiceNode(actualModel, volumes, networks).apply {
                             bindYamlPreview()
                             connectionObserver.observeConnection(this)
+                            portMapper.listenForDeletion(this)
                         }
                     }
 
@@ -403,11 +377,10 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
 
         fun parseExistingPorts(nodes: List<AbstractDockerServiceNode<*>>) {
             val usedPorts = nodes.flatMap { node ->
-                node.model.ports.map { mapping ->
-                    mapping.hostPort
+                node.model.ports.flatMap { mapping ->
+                    parsePorts(mapping.published)
                 }
             }
-
             portMapper.usedPorts.addAll(usedPorts)
         }
 
@@ -550,6 +523,20 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
 
             addConnectionProgressChangeListener { inProgress: Boolean ->
                 node.updateValidConnectionTarget(inProgress)
+            }
+        }
+    }
+
+    private fun parsePorts(s: String): List<UShort> {
+        val portStrings = s.split(":").last().split("-")
+        return if (portStrings.size > 1) {
+            (portStrings.first().toUShort()..portStrings.last().toUShort()).map {
+                it.toUShort()
+            }
+        }
+        else {
+            portStrings.map {
+                it.toUShort()
             }
         }
     }

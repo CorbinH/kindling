@@ -7,11 +7,11 @@ import io.github.inductiveautomation.kindling.docker.model.GatewayServiceModel
 import io.github.inductiveautomation.kindling.docker.model.IgnitionVersionComparator
 import io.github.inductiveautomation.kindling.utils.add
 import io.github.inductiveautomation.kindling.utils.getAll
-import java.util.EventListener
+import net.miginfocom.swing.MigLayout
+import java.util.*
 import javax.swing.JButton
 import javax.swing.JOptionPane
 import javax.swing.JPanel
-import net.miginfocom.swing.MigLayout
 
 class GatewayServiceNode(
     override val model: GatewayServiceModel,
@@ -22,8 +22,17 @@ class GatewayServiceNode(
         GatewayNodeConfigPanel(this, initialVolumeOptions, initialNetworkOptions)
     }
 
-    override var volumeOptions by configEditor::volumeOptions
-    override var networkOptions by configEditor::networkOptions
+    override var volumeOptions: List<DockerVolume>
+        get() = configEditor.volumeOptions
+        set(value) {
+            configEditor.volumeOptions = value
+        }
+
+    override var networkOptions: List<DockerNetwork>
+        get() = configEditor.networkOptions
+        set(value) {
+            configEditor.networkOptions = value
+        }
 
     private val meetsMinVersion: Boolean
         get() = IgnitionVersionComparator.compare("8.1.10", model.version) <= 0

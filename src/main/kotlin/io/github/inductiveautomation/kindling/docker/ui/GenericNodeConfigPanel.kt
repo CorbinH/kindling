@@ -18,7 +18,7 @@ class GenericNodeConfigPanel(
     override val node: GenericDockerServiceNode,
     volumeOptions: List<DockerVolume>,
     networkOptions: List<DockerNetwork>,
-) : NodeConfigPanel("fill, ins 4") {
+) : NodeConfigPanel() {
     /* General */
     private val imageLabel = JLabel("Image")
     private val imageEntry = JTextField(node.model.image).apply {
@@ -71,11 +71,11 @@ class GenericNodeConfigPanel(
     var networkOptions by networksSection::networkOptions
 
     init {
-        add(generalSection, "grow, sg")
-        add(envSection, "grow, sg")
-        add(volumesSection, "grow, wrap, sg")
-        add(cliSection, "grow, sg")
-        add(portsSection, "grow, sg")
-        add(networksSection, "grow, sg")
+        addTab(volumesSection, select=false)
+        addTab(cliSection, select=false)
+        addTab(envSection, select=false)
+        addTab(portsSection, select=false)
+        addTab(networksSection, select=false)
+        addTab(generalSection, select=false)
     }
 }
