@@ -7,11 +7,26 @@ import io.github.inductiveautomation.kindling.docker.model.PortMapping.Companion
 import io.github.inductiveautomation.kindling.docker.model.PortMapping.Companion.DEFAULT_MODE
 import io.github.inductiveautomation.kindling.docker.model.PortMapping.Companion.DEFAULT_PROTOCOL
 import io.github.inductiveautomation.kindling.docker.ui.ConfigSection
-import io.github.inductiveautomation.kindling.utils.*
+import io.github.inductiveautomation.kindling.utils.ColumnList
+import io.github.inductiveautomation.kindling.utils.FlatScrollPane
+import io.github.inductiveautomation.kindling.utils.HorizontalSplitPane
+import io.github.inductiveautomation.kindling.utils.ReifiedJXTable
+import io.github.inductiveautomation.kindling.utils.ReifiedListTableModel
+import io.github.inductiveautomation.kindling.utils.StyledLabel
+import io.github.inductiveautomation.kindling.utils.attachValidator
 import net.miginfocom.swing.MigLayout
 import java.awt.Component
 import java.awt.Font
-import javax.swing.*
+import javax.swing.JButton
+import javax.swing.JCheckBox
+import javax.swing.JComboBox
+import javax.swing.JLabel
+import javax.swing.JOptionPane
+import javax.swing.JPanel
+import javax.swing.JTable
+import javax.swing.JTextField
+import javax.swing.ListSelectionModel
+import javax.swing.SwingUtilities
 import javax.swing.table.DefaultTableCellRenderer
 import kotlin.properties.Delegates
 
@@ -27,7 +42,8 @@ class PortMappingEditor(
         CREATING {
             override val portMappingText: String = "Creating Port Mapping"
             override val createButtonText: String = "Create"
-        };
+        }, ;
+
         abstract val portMappingText: String
         abstract val createButtonText: String
     }
@@ -42,8 +58,12 @@ class PortMappingEditor(
             }
         }
 
-    private val portMappingTable = ReifiedJXTable(ReifiedListTableModel<PortMapping>(initialData,
-        PortMappingTableColumns)).apply {
+    private val portMappingTable = ReifiedJXTable(
+        ReifiedListTableModel<PortMapping>(
+            initialData,
+            PortMappingTableColumns,
+        ),
+    ).apply {
         isColumnControlVisible = false
     }
 
@@ -91,7 +111,7 @@ class PortMappingEditor(
         left = portTablePanel,
         right = portEditingPanel,
         resizeWeight = 0.5,
-        expandableSide = FlatSplitPane.ExpandableSide.left
+        expandableSide = FlatSplitPane.ExpandableSide.left,
     )
 
     init {
@@ -119,7 +139,7 @@ class PortMappingEditor(
     }
 
     private inner class PortEditingPanel() : JPanel(MigLayout("fill, flowy")) {
-        var portMapping: PortMapping? by Delegates.observable(null)  { _, _, newValue ->
+        var portMapping: PortMapping? by Delegates.observable(null) { _, _, newValue ->
             if (newValue != null) {
                 targetEntry.text = newValue.target
                 publishedEntry.text = newValue.published
@@ -160,8 +180,8 @@ class PortMappingEditor(
 
         val publishedEntry = FlatTextField().apply {
             toolTipText = "<html>The publicly exposed port. " +
-                    "It is defined as a string and can be set as a range using syntax <code>start-end.</code><br>" +
-                    "It means the actual port is assigned a remaining available port, within the set range.</html>"
+                "It is defined as a string and can be set as a range using syntax <code>start-end.</code><br>" +
+                "It means the actual port is assigned a remaining available port, within the set range.</html>"
             attachValidator { s ->
                 val strings = s?.split("-") ?: return@attachValidator false
                 strings.size <= 2 && strings.all {
@@ -210,8 +230,8 @@ class PortMappingEditor(
         }
         val appProtocolEntry = JTextField().apply {
             toolTipText = "The application protocol (TCP/IP level 4 / OSI level 7) this port is used for.\n" +
-                    "This is optional and can be used as a hint for Compose to offer richer behavior for protocols that it understands.\n" +
-                    "Introduced in Docker Compose version 2.26.0."
+                "This is optional and can be used as a hint for Compose to offer richer behavior for protocols that it understands.\n" +
+                "Introduced in Docker Compose version 2.26.0."
             name = "App Protocol"
         }
 
@@ -219,9 +239,9 @@ class PortMappingEditor(
             add("Mode", Font.BOLD)
         }
         val modeEntry = JComboBox<String>(arrayOf("ingress", "host")).apply {
-            toolTipText =  "<html>Specifies how the port is published in a Swarm setup.<br>" +
-                    "If set to <code>host</code>, it publishes the port on every node in Swarm.<br>" +
-                    "If set to <code>ingress</code>, it allows load balancing across the nodes in Swarm. Defaults to <code>ingress</code>.<html>"
+            toolTipText = "<html>Specifies how the port is published in a Swarm setup.<br>" +
+                "If set to <code>host</code>, it publishes the port on every node in Swarm.<br>" +
+                "If set to <code>ingress</code>, it allows load balancing across the nodes in Swarm. Defaults to <code>ingress</code>.<html>"
             name = "Mode"
         }
 
@@ -266,8 +286,7 @@ class PortMappingEditor(
                     protocol = protocolEntry.selectedItem as String
                     app_protocol = appProtocolEntry.text?.ifEmpty { null }
                     mode = modeEntry.selectedItem as String
-                }
-                else {
+                } else {
                     target = targetEntry.text
                     published = publishedEntry.text
                     name = null
@@ -282,7 +301,7 @@ class PortMappingEditor(
         private fun showFieldError(names: List<String>) {
             JOptionPane.showMessageDialog(
                 null,
-                names.joinToString("\n", prefix="Port mapping fields are invalid:\n"),
+                names.joinToString("\n", prefix = "Port mapping fields are invalid:\n"),
                 "Port mapping error!",
                 JOptionPane.ERROR_MESSAGE,
             )
@@ -296,8 +315,7 @@ class PortMappingEditor(
                         if (names.isEmpty()) {
                             applyChanges()
                             portMappingTable.model.fireTableDataChanged()
-                        }
-                        else {
+                        } else {
                             showFieldError(names)
                         }
                     }
@@ -307,8 +325,7 @@ class PortMappingEditor(
                             portMapping?.let { initialData.add(it) }
                             portMappingTable.model.fireTableDataChanged()
                             splitPane.setDividerLocation(1.0)
-                        }
-                        else {
+                        } else {
                             showFieldError(names)
                         }
                     }
@@ -335,7 +352,7 @@ class PortMappingEditor(
 
 @Suppress("unused")
 private object PortMappingTableColumns : ColumnList<PortMapping>() {
-    val Name by column (
+    val Name by column(
         value = PortMapping::name,
         column = {
             cellRenderer = object : DefaultTableCellRenderer() {
@@ -345,13 +362,13 @@ private object PortMappingTableColumns : ColumnList<PortMapping>() {
                     isSelected: Boolean,
                     hasFocus: Boolean,
                     row: Int,
-                    column: Int
+                    column: Int,
                 ): Component? {
                     this.horizontalAlignment = CENTER
                     return super.getTableCellRendererComponent(table, value ?: "-", isSelected, hasFocus, row, column)
                 }
             }
-        }
+        },
     )
     val Published by column {
         it.published

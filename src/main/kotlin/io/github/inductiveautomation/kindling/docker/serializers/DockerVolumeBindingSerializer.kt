@@ -17,7 +17,9 @@ object DockerVolumeBindingSerializer : KSerializer<BindMount> {
     override fun deserialize(decoder: Decoder): BindMount {
         val strValue = decoder.decodeString()
         val name = strValue.substringBefore(":")
-        val path = strValue.substringAfter(":").ifEmpty(fun(): String?  { return null })
+        val path = strValue.substringAfter(":").ifEmpty(fun(): String? {
+            return null
+        })
 
         return BindMount(name, path)
     }

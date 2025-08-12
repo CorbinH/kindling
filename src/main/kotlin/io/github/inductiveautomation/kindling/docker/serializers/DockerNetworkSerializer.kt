@@ -17,7 +17,7 @@ object DockerNetworkSerializer : KSerializer<DockerNetwork> {
         val map = decoder.decodeSerializableValue(delegate)
 
         return DockerNetwork(
-            name = map.keys.first()
+            name = map.keys.first(),
         )
     }
 

@@ -64,7 +64,7 @@ interface Tool : KindlingSerializable {
                 XmlTool,
                 SerialViewer,
                 TranslationTool,
-                DockerTool
+                DockerTool,
             )
         }
 

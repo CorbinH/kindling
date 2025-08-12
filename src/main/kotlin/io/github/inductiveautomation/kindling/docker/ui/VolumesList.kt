@@ -3,13 +3,13 @@ package io.github.inductiveautomation.kindling.docker.ui
 import io.github.inductiveautomation.kindling.docker.model.DockerVolume
 import io.github.inductiveautomation.kindling.utils.FlatScrollPane
 import io.github.inductiveautomation.kindling.utils.listCellRenderer
+import net.miginfocom.swing.MigLayout
+import org.jdesktop.swingx.JXTextArea
 import javax.swing.DefaultListModel
 import javax.swing.JButton
 import javax.swing.JList
 import javax.swing.JPanel
 import javax.swing.ListSelectionModel
-import net.miginfocom.swing.MigLayout
-import org.jdesktop.swingx.JXTextArea
 
 class VolumesList(volumes: List<DockerVolume>) : JPanel(MigLayout("fill, ins 0")) {
     val volumesList = object : JList<DockerVolume>(DefaultListModel()) {

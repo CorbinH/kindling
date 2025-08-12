@@ -4,9 +4,9 @@ import com.formdev.flatlaf.extras.FlatSVGIcon
 import io.github.inductiveautomation.kindling.docker.model.DockerNetwork
 import io.github.inductiveautomation.kindling.docker.model.DockerServiceModel
 import io.github.inductiveautomation.kindling.docker.model.DockerVolume
+import net.miginfocom.swing.MigLayout
 import javax.swing.JButton
 import javax.swing.JPanel
-import net.miginfocom.swing.MigLayout
 
 class GenericDockerServiceNode(
     override val model: DockerServiceModel,

@@ -6,13 +6,13 @@ import io.github.inductiveautomation.kindling.utils.ColumnList
 import io.github.inductiveautomation.kindling.utils.FlatScrollPane
 import io.github.inductiveautomation.kindling.utils.ReifiedJXTable
 import io.github.inductiveautomation.kindling.utils.ReifiedTableModel
+import net.miginfocom.swing.MigLayout
+import org.jdesktop.swingx.JXTextArea
 import javax.swing.JButton
 import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.ListSelectionModel
 import javax.swing.table.AbstractTableModel
-import net.miginfocom.swing.MigLayout
-import org.jdesktop.swingx.JXTextArea
 
 class EnvironmentVariablesEditor(
     private val envVariables: MutableMap<String, String>,

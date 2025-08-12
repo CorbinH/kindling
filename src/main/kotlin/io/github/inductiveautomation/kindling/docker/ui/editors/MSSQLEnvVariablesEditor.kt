@@ -5,9 +5,8 @@ import io.github.inductiveautomation.kindling.docker.model.GatewayEnvironmentVar
 import io.github.inductiveautomation.kindling.docker.model.GatewayEnvironmentVariableDefinition.Companion.isConnectionVariable
 import io.github.inductiveautomation.kindling.docker.model.GatewayEnvironmentVariableDefinition.Companion.toYamlString
 import io.github.inductiveautomation.kindling.docker.model.IgnitionVersionComparator
-import io.github.inductiveautomation.kindling.docker.model.StaticDefinition
+import io.github.inductiveautomation.kindling.docker.model.MSSQLStaticDefinition
 import io.github.inductiveautomation.kindling.docker.ui.ConfigSection
-import io.github.inductiveautomation.kindling.docker.ui.editors.GatewayEnvVariablesEditor.Companion.defaultOverrides
 import io.github.inductiveautomation.kindling.utils.ColorHighlighter
 import io.github.inductiveautomation.kindling.utils.Column
 import io.github.inductiveautomation.kindling.utils.ColumnList
@@ -37,26 +36,29 @@ import javax.swing.UIManager
 import javax.swing.table.AbstractTableModel
 import javax.swing.table.DefaultTableCellRenderer
 import javax.swing.table.TableCellEditor
+import kotlin.collections.first
+import kotlin.collections.isNotEmpty
+import kotlin.collections.toTypedArray
 import kotlin.properties.Delegates
 
-class GatewayEnvVariablesEditor(
+class MSSQLEnvVariablesEditor(
     private val data: MutableMap<String, String>,
     version: String,
 ) : ConfigSection("Environment Variables", "fill, ins 0, gap 4") {
     /**
      * Divided into 3 sections: Pre-canned variables, variables from connection settings, and custom variables.
      */
-    private val gatewaySettingsTable = ReifiedJXTable(GatewayEnvironmentVariableTableModel(data, version)).apply {
+    private val mssqlSettingsTable = ReifiedJXTable(MSSQLEnvironmentVariableTableModel(data, version)).apply {
         selectionMode = ListSelectionModel.SINGLE_SELECTION
     }
-    var version: String by gatewaySettingsTable.model::version
-    private val gatewaySettingsLabel = JLabel("Ignition Environment Variables")
+    var version: String by mssqlSettingsTable.model::version
+    private val mssqlSettingsLabel = JLabel("MSSQL Environment Variables")
     private val addButton = JButton("+").apply {
         addActionListener {
-            val s = gatewaySettingsTable.model.rowCount
+            val s = mssqlSettingsTable.model.rowCount
 
-            val currentVars = gatewaySettingsTable.model.staticVariableData.map { it.first }
-            val newEntry = StaticDefinition.entries.find {
+            val currentVars = mssqlSettingsTable.model.staticVariableData.map { it.first }
+            val newEntry = MSSQLStaticDefinition.entries.find {
                 it !in currentVars
             }
 
@@ -64,33 +66,33 @@ class GatewayEnvVariablesEditor(
                 val newValue = defaultOverrides[newEntry]
 
                 if (newValue == null) {
-                    gatewaySettingsTable.model.staticVariableData.add(Pair(newEntry, newEntry.default))
+                    mssqlSettingsTable.model.staticVariableData.add(Pair(newEntry, newEntry.default))
                 } else {
-                    gatewaySettingsTable.model.staticVariableData.add(Pair(newEntry, newValue))
+                    mssqlSettingsTable.model.staticVariableData.add(Pair(newEntry, newValue))
                     data[newEntry.name] = newValue
                 }
 
-                gatewaySettingsTable.model.fireTableRowsInserted(s, s)
+                mssqlSettingsTable.model.fireTableRowsInserted(s, s)
             }
         }
 
-        gatewaySettingsTable.model.addTableModelListener {
-            isEnabled = (it.source as GatewayEnvironmentVariableTableModel).getUnusedOptions().isNotEmpty()
+        mssqlSettingsTable.model.addTableModelListener {
+            isEnabled = (it.source as MSSQLEnvironmentVariableTableModel).getUnusedOptions().isNotEmpty()
         }
     }
     private val removeButton = JButton("-").apply {
         isEnabled = false
-        gatewaySettingsTable.selectionModel.addListSelectionListener {
+        mssqlSettingsTable.selectionModel.addListSelectionListener {
             isEnabled = !(it.source as ListSelectionModel).isSelectionEmpty
         }
 
         addActionListener {
-            val index = gatewaySettingsTable.selectionModel.selectedIndices.first()
-            val modelIndex = gatewaySettingsTable.convertRowIndexToModel(index)
+            val index = mssqlSettingsTable.selectionModel.selectedIndices.first()
+            val modelIndex = mssqlSettingsTable.convertRowIndexToModel(index)
 
-            val removed = gatewaySettingsTable.model.staticVariableData.removeAt(modelIndex)
+            val removed = mssqlSettingsTable.model.staticVariableData.removeAt(modelIndex)
             data.remove(removed.first.name)
-            gatewaySettingsTable.model.fireTableDataChanged()
+            mssqlSettingsTable.model.fireTableDataChanged()
         }
     }
 
@@ -153,10 +155,10 @@ class GatewayEnvVariablesEditor(
     }
 
     init {
-        add(gatewaySettingsLabel, "growx")
+        add(mssqlSettingsLabel, "growx")
         add(removeButton)
         add(addButton, "wrap")
-        add(gatewaySettingsTable, "push, grow, span, sg")
+        add(mssqlSettingsTable, "push, grow, span, sg")
         add(customSettingsLabel, "growx, spanx")
         add(customVariablesHeader, "growx, spanx")
         add(customVariablesTable, "push, grow, span, sg")
@@ -165,7 +167,7 @@ class GatewayEnvVariablesEditor(
 
         updateData()
 
-        gatewaySettingsTable.model.addTableModelListener {
+        mssqlSettingsTable.model.addTableModelListener {
             fireConfigChange()
         }
 
@@ -173,10 +175,10 @@ class GatewayEnvVariablesEditor(
             fireConfigChange()
         }
 
-        gatewaySettingsTable.addHighlighter(
+        mssqlSettingsTable.addHighlighter(
             ColorHighlighter(UIManager.getColor("Actions.Red"), Color.WHITE) { _, adapter ->
-                val modelRow = gatewaySettingsTable.convertRowIndexToModel(adapter.row)
-                !gatewaySettingsTable.model.meetsMinimumVersion(modelRow)
+                val modelRow = mssqlSettingsTable.convertRowIndexToModel(adapter.row)
+                !mssqlSettingsTable.model.meetsMinimumVersion(modelRow)
             },
         )
     }
@@ -196,21 +198,19 @@ class GatewayEnvVariablesEditor(
     }
 
     companion object {
-        internal val defaultOverrides: Map<StaticDefinition, String> = mapOf(
-            StaticDefinition.TZ to "America/Los_Angeles",
-            StaticDefinition.ACCEPT_IGNITION_EULA to "Y",
-            StaticDefinition.IGNITION_EDITION to "standard",
-            StaticDefinition.GATEWAY_ADMIN_USERNAME to "admin",
-            StaticDefinition.GATEWAY_ADMIN_PASSWORD to "password",
-            StaticDefinition.DISABLE_QUICKSTART to "true",
+        internal val defaultOverrides: Map<MSSQLStaticDefinition, String> = mapOf(
+            MSSQLStaticDefinition.ACCEPT_EULA to "Y",
+            MSSQLStaticDefinition.MSSQL_DATABASE to "",
+            MSSQLStaticDefinition.MSSQL_USER to "",
+            MSSQLStaticDefinition.MSSQL_PID to "Developer",
         )
     }
 }
 
-class GatewayEnvironmentVariableTableModel(
+class MSSQLEnvironmentVariableTableModel(
     private val dataSource: MutableMap<String, String>,
     version: String,
-) : AbstractTableModel(), ReifiedTableModel<Pair<StaticDefinition, String>> {
+) : AbstractTableModel(), ReifiedTableModel<Pair<MSSQLStaticDefinition, String>> {
     var version by Delegates.observable(version) { _, _, _ ->
         fireTableDataChanged()
     }
@@ -220,16 +220,16 @@ class GatewayEnvironmentVariableTableModel(
     override fun getColumnClass(columnIndex: Int) = columns[columnIndex].clazz
     override fun getColumnName(columnIndex: Int) = columns[columnIndex].header
 
-    private val allVariables = StaticDefinition.entries.toHashSet()
+    private val allVariables = MSSQLStaticDefinition.entries.toHashSet()
 
     /*
      * The table's actual data. Since maps aren't ordered, we need to copy the data here and keep it
      * in sync with the map data.
      */
 
-    internal val staticVariableData: MutableList<Pair<StaticDefinition, String>> = dataSource.filter {
+    internal val staticVariableData: MutableList<Pair<MSSQLStaticDefinition, String>> = dataSource.filter {
         GatewayEnvironmentVariableDefinition.variableDefinitionsByName.containsKey(it.key)
-    }.map { StaticDefinition.valueOf(it.key) to it.value }.toMutableList()
+    }.map { MSSQLStaticDefinition.valueOf(it.key) to it.value }.toMutableList()
 
     override fun isCellEditable(rowIndex: Int, columnIndex: Int): Boolean {
         return columns[columnIndex] == Value || getUnusedOptions().isNotEmpty()
@@ -242,7 +242,7 @@ class GatewayEnvironmentVariableTableModel(
         ) <= 0
     }
 
-    fun getUnusedOptions(forRow: Int? = null): List<StaticDefinition> {
+    fun getUnusedOptions(forRow: Int? = null): List<MSSQLStaticDefinition> {
         val currentKeys = staticVariableData.map { it.first }
         val value = forRow?.let { getValueAt(it, 0) }
 
@@ -258,12 +258,12 @@ class GatewayEnvironmentVariableTableModel(
 
     override fun setValueAt(aValue: Any?, rowIndex: Int, columnIndex: Int) {
         if (columnIndex == 0) {
-            aValue as StaticDefinition
-            val currentValue = getValueAt(rowIndex, columnIndex) as StaticDefinition
+            aValue as MSSQLStaticDefinition
+            val currentValue = getValueAt(rowIndex, columnIndex) as MSSQLStaticDefinition
 
             dataSource.remove(currentValue.name)
 
-            val newValue = defaultOverrides[aValue]
+            val newValue = MSSQLEnvVariablesEditor.defaultOverrides[aValue]
 
             if (newValue == null) {
                 staticVariableData[rowIndex] = Pair(aValue, aValue.default)
@@ -275,10 +275,10 @@ class GatewayEnvironmentVariableTableModel(
             fireTableDataChanged()
         } else if (columnIndex == 1) {
             aValue as String
-            val def = getValueAt(rowIndex, 0) as StaticDefinition
+            val def = getValueAt(rowIndex, 0) as MSSQLStaticDefinition
 
             staticVariableData[rowIndex] = Pair(def, aValue)
-            if (aValue == def.default && def !in defaultOverrides.keys) {
+            if (aValue == def.default && def !in MSSQLEnvVariablesEditor.defaultOverrides.keys) {
                 dataSource.remove(def.name)
             } else {
                 dataSource[def.name] = aValue
@@ -288,17 +288,17 @@ class GatewayEnvironmentVariableTableModel(
         }
     }
 
-    operator fun <T> get(rowIndex: Int, column: Column<Pair<StaticDefinition, String>, T>): T {
+    operator fun <T> get(rowIndex: Int, column: Column<Pair<MSSQLStaticDefinition, String>, T>): T {
         return column.getValue(staticVariableData[rowIndex])
     }
 
-    override val columns = GatewayEnvVariableColumns
+    override val columns = MSSQLEnvVariableColumns
 
-    companion object GatewayEnvVariableColumns : ColumnList<Pair<StaticDefinition, String>>() {
+    companion object MSSQLEnvVariableColumns : ColumnList<Pair<MSSQLStaticDefinition, String>>() {
         val Key by column(
-            value = Pair<StaticDefinition, String>::first,
+            value = Pair<MSSQLStaticDefinition, String>::first,
             column = {
-                cellEditor = GatewayEnvironmentVariableTableCellEditor()
+                cellEditor = MSSQLEnvironmentVariableTableCellEditor()
                 cellRenderer = object : DefaultTableCellRenderer() {
                     override fun getTableCellRendererComponent(
                         table: JTable?,
@@ -309,8 +309,8 @@ class GatewayEnvironmentVariableTableModel(
                         column: Int,
                     ): Component {
                         @Suppress("unchecked_cast")
-                        table as ReifiedJXTable<GatewayEnvironmentVariableTableModel>
-                        value as StaticDefinition
+                        table as ReifiedJXTable<MSSQLEnvironmentVariableTableModel>
+                        value as MSSQLStaticDefinition
 
                         val modelRow = table.convertRowIndexToModel(row)
 
@@ -328,18 +328,18 @@ class GatewayEnvironmentVariableTableModel(
             },
         )
         val Value by column(
-            value = Pair<StaticDefinition, String>::second,
+            value = Pair<MSSQLStaticDefinition, String>::second,
             column = {
-                cellEditor = GatewayEnvVariableOptionCellEditor()
+                cellEditor = MSSQLEnvVariableOptionCellEditor()
             },
         )
     }
 
-    private class GatewayEnvironmentVariableTableCellEditor : AbstractCellEditor(), TableCellEditor {
-        private lateinit var tableRef: ReifiedJXTable<GatewayEnvironmentVariableTableModel>
-        private val comboBox = JComboBox<StaticDefinition>().apply {
+    private class MSSQLEnvironmentVariableTableCellEditor : AbstractCellEditor(), TableCellEditor {
+        private lateinit var tableRef: ReifiedJXTable<MSSQLEnvironmentVariableTableModel>
+        private val comboBox = JComboBox<MSSQLStaticDefinition>().apply {
             configureCellRenderer { _, value, _, _, _ ->
-                text = (value as StaticDefinition).name
+                text = (value as MSSQLStaticDefinition).name
                 if (::tableRef.isInitialized) {
                     val minVersion = IgnitionVersionComparator.compare(value.minimumVersion, tableRef.model.version) <= 0
                     background = if (!minVersion) {
@@ -366,8 +366,8 @@ class GatewayEnvironmentVariableTableModel(
             return e is MouseEvent && e.clickCount == 2
         }
 
-        override fun getCellEditorValue(): StaticDefinition {
-            return comboBox.selectedItem as StaticDefinition
+        override fun getCellEditorValue(): MSSQLStaticDefinition {
+            return comboBox.selectedItem as MSSQLStaticDefinition
         }
 
         override fun getTableCellEditorComponent(
@@ -378,7 +378,7 @@ class GatewayEnvironmentVariableTableModel(
             column: Int,
         ): Component {
             @Suppress("unchecked_cast")
-            tableRef = table as ReifiedJXTable<GatewayEnvironmentVariableTableModel>
+            tableRef = table as ReifiedJXTable<MSSQLEnvironmentVariableTableModel>
 
             val unusedOptions = table.model.getUnusedOptions(forRow = row)
 
@@ -389,7 +389,7 @@ class GatewayEnvironmentVariableTableModel(
         }
     }
 
-    private class GatewayEnvVariableOptionCellEditor : AbstractCellEditor(), TableCellEditor {
+    private class MSSQLEnvVariableOptionCellEditor : AbstractCellEditor(), TableCellEditor {
         private val comboBox = JComboBox<String>()
         private val textField = JTextField()
 
@@ -419,7 +419,7 @@ class GatewayEnvironmentVariableTableModel(
             column: Int,
         ): Component {
             @Suppress("unchecked_cast")
-            table as ReifiedJXTable<GatewayEnvironmentVariableTableModel>
+            table as ReifiedJXTable<MSSQLEnvironmentVariableTableModel>
 
             val envVar = table.model[row, table.model.columns.Key]
 

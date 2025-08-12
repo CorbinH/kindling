@@ -4,15 +4,29 @@ import io.github.inductiveautomation.kindling.docker.model.DockerNetwork
 import io.github.inductiveautomation.kindling.docker.model.DockerServiceModel
 import io.github.inductiveautomation.kindling.docker.model.DockerVolume
 import io.github.inductiveautomation.kindling.docker.model.ServiceModelChangeListener
-import io.github.inductiveautomation.kindling.utils.*
+import io.github.inductiveautomation.kindling.utils.EDT_SCOPE
+import io.github.inductiveautomation.kindling.utils.FloatableComponent
+import io.github.inductiveautomation.kindling.utils.TabStrip
+import io.github.inductiveautomation.kindling.utils.add
+import io.github.inductiveautomation.kindling.utils.debounce
+import io.github.inductiveautomation.kindling.utils.getAll
+import io.github.inductiveautomation.kindling.utils.jFrame
+import io.github.inductiveautomation.kindling.utils.remove
+import io.github.inductiveautomation.kindling.utils.tag
 import net.miginfocom.swing.MigLayout
 import java.awt.Color
 import java.awt.Font
 import java.awt.Frame
 import java.awt.Point
 import java.awt.event.ComponentEvent
-import java.util.*
-import javax.swing.*
+import java.util.EventListener
+import javax.swing.BorderFactory
+import javax.swing.Icon
+import javax.swing.JButton
+import javax.swing.JComponent
+import javax.swing.JLabel
+import javax.swing.JPanel
+import javax.swing.SwingUtilities
 import kotlin.time.Duration.Companion.milliseconds
 
 @Suppress("LeakingThis")

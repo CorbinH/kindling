@@ -10,13 +10,13 @@ import io.github.inductiveautomation.kindling.utils.RegexInputVerifier
 import io.github.inductiveautomation.kindling.utils.ReifiedJXTable
 import io.github.inductiveautomation.kindling.utils.ReifiedListTableModel
 import io.github.inductiveautomation.kindling.utils.configureCellRenderer
+import net.miginfocom.swing.MigLayout
 import javax.swing.DefaultComboBoxModel
 import javax.swing.JButton
 import javax.swing.JComboBox
 import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.ListSelectionModel
-import net.miginfocom.swing.MigLayout
 
 class GatewayCliArgEditor(
     private val args: MutableList<CliArgument>,
@@ -106,7 +106,7 @@ class GatewayCliArgEditor(
     }
 
     private class GatewayCliTableModel(
-        override val data: MutableList<CliArgument>
+        override val data: MutableList<CliArgument>,
     ) : ReifiedListTableModel<CliArgument>(data, GatewayCliColumns) {
         override fun isCellEditable(rowIndex: Int, columnIndex: Int) = true
 
