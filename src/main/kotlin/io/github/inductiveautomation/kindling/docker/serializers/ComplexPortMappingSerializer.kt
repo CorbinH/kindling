@@ -28,15 +28,6 @@ object ComplexPortMappingSerializer : KSerializer<PortMapping> {
     }
 
     override fun deserialize(decoder: Decoder): PortMapping {
-        // container:host
-        // - name: web
-        //    target: 80
-        //    host_ip: 127.0.0.1
-        //    published: "8080"
-        //    protocol: tcp
-        //    app_protocol: http
-        //    mode: host
-
         try {
             val s = decoder.decodeString()
             val target = s.substringAfterLast(":")
