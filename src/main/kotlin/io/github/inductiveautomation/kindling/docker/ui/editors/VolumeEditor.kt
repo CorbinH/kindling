@@ -7,6 +7,7 @@ import io.github.inductiveautomation.kindling.utils.ColumnList
 import io.github.inductiveautomation.kindling.utils.ReifiedJXTable
 import io.github.inductiveautomation.kindling.utils.ReifiedListTableModel
 import io.github.inductiveautomation.kindling.utils.configureCellRenderer
+import net.miginfocom.swing.MigLayout
 import java.awt.Component
 import java.awt.EventQueue
 import java.awt.event.MouseEvent
@@ -21,14 +22,13 @@ import javax.swing.JTable
 import javax.swing.ListSelectionModel
 import javax.swing.table.TableCellEditor
 import javax.swing.table.TableModel
-import net.miginfocom.swing.MigLayout
 
 class VolumeEditor(
     initialVolumes: MutableList<BindMount>,
     initialVolumeOptions: List<DockerVolume>,
 ) : ConfigSection("Volumes") {
     private val volumesTable = ReifiedJXTable(
-        DockerVolumesTableModel(initialVolumes, initialVolumeOptions)
+        DockerVolumesTableModel(initialVolumes, initialVolumeOptions),
     ).apply {
         isColumnControlVisible = false
     }
@@ -146,7 +146,7 @@ internal class DockerVolumesTableModel(
 
         val bindPath by column(
             name = "Container Path",
-            value = BindMount::containerPath
+            value = BindMount::containerPath,
         )
     }
 

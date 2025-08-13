@@ -3,9 +3,9 @@ package io.github.inductiveautomation.kindling.docker.model
 import io.github.inductiveautomation.kindling.docker.serializers.CommandLineArgumentListSerializer
 import io.github.inductiveautomation.kindling.docker.serializers.EnvironmentVariableSerializer
 import io.github.inductiveautomation.kindling.docker.serializers.PointAsStringSerializer
-import java.awt.Point
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import java.awt.Point
 
 @Serializable
 open class DockerServiceModel(

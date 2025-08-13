@@ -1,9 +1,8 @@
 package io.github.inductiveautomation.kindling.docker.ui
 
-
 import io.github.inductiveautomation.kindling.docker.model.ConnectionDefinition
-import io.github.inductiveautomation.kindling.docker.model.GatewayEnvironmentVariableDefinition.Companion.addOrRemove
-import io.github.inductiveautomation.kindling.docker.model.GatewayEnvironmentVariableDefinition.Companion.createConnectionVariable
+import io.github.inductiveautomation.kindling.docker.model.DockerEnvironmentVariableDefinition.Companion.addOrRemove
+import io.github.inductiveautomation.kindling.docker.model.DockerEnvironmentVariableDefinition.Companion.createConnectionVariable
 import io.github.inductiveautomation.kindling.docker.model.IgnitionVersionComparator
 import io.github.inductiveautomation.kindling.docker.model.ServiceModelChangeListener
 import io.github.inductiveautomation.kindling.utils.Action
@@ -442,7 +441,6 @@ class GatewayNodeConnector(
             font = font.deriveFont(Font.BOLD)
         }
     }
-
 
     inner class ConnectionSettingsPanel : JPanel(MigLayout("fill, ins 4")) {
         private val arrowLabel = JLabel("→").apply {

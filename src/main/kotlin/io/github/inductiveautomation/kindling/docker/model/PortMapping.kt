@@ -6,7 +6,7 @@ import kotlinx.serialization.KeepGeneratedSerializer
 import kotlinx.serialization.Serializable
 
 @OptIn(ExperimentalSerializationApi::class)
-@Serializable(with=ComplexPortMappingSerializer::class)
+@Serializable(with = ComplexPortMappingSerializer::class)
 @KeepGeneratedSerializer
 data class PortMapping(
     var published: String,

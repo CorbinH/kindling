@@ -1,9 +1,5 @@
 package io.github.inductiveautomation.kindling.docker.model
 
-import java.net.URI
-import java.net.http.HttpClient
-import java.net.http.HttpRequest
-import java.net.http.HttpResponse
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
@@ -15,10 +11,14 @@ import kotlinx.serialization.json.decodeFromStream
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-
+import java.net.URI
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
 
 object Docker {
     private const val DOCKER_URL = "https://hub.docker.com/v2/repositories/inductiveautomation/ignition/tags?page_size=1000&page=1&ordering=last_updated"
+    private const val MSSQL_DOCKER_URL = "https://hub.docker.com/v2/repositories/kcollins/mssql/tags?page_size=1000&page=1&ordering=last_updated"
 
     @OptIn(ExperimentalSerializationApi::class)
     val ignitionImageVersions: Deferred<List<String>> by lazy {
@@ -40,6 +40,28 @@ object Docker {
                 versions.sortedWith(IgnitionVersionComparator.reversed())
             }.getOrElse {
                 fallbackVersionList
+            }
+        }
+    }
+
+    @OptIn(ExperimentalSerializationApi::class)
+    val mssqlImageVersions: Deferred<List<String>> by lazy {
+        CoroutineScope(Dispatchers.IO).async {
+            runCatching {
+                val client = HttpClient.newHttpClient()
+                val req = HttpRequest.newBuilder().GET().uri(URI.create(MSSQL_DOCKER_URL)).build()
+                val response = client.send(req, HttpResponse.BodyHandlers.ofInputStream())
+                val jsonData = Json.decodeFromStream<JsonObject>(response.body())
+
+                val l = jsonData["results"]!!.jsonArray
+
+                val versions = l.mapNotNull {
+                    it.jsonObject["name"]?.jsonPrimitive?.content
+                }.toList()
+
+                versions
+            }.getOrElse {
+                mssqlFallbackVersionList
             }
         }
     }
@@ -100,6 +122,16 @@ object Docker {
         "8.1.0",
         "8.1.0-rc2",
     )
+
+    private val mssqlFallbackVersionList = listOf(
+        "latest",
+        "2022-latest",
+        "2022",
+        "2019-latest",
+        "2019",
+        "2017-latest",
+        "2017",
+    )
 }
 
 enum class GatewayServiceFlavor {
@@ -124,9 +156,8 @@ object IgnitionVersionComparator : Comparator<String> {
         if (o1.equals("LATEST", true)) return 99
         if (o2.equals("LATEST", true)) return -99
 
-
         val o1Split = o1.split(".", "-")
-        val v1 = when(o1Split.size) {
+        val v1 = when (o1Split.size) {
             3 -> {
                 val m = o1Split.map { it.toInt() }.toMutableList()
                 m.add(1000)
@@ -145,7 +176,7 @@ object IgnitionVersionComparator : Comparator<String> {
         }
 
         val o2Split = o2.split(".", "-")
-        val v2 = when(o2Split.size) {
+        val v2 = when (o2Split.size) {
             3 -> {
                 val m = o2Split.map { it.toInt() }.toMutableList()
                 m.add(1000) // Non release candidate is greater than release candidate

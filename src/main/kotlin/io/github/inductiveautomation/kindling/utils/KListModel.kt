@@ -92,7 +92,6 @@ class KMutableListModel<T>(
     override fun getElementAt(index: Int): T = data[index]
 }
 
-
 /**
  * Allows passing a single function for listening to any list data events. (interval added, interval remove, interval changed)
  * Different logic can still be used for different event types by checking the `type` of the [ListDataEvent].
@@ -101,9 +100,8 @@ class KMutableListModel<T>(
  */
 class TrivialListDataListener(
     private val anyChange: (e: ListDataEvent?) -> Unit = {},
-): ListDataListener {
+) : ListDataListener {
     override fun intervalAdded(e: ListDataEvent?) = anyChange(e)
     override fun intervalRemoved(e: ListDataEvent?) = anyChange(e)
     override fun contentsChanged(e: ListDataEvent?) = anyChange(e)
 }
-

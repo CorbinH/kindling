@@ -4,7 +4,11 @@ import io.github.inductiveautomation.kindling.docker.model.Docker.ignitionImageV
 import io.github.inductiveautomation.kindling.docker.model.DockerNetwork
 import io.github.inductiveautomation.kindling.docker.model.DockerVolume
 import io.github.inductiveautomation.kindling.docker.ui.GenericDockerServiceNode.Companion.SERVICE_NAME_REGEX
-import io.github.inductiveautomation.kindling.docker.ui.editors.*
+import io.github.inductiveautomation.kindling.docker.ui.editors.GatewayCliArgEditor
+import io.github.inductiveautomation.kindling.docker.ui.editors.GatewayEnvVariablesEditor
+import io.github.inductiveautomation.kindling.docker.ui.editors.NetworkEditor
+import io.github.inductiveautomation.kindling.docker.ui.editors.PortMappingEditor
+import io.github.inductiveautomation.kindling.docker.ui.editors.VolumeEditor
 import io.github.inductiveautomation.kindling.utils.EDT_SCOPE
 import io.github.inductiveautomation.kindling.utils.RegexInputVerifier
 import kotlinx.coroutines.Dispatchers
@@ -128,12 +132,12 @@ class GatewayNodeConfigPanel(
     var networkOptions: List<DockerNetwork> by networksSection::networkOptions
 
     init {
-        addTab(generalSection, select=false)
-        addTab(volumesSection, select=false)
-        addTab(cliSection, select=false)
-        addTab(envSection, select=false)
-        addTab(portsSection, select=false)
-        addTab(networksSection, select=false)
+        addTab(generalSection, select = false)
+        addTab(volumesSection, select = false)
+        addTab(cliSection, select = false)
+        addTab(envSection, select = false)
+        addTab(portsSection, select = false)
+        addTab(networksSection, select = false)
     }
 
     fun resetNames() {

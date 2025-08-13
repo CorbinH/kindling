@@ -6,6 +6,7 @@ import io.github.inductiveautomation.kindling.utils.ColumnList
 import io.github.inductiveautomation.kindling.utils.ReifiedJXTable
 import io.github.inductiveautomation.kindling.utils.ReifiedListTableModel
 import io.github.inductiveautomation.kindling.utils.configureCellRenderer
+import net.miginfocom.swing.MigLayout
 import java.awt.Component
 import java.awt.event.MouseEvent
 import java.util.EventObject
@@ -19,7 +20,6 @@ import javax.swing.JTable
 import javax.swing.ListSelectionModel
 import javax.swing.table.TableCellEditor
 import javax.swing.table.TableModel
-import net.miginfocom.swing.MigLayout
 
 class NetworkEditor(
     initialNetworks: MutableList<String>,
@@ -124,7 +124,7 @@ class DockerNetworksTableModel(
             column = {
                 cellEditor = DockerNetworkCellEditor()
             },
-            value = { it }
+            value = { it },
         )
     }
 

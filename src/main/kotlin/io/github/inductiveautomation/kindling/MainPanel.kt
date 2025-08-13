@@ -40,6 +40,9 @@ import io.github.inductiveautomation.kindling.utils.jFrame
 import io.github.inductiveautomation.kindling.utils.menuShortcutKeyMaskEx
 import io.github.inductiveautomation.kindling.utils.render
 import io.github.inductiveautomation.kindling.utils.traverseChildren
+import net.miginfocom.layout.PlatformDefaults
+import net.miginfocom.layout.UnitValue
+import net.miginfocom.swing.MigLayout
 import java.awt.BorderLayout
 import java.awt.Color
 import java.awt.Component
@@ -80,9 +83,6 @@ import javax.swing.SwingConstants.CENTER
 import javax.swing.SwingConstants.RIGHT
 import javax.swing.UIManager
 import javax.swing.filechooser.FileFilter
-import net.miginfocom.layout.PlatformDefaults
-import net.miginfocom.layout.UnitValue
-import net.miginfocom.swing.MigLayout
 
 class MainPanel : JPanel(MigLayout("ins 6, fill, hidemode 3")) {
     private val fileChooser = JFileChooser(HomeLocation.currentValue.toFile()).apply {
@@ -179,12 +179,12 @@ class MainPanel : JPanel(MigLayout("ins 6, fill, hidemode 3")) {
                         menu.add(
                             Action("New Editor") {
                                 openOrError(tool.title, tool.description, tool::open)
-                            }
+                            },
                         )
                         menu.add(
                             Action("Open Existing") {
                                 this@apply.doClick()
-                            }
+                            },
                         )
                     }
                 }
@@ -280,10 +280,10 @@ class MainPanel : JPanel(MigLayout("ins 6, fill, hidemode 3")) {
         for (tool in Tool.tools.filterIsInstance<EditorTool>()) {
             add(
                 Action(
-                    name = "New Empty ${tool.title}"
+                    name = "New Empty ${tool.title}",
                 ) {
                     openOrError(tool.title, tool.description, tool::open)
-                }
+                },
             )
         }
         if (!SystemInfo.isMacOS) {

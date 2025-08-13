@@ -4,7 +4,7 @@ import java.util.TimeZone
 
 typealias EnvironmentVariable = Pair<String, String>
 
-sealed interface GatewayEnvironmentVariableDefinition {
+sealed interface DockerEnvironmentVariableDefinition {
     val minimumVersion: String
     val default: String
     val options: List<String>?
@@ -54,7 +54,30 @@ sealed interface GatewayEnvironmentVariableDefinition {
     }
 }
 
-enum class StaticDefinition : GatewayEnvironmentVariableDefinition {
+enum class MSSQLStaticDefinition : DockerEnvironmentVariableDefinition {
+    ACCEPT_EULA {
+        override val minimumVersion = "2017"
+        override val options = listOf("Y", "N")
+        override val default = "N"
+    },
+    MSSQL_DATABASE {
+        override val default = ""
+        override val options = null
+        override val minimumVersion = "2017"
+    },
+    MSSQL_USER {
+        override val default = ""
+        override val options = null
+        override val minimumVersion = "2017"
+    },
+    MSSQL_PID {
+        override val default = "Developer"
+        override val options = listOf("Developer", "Express", "Standard")
+        override val minimumVersion = "2017"
+    },
+}
+
+enum class StaticDefinition : DockerEnvironmentVariableDefinition {
     TZ {
         override val minimumVersion = "8.0.0"
         override val default = "America/Los_Angeles"
@@ -211,7 +234,7 @@ enum class StaticDefinition : GatewayEnvironmentVariableDefinition {
     override val options: List<String>? = null
 }
 
-enum class ConnectionDefinition : GatewayEnvironmentVariableDefinition {
+enum class ConnectionDefinition : DockerEnvironmentVariableDefinition {
     // GAN Connection Environment Variables
     GATEWAY_NETWORK_X_HOST {
         override val default = ""
@@ -222,7 +245,7 @@ enum class ConnectionDefinition : GatewayEnvironmentVariableDefinition {
         override val minimumVersion = "8.1.10"
     },
     GATEWAY_NETWORK_X_PINGRATE {
-        override val default =  "1000"
+        override val default = "1000"
         override val minimumVersion = "8.1.10"
     },
     GATEWAY_NETWORK_X_PINGMAXMISSED {
@@ -246,5 +269,6 @@ enum class ConnectionDefinition : GatewayEnvironmentVariableDefinition {
         override val minimumVersion = "8.1.26"
     },
     ;
+
     override val options = null
 }

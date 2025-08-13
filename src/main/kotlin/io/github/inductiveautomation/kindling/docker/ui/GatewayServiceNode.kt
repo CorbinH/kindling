@@ -8,7 +8,7 @@ import io.github.inductiveautomation.kindling.docker.model.IgnitionVersionCompar
 import io.github.inductiveautomation.kindling.utils.add
 import io.github.inductiveautomation.kindling.utils.getAll
 import net.miginfocom.swing.MigLayout
-import java.util.*
+import java.util.EventListener
 import javax.swing.JButton
 import javax.swing.JOptionPane
 import javax.swing.JPanel

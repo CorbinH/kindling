@@ -48,10 +48,10 @@ class GatewayServiceModel(
 
         fun DockerServiceModel.toGatewayServiceModel(): GatewayServiceModel {
             require(image.startsWith("inductiveautomation/ignition")) {
-               "Invalid image name for Ignition gateway: $image"
+                "Invalid image name for Ignition gateway: $image"
             }
 
-            return GatewayServiceModel(image, hostName, containerName, ports, environment,commands, volumes, networks, labels).apply {
+            return GatewayServiceModel(image, hostName, containerName, ports, environment, commands, volumes, networks, labels).apply {
                 canvasLocation = this@toGatewayServiceModel.canvasLocation
             }
         }

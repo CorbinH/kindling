@@ -1,6 +1,12 @@
 package io.github.inductiveautomation.kindling.docker
 
-import com.charleskorn.kaml.*
+import com.charleskorn.kaml.MultiLineStringStyle
+import com.charleskorn.kaml.SequenceStyle
+import com.charleskorn.kaml.SingleLineStringStyle
+import com.charleskorn.kaml.Yaml
+import com.charleskorn.kaml.YamlConfiguration
+import com.charleskorn.kaml.decodeFromStream
+import com.charleskorn.kaml.encodeToStream
 import com.formdev.flatlaf.extras.FlatSVGIcon
 import com.formdev.flatlaf.extras.components.FlatSplitPane
 import io.github.inductiveautomation.kindling.core.CustomIconView
@@ -8,16 +14,41 @@ import io.github.inductiveautomation.kindling.core.EditorTool
 import io.github.inductiveautomation.kindling.core.Kindling
 import io.github.inductiveautomation.kindling.core.Theme.Companion.theme
 import io.github.inductiveautomation.kindling.core.ToolPanel
-import io.github.inductiveautomation.kindling.docker.model.*
+import io.github.inductiveautomation.kindling.docker.model.DockerEnvironmentVariableDefinition.Companion.getConnectionVariableIndex
+import io.github.inductiveautomation.kindling.docker.model.DockerNetwork
+import io.github.inductiveautomation.kindling.docker.model.DockerServiceModel
 import io.github.inductiveautomation.kindling.docker.model.DockerServiceModel.Companion.DEFAULT_GENERIC_IMAGE
-import io.github.inductiveautomation.kindling.docker.model.GatewayEnvironmentVariableDefinition.Companion.getConnectionVariableIndex
+import io.github.inductiveautomation.kindling.docker.model.DockerVolume
+import io.github.inductiveautomation.kindling.docker.model.GatewayServiceModel
 import io.github.inductiveautomation.kindling.docker.model.GatewayServiceModel.Companion.DEFAULT_IMAGE
 import io.github.inductiveautomation.kindling.docker.model.GatewayServiceModel.Companion.toGatewayServiceModelOrNull
-import io.github.inductiveautomation.kindling.docker.ui.*
+import io.github.inductiveautomation.kindling.docker.model.MSSQLServiceModel
+import io.github.inductiveautomation.kindling.docker.model.MSSQLServiceModel.Companion.DEFAULT_MSSQL_IMAGE
+import io.github.inductiveautomation.kindling.docker.model.MSSQLServiceModel.Companion.toMSSQLServiceModelOrNull
+import io.github.inductiveautomation.kindling.docker.model.PortMapping
+import io.github.inductiveautomation.kindling.docker.ui.AbstractDockerServiceNode
+import io.github.inductiveautomation.kindling.docker.ui.Canvas
+import io.github.inductiveautomation.kindling.docker.ui.CanvasNodeList
+import io.github.inductiveautomation.kindling.docker.ui.ConnectionProgressChangeListener
+import io.github.inductiveautomation.kindling.docker.ui.GatewayNodeConnector
 import io.github.inductiveautomation.kindling.docker.ui.GatewayNodeConnector.Companion.midPoint
-import io.github.inductiveautomation.kindling.utils.*
+import io.github.inductiveautomation.kindling.docker.ui.GatewayServiceNode
+import io.github.inductiveautomation.kindling.docker.ui.GenericDockerServiceNode
+import io.github.inductiveautomation.kindling.docker.ui.MSSQLServiceNode
+import io.github.inductiveautomation.kindling.docker.ui.NetworksList
+import io.github.inductiveautomation.kindling.docker.ui.NodeInitializer
+import io.github.inductiveautomation.kindling.docker.ui.VolumesList
+import io.github.inductiveautomation.kindling.utils.FileFilter
+import io.github.inductiveautomation.kindling.utils.FlatScrollPane
+import io.github.inductiveautomation.kindling.utils.HorizontalSplitPane
 import io.github.inductiveautomation.kindling.utils.PointHelpers.component1
 import io.github.inductiveautomation.kindling.utils.PointHelpers.component2
+import io.github.inductiveautomation.kindling.utils.TrivialListDataListener
+import io.github.inductiveautomation.kindling.utils.add
+import io.github.inductiveautomation.kindling.utils.chooseFiles
+import io.github.inductiveautomation.kindling.utils.getAll
+import io.github.inductiveautomation.kindling.utils.scrollToTop
+import io.github.inductiveautomation.kindling.utils.traverseChildren
 import kotlinx.serialization.encodeToString
 import net.miginfocom.swing.MigLayout
 import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
@@ -30,8 +61,16 @@ import java.awt.event.ContainerListener
 import java.awt.event.KeyEvent
 import java.nio.file.Files
 import java.nio.file.Path
-import javax.swing.*
+import javax.swing.JButton
+import javax.swing.JFileChooser
+import javax.swing.JLabel
+import javax.swing.JOptionPane
+import javax.swing.JPanel
+import javax.swing.SwingUtilities
 import javax.swing.filechooser.FileNameExtensionFilter
+import kotlin.collections.find
+import kotlin.collections.flatMap
+import kotlin.collections.map
 import kotlin.io.path.absolutePathString
 import kotlin.io.path.inputStream
 import kotlin.io.path.name
@@ -70,13 +109,12 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
             return newPort
         }
 
-
         fun listenForDeletion(node: AbstractDockerServiceNode<*>) {
             node.addNodeDeleteListener {
                 usedPorts.removeAll(
                     node.model.ports.flatMap { mapping ->
                         parsePorts(mapping.published)
-                    }
+                    },
                 )
             }
         }
@@ -131,6 +169,21 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
                     DockerServiceModel(
                         image = DEFAULT_GENERIC_IMAGE,
                         containerName = "Container-${nodeIdManager.generateID()}",
+                    ),
+                    initialVolumeOptions = volumes,
+                    initialNetworkOptions = networks,
+                ).apply {
+                    bindYamlPreview()
+                }
+            },
+            NodeInitializer(
+                DockerTool.mssqlIcon,
+                "MSSQL Server",
+            ) {
+                MSSQLServiceNode(
+                    MSSQLServiceModel(
+                        image = DEFAULT_MSSQL_IMAGE,
+                        containerName = "MSSQL-${nodeIdManager.generateID()}",
                     ),
                     initialVolumeOptions = volumes,
                     initialNetworkOptions = networks,
@@ -304,13 +357,19 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
     private fun import(importFile: Path) {
         fun createNodes(services: List<DockerServiceModel>): List<AbstractDockerServiceNode<*>> {
             return services.map { model ->
-                val actualModel = model.toGatewayServiceModelOrNull() ?: model
+                val actualModel = model.toGatewayServiceModelOrNull() ?: model.toMSSQLServiceModelOrNull() ?: model
                 when (actualModel) {
                     is GatewayServiceModel -> {
                         GatewayServiceNode(actualModel, volumes, networks).apply {
                             bindYamlPreview()
                             connectionObserver.observeConnection(this)
                             portMapper.listenForDeletion(this)
+                        }
+                    }
+
+                    is MSSQLServiceModel -> {
+                        MSSQLServiceNode(actualModel, volumes, networks).apply {
+                            bindYamlPreview()
                         }
                     }
 
@@ -533,8 +592,7 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
             (portStrings.first().toUShort()..portStrings.last().toUShort()).map {
                 it.toUShort()
             }
-        }
-        else {
+        } else {
             portStrings.map {
                 it.toUShort()
             }
@@ -549,6 +607,8 @@ object DockerTool : EditorTool {
     override val icon: FlatSVGIcon = FlatSVGIcon("icons/bx-docker.svg")
 
     internal val ignitionIcon: FlatSVGIcon = FlatSVGIcon("icons/Logo-Ignition-Check.svg")
+
+    internal val mssqlIcon: FlatSVGIcon = FlatSVGIcon("icons/microsoft-sql-server.svg")
 
     override fun open(path: Path): ToolPanel {
         return DockerDraftPanel(path)

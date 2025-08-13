@@ -13,15 +13,34 @@ import org.jdesktop.swingx.decorator.ColorHighlighter
 import org.jdesktop.swingx.decorator.ComponentAdapter
 import org.jdesktop.swingx.decorator.Highlighter
 import org.jdesktop.swingx.prompt.BuddySupport
-import java.awt.*
+import java.awt.Color
+import java.awt.Component
+import java.awt.Container
+import java.awt.Point
+import java.awt.RenderingHints
+import java.awt.Toolkit
 import java.awt.datatransfer.DataFlavor
 import java.awt.datatransfer.StringSelection
-import java.awt.event.*
+import java.awt.event.KeyEvent
+import java.awt.event.MouseAdapter
+import java.awt.event.MouseEvent
+import java.awt.event.MouseListener
+import java.awt.event.MouseMotionListener
 import java.awt.image.BufferedImage
 import java.io.File
-import java.util.*
-import javax.swing.*
+import java.util.EventListener
+import javax.swing.InputVerifier
+import javax.swing.JComboBox
+import javax.swing.JComponent
 import javax.swing.JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT
+import javax.swing.JFileChooser
+import javax.swing.JFrame
+import javax.swing.JPopupMenu
+import javax.swing.JScrollPane
+import javax.swing.JTextField
+import javax.swing.KeyStroke
+import javax.swing.ListSelectionModel
+import javax.swing.SwingUtilities
 import javax.swing.event.DocumentEvent
 import javax.swing.event.DocumentListener
 import javax.swing.event.EventListenerList
@@ -207,7 +226,7 @@ fun Color.toHexString(alpha: Boolean = false): String {
 }
 
 inline fun <reified T : JComponent> InputVerifier(
-    crossinline verify: (T) -> Boolean
+    crossinline verify: (T) -> Boolean,
 ): InputVerifier {
     return object : InputVerifier() {
         override fun verify(input: JComponent?): Boolean {
@@ -237,17 +256,26 @@ class RegexInputVerifier(
         } else {
             return false
         }
-
     }
 }
 
 @Suppress("unused")
 class MouseListenerBuilder : MouseListener {
-    fun mouseClicked(block: (e: MouseEvent) -> Unit) { this.mouseClicked = block }
-    fun mousePressed(block: (e: MouseEvent) -> Unit) { this.mousePressed = block }
-    fun mouseReleased(block: (e: MouseEvent) -> Unit) { this.mouseReleased = block }
-    fun mouseEntered(block: (e: MouseEvent) -> Unit) { this.mouseEntered = block }
-    fun mouseExited(block: (e: MouseEvent) -> Unit) { this.mouseExited = block }
+    fun mouseClicked(block: (e: MouseEvent) -> Unit) {
+        this.mouseClicked = block
+    }
+    fun mousePressed(block: (e: MouseEvent) -> Unit) {
+        this.mousePressed = block
+    }
+    fun mouseReleased(block: (e: MouseEvent) -> Unit) {
+        this.mouseReleased = block
+    }
+    fun mouseEntered(block: (e: MouseEvent) -> Unit) {
+        this.mouseEntered = block
+    }
+    fun mouseExited(block: (e: MouseEvent) -> Unit) {
+        this.mouseExited = block
+    }
 
     private var mouseClicked: (e: MouseEvent) -> Unit = {}
     private var mousePressed: (e: MouseEvent) -> Unit = {}
@@ -270,8 +298,12 @@ class MouseListenerBuilder : MouseListener {
 
 @Suppress("unused")
 class MouseMotionListenerBuilder : MouseMotionListener {
-    fun mouseDragged(block: (e: MouseEvent) -> Unit) { this.mouseDragged = block }
-    fun mouseMoved(block: (e: MouseEvent) -> Unit) { this.mouseMoved = block }
+    fun mouseDragged(block: (e: MouseEvent) -> Unit) {
+        this.mouseDragged = block
+    }
+    fun mouseMoved(block: (e: MouseEvent) -> Unit) {
+        this.mouseMoved = block
+    }
 
     private var mouseDragged: (e: MouseEvent) -> Unit = {}
     private var mouseMoved: (e: MouseEvent) -> Unit = {}
