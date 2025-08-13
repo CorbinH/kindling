@@ -57,9 +57,8 @@ object Docker {
 
                 val versions = l.mapNotNull {
                     it.jsonObject["name"]?.jsonPrimitive?.content
-                }.toMutableList()
+                }.toList()
 
-                versions.removeAll { it.length <= 4 }
                 versions
             }.getOrElse {
                 mssqlFallbackVersionList

@@ -1,9 +1,9 @@
 package io.github.inductiveautomation.kindling.docker.ui.editors
 
-import io.github.inductiveautomation.kindling.docker.model.GatewayEnvironmentVariableDefinition
-import io.github.inductiveautomation.kindling.docker.model.GatewayEnvironmentVariableDefinition.Companion.getConnectionVariableFromInstance
-import io.github.inductiveautomation.kindling.docker.model.GatewayEnvironmentVariableDefinition.Companion.isConnectionVariable
-import io.github.inductiveautomation.kindling.docker.model.GatewayEnvironmentVariableDefinition.Companion.toYamlString
+import io.github.inductiveautomation.kindling.docker.model.DockerEnvironmentVariableDefinition
+import io.github.inductiveautomation.kindling.docker.model.DockerEnvironmentVariableDefinition.Companion.getConnectionVariableFromInstance
+import io.github.inductiveautomation.kindling.docker.model.DockerEnvironmentVariableDefinition.Companion.isConnectionVariable
+import io.github.inductiveautomation.kindling.docker.model.DockerEnvironmentVariableDefinition.Companion.toYamlString
 import io.github.inductiveautomation.kindling.docker.model.IgnitionVersionComparator
 import io.github.inductiveautomation.kindling.docker.model.StaticDefinition
 import io.github.inductiveautomation.kindling.docker.ui.ConfigSection
@@ -103,7 +103,7 @@ class GatewayEnvVariablesEditor(
                 override fun include(entry: Entry<out ReifiedMapTableModel, out Int>?): Boolean {
                     val k = entry?.model?.getValueAt(entry.identifier, 0) as String
                     val connectionName = k.getConnectionVariableFromInstance()
-                    return GatewayEnvironmentVariableDefinition.variableDefinitionsByName[k] == null && connectionName == null
+                    return DockerEnvironmentVariableDefinition.variableDefinitionsByName[k] == null && connectionName == null
                 }
             },
         )
@@ -228,7 +228,7 @@ class GatewayEnvironmentVariableTableModel(
      */
 
     internal val staticVariableData: MutableList<Pair<StaticDefinition, String>> = dataSource.filter {
-        GatewayEnvironmentVariableDefinition.variableDefinitionsByName.containsKey(it.key)
+        DockerEnvironmentVariableDefinition.variableDefinitionsByName.containsKey(it.key)
     }.map { StaticDefinition.valueOf(it.key) to it.value }.toMutableList()
 
     override fun isCellEditable(rowIndex: Int, columnIndex: Int): Boolean {

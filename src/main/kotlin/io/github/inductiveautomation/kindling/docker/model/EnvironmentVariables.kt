@@ -1,10 +1,10 @@
 package io.github.inductiveautomation.kindling.docker.model
 
-import java.util.*
+import java.util.TimeZone
 
 typealias EnvironmentVariable = Pair<String, String>
 
-sealed interface GatewayEnvironmentVariableDefinition {
+sealed interface DockerEnvironmentVariableDefinition {
     val minimumVersion: String
     val default: String
     val options: List<String>?
@@ -54,7 +54,7 @@ sealed interface GatewayEnvironmentVariableDefinition {
     }
 }
 
-enum class MSSQLStaticDefinition : GatewayEnvironmentVariableDefinition {
+enum class MSSQLStaticDefinition : DockerEnvironmentVariableDefinition {
     ACCEPT_EULA {
         override val minimumVersion = "2017"
         override val options = listOf("Y", "N")
@@ -77,7 +77,7 @@ enum class MSSQLStaticDefinition : GatewayEnvironmentVariableDefinition {
     },
 }
 
-enum class StaticDefinition : GatewayEnvironmentVariableDefinition {
+enum class StaticDefinition : DockerEnvironmentVariableDefinition {
     TZ {
         override val minimumVersion = "8.0.0"
         override val default = "America/Los_Angeles"
@@ -234,7 +234,7 @@ enum class StaticDefinition : GatewayEnvironmentVariableDefinition {
     override val options: List<String>? = null
 }
 
-enum class ConnectionDefinition : GatewayEnvironmentVariableDefinition {
+enum class ConnectionDefinition : DockerEnvironmentVariableDefinition {
     // GAN Connection Environment Variables
     GATEWAY_NETWORK_X_HOST {
         override val default = ""

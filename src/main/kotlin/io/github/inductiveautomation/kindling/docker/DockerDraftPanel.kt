@@ -14,11 +14,11 @@ import io.github.inductiveautomation.kindling.core.EditorTool
 import io.github.inductiveautomation.kindling.core.Kindling
 import io.github.inductiveautomation.kindling.core.Theme.Companion.theme
 import io.github.inductiveautomation.kindling.core.ToolPanel
+import io.github.inductiveautomation.kindling.docker.model.DockerEnvironmentVariableDefinition.Companion.getConnectionVariableIndex
 import io.github.inductiveautomation.kindling.docker.model.DockerNetwork
 import io.github.inductiveautomation.kindling.docker.model.DockerServiceModel
 import io.github.inductiveautomation.kindling.docker.model.DockerServiceModel.Companion.DEFAULT_GENERIC_IMAGE
 import io.github.inductiveautomation.kindling.docker.model.DockerVolume
-import io.github.inductiveautomation.kindling.docker.model.GatewayEnvironmentVariableDefinition.Companion.getConnectionVariableIndex
 import io.github.inductiveautomation.kindling.docker.model.GatewayServiceModel
 import io.github.inductiveautomation.kindling.docker.model.GatewayServiceModel.Companion.DEFAULT_IMAGE
 import io.github.inductiveautomation.kindling.docker.model.GatewayServiceModel.Companion.toGatewayServiceModelOrNull

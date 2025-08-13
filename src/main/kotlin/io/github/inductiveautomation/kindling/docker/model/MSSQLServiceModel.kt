@@ -16,7 +16,6 @@ class MSSQLServiceModel(
         if (this.hostName == null) {
             this.hostName = containerName.filter { it in hostNameValidChars }
         }
-        this.environment.putAll(DEFAULT_VARIABLES)
     }
 
     var version: String = image.substringAfter(":")
@@ -32,10 +31,6 @@ class MSSQLServiceModel(
     companion object {
         const val DEFAULT_MSSQL_IMAGE = "kcollins/mssql:latest"
         private val hostNameValidChars = ('A'..'Z') + ('0'..'9') + ('a'..'z') + '-'
-        private val DEFAULT_VARIABLES = mapOf(
-            MSSQLStaticDefinition.ACCEPT_EULA.name to "Y",
-            MSSQLStaticDefinition.MSSQL_PID.name to "Developer",
-        )
 
         fun DockerServiceModel.toMSSQLServiceModel(): MSSQLServiceModel {
             require(image.startsWith("kcollins/mssql")) {

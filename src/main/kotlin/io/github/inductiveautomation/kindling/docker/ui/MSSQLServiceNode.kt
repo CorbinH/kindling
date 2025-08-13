@@ -4,9 +4,7 @@ import com.formdev.flatlaf.extras.FlatSVGIcon
 import io.github.inductiveautomation.kindling.docker.model.DockerNetwork
 import io.github.inductiveautomation.kindling.docker.model.DockerVolume
 import io.github.inductiveautomation.kindling.docker.model.MSSQLServiceModel
-import io.github.inductiveautomation.kindling.utils.getAll
 import net.miginfocom.swing.MigLayout
-import java.util.EventListener
 import javax.swing.JButton
 import javax.swing.JOptionPane
 import javax.swing.JPanel
@@ -36,18 +34,9 @@ class MSSQLServiceNode(
         toolTipText = "Delete"
     }
 
-    private val connectButton = JButton(FlatSVGIcon("icons/bx-link.svg").derive(12, 12)).apply {
-        addActionListener {
-            fireConnectionInit()
-        }
-    }
-
     override val header = JPanel(MigLayout("fill, ins 0")).apply {
-        add(connectButton, "west")
         add(deleteButton, "east")
     }
-
-    val connections: MutableMap<Int, GatewayNodeConnector> = mutableMapOf()
 
     init {
         add(header, "north")
@@ -72,18 +61,5 @@ class MSSQLServiceNode(
 
         updateHostNameText()
         updateContainerNameText()
-        addServiceModelChangeListener {
-            connectButton.isEnabled = true
-        }
     }
-
-    private fun fireConnectionInit() {
-        listenerList.getAll<MSSQLConnectionInitListener>().forEach {
-            it.onConnectionInitRequest()
-        }
-    }
-}
-
-fun interface MSSQLConnectionInitListener : EventListener {
-    fun onConnectionInitRequest()
 }
