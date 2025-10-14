@@ -1,11 +1,16 @@
 package io.github.inductiveautomation.kindling.docker.model
 
+import io.github.inductiveautomation.kindling.docker.model.compose.Build
+import io.github.inductiveautomation.kindling.docker.model.compose.DependsOn
+import io.github.inductiveautomation.kindling.docker.model.compose.Deploy
 import io.github.inductiveautomation.kindling.docker.serializers.CommandLineArgumentListSerializer
+import io.github.inductiveautomation.kindling.docker.serializers.DependsOnConfigSerializer
 import io.github.inductiveautomation.kindling.docker.serializers.EnvironmentVariableSerializer
 import io.github.inductiveautomation.kindling.docker.serializers.PointAsStringSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.awt.Point
+import java.util.EventListener
 
 @Serializable
 open class DockerServiceModel(
@@ -23,6 +28,14 @@ open class DockerServiceModel(
     val volumes: MutableList<BindMount> = mutableListOf(),
     val networks: MutableList<String> = mutableListOf(),
     val labels: List<String> = emptyList(),
+    // Other Properties:
+    @SerialName("depends_on")
+    @Serializable(with=DependsOnConfigSerializer::class)
+    var dependsOn: MutableMap<String, DependsOn> = mutableMapOf(),
+    var envFile: String? = null,
+    var attach: Boolean = true,
+    var build: Build? = null,
+    var deploy: Deploy? = null,
 ) {
     @SerialName("x-canvas.location")
     @Serializable(with = PointAsStringSerializer::class)
@@ -33,6 +46,6 @@ open class DockerServiceModel(
     }
 }
 
-fun interface ServiceModelChangeListener : java.util.EventListener {
+fun interface ServiceModelChangeListener : EventListener {
     fun onServiceModelChanged()
 }
