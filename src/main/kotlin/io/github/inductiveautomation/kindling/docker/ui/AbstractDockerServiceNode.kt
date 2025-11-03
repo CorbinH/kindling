@@ -145,6 +145,8 @@ abstract class AbstractDockerServiceNode<T : DockerServiceModel> : JPanel(MigLay
     }
 
     fun addNodeDeleteListener(l: NodeDeleteListener) = listenerList.add(l)
+
+    @Suppress("unused")
     fun removeNodeDeleteListener(l: NodeDeleteListener) = listenerList.remove(l)
 
     protected fun fireNodeDeletedEvent() {

@@ -1,3 +1,5 @@
+@file:Suppress("unused")
+
 package io.github.inductiveautomation.kindling.docker.ui.compose
 
 import io.github.inductiveautomation.kindling.docker.model.DockerServiceModel
