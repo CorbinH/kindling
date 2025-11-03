@@ -1,23 +1,21 @@
 package io.github.inductiveautomation.kindling.docker.ui.editors
 
-import io.github.inductiveautomation.kindling.docker.model.EnvironmentVariable
 import io.github.inductiveautomation.kindling.docker.ui.ConfigSection
-import io.github.inductiveautomation.kindling.utils.ColumnList
 import io.github.inductiveautomation.kindling.utils.FlatScrollPane
 import io.github.inductiveautomation.kindling.utils.ReifiedJXTable
-import io.github.inductiveautomation.kindling.utils.ReifiedTableModel
+import io.github.inductiveautomation.kindling.utils.ReifiedMapTableModel
+import io.github.inductiveautomation.kindling.utils.StringPairColumns
 import net.miginfocom.swing.MigLayout
 import org.jdesktop.swingx.JXTextArea
 import javax.swing.JButton
 import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.ListSelectionModel
-import javax.swing.table.AbstractTableModel
 
 class EnvironmentVariablesEditor(
     private val envVariables: MutableMap<String, String>,
 ) : ConfigSection("Environment Variables") {
-    private val envVariablesTable = ReifiedJXTable(ReifiedMapTableModel(envVariables)).apply {
+    private val envVariablesTable = ReifiedJXTable(ReifiedMapTableModel(envVariables, StringPairColumns)).apply {
         isColumnControlVisible = false
         isSortable = false
     }
@@ -67,29 +65,5 @@ class EnvironmentVariablesEditor(
         envVariablesTable.model.addTableModelListener {
             fireConfigChange()
         }
-    }
-}
-
-class ReifiedMapTableModel(
-    private val data: MutableMap<String, String>,
-) : AbstractTableModel(), ReifiedTableModel<EnvironmentVariable> {
-    override fun getRowCount() = data.size
-    override fun getColumnCount() = 2
-    override fun getColumnClass(columnIndex: Int) = columns[columnIndex].clazz
-    override fun getColumnName(columnIndex: Int) = columns[columnIndex].header
-
-    override fun getValueAt(rowIndex: Int, columnIndex: Int): Any {
-        val pair = data.entries.toList().get(rowIndex).toPair()
-        return when (columnIndex) {
-            0 -> pair.first
-            1 -> pair.second
-            else -> error("Column index $columnIndex out of bounds. Should be 0 or 1.")
-        }
-    }
-
-    @Suppress("unused")
-    override val columns = object : ColumnList<EnvironmentVariable>() {
-        val Key by column { it.first }
-        val Value by column { it.second }
     }
 }

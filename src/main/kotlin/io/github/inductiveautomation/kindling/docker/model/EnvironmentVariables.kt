@@ -10,7 +10,7 @@ sealed interface DockerEnvironmentVariableDefinition {
     val options: List<String>?
 
     companion object {
-        val variableDefinitionsByName = StaticDefinition.entries.associateBy(Enum<*>::name)
+        val variableDefinitionsByName = IgnitionStaticDefinition.entries.associateBy(Enum<*>::name)
         private val connectionVariableRegex = """GATEWAY_NETWORK_(?<i>\d+)""".toRegex()
 
         fun EnvironmentVariable.isConnectionVariable(): Boolean {
@@ -77,7 +77,7 @@ enum class MSSQLStaticDefinition : DockerEnvironmentVariableDefinition {
     },
 }
 
-enum class StaticDefinition : DockerEnvironmentVariableDefinition {
+enum class IgnitionStaticDefinition : DockerEnvironmentVariableDefinition {
     TZ {
         override val minimumVersion = "8.0.0"
         override val default = "America/Los_Angeles"
@@ -228,6 +228,22 @@ enum class StaticDefinition : DockerEnvironmentVariableDefinition {
     GATEWAY_ENCODING_KEY_FILE {
         override val default = ""
         override val minimumVersion = "8.1.38"
+    },
+    IGNITION_ROOT_KEY_PASSWORD_FILE {
+        override val default = ""
+        override val minimumVersion = "8.3.0"
+    },
+    IGNITION_ROOT_KEY_PASSWORD {
+        override val default = ""
+        override val minimumVersion = "8.3.0"
+    },
+    ACCEPT_MODULE_CERTS {
+        override val default = ""
+        override val minimumVersion = "8.3.0"
+    },
+    ACCEPT_MODULE_LICENSES {
+        override val default = ""
+        override val minimumVersion = "8.3.0"
     },
     ;
 

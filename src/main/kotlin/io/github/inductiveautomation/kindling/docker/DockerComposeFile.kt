@@ -8,6 +8,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable(with = ComposeFileSerializer::class)
 data class DockerComposeFile(
+    val name: String? = null,
     val services: List<DockerServiceModel>,
     val volumes: List<DockerVolume>,
     val networks: List<DockerNetwork>,

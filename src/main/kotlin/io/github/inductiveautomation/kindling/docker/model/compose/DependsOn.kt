@@ -6,17 +6,18 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class DependsOn(
     var restart: Boolean = false,
-    val condition: Condition = Condition.SERVICE_STARTED,
+    var condition: Condition = Condition.SERVICE_STARTED,
     var required: Boolean = true,
 ) {
     @Serializable
     enum class Condition {
         @SerialName("service_started")
         SERVICE_STARTED,
+
         @SerialName("service_healthy")
         SERVICE_HEALTHY,
+
         @SerialName("service_completed_successfully")
         SERVICE_COMPLETED_SUCCESSFULLY,
-        ;
     }
 }

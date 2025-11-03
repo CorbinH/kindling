@@ -296,7 +296,6 @@ class MouseListenerBuilder : MouseListener {
     }
 }
 
-@Suppress("unused")
 class MouseMotionListenerBuilder : MouseMotionListener {
     fun mouseDragged(block: (e: MouseEvent) -> Unit) {
         this.mouseDragged = block

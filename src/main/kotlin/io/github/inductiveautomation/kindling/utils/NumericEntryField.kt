@@ -1,10 +1,10 @@
 package io.github.inductiveautomation.kindling.utils
 
 import java.text.NumberFormat
+import java.util.EventListener
 import javax.swing.InputVerifier
 import javax.swing.JComponent
 import javax.swing.JFormattedTextField
-import javax.swing.SwingConstants
 import javax.swing.text.DefaultFormatterFactory
 import javax.swing.text.NumberFormatter
 
@@ -13,7 +13,7 @@ class NumericEntryField(inputValue: Long?) : JFormattedTextField(inputValue) {
 
     init {
         formatterFactory = DefaultFormatterFactory(NumberFormatter(format))
-        horizontalAlignment = SwingConstants.CENTER
+        horizontalAlignment = CENTER
         inputVerifier =
             object : InputVerifier() {
                 override fun verify(input: JComponent): Boolean {
@@ -22,5 +22,21 @@ class NumericEntryField(inputValue: Long?) : JFormattedTextField(inputValue) {
                     }
                 }
             }
+
+        document.addDocumentListener(
+            DocumentAdapter { event ->
+                listenerList.getAll<NumericEntryValueChangeListener>().forEach {
+                    it.onValueChange(event.document.text.toLongOrNull())
+                }
+            },
+        )
+    }
+
+    fun addValueChangeListener(l: NumericEntryValueChangeListener) {
+        listenerList.add(l)
+    }
+
+    fun interface NumericEntryValueChangeListener : EventListener {
+        fun onValueChange(newValue: Long?)
     }
 }

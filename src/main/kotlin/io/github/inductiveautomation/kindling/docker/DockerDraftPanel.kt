@@ -38,6 +38,7 @@ import io.github.inductiveautomation.kindling.docker.ui.MSSQLServiceNode
 import io.github.inductiveautomation.kindling.docker.ui.NetworksList
 import io.github.inductiveautomation.kindling.docker.ui.NodeInitializer
 import io.github.inductiveautomation.kindling.docker.ui.VolumesList
+import io.github.inductiveautomation.kindling.utils.Action
 import io.github.inductiveautomation.kindling.utils.FileFilter
 import io.github.inductiveautomation.kindling.utils.FlatScrollPane
 import io.github.inductiveautomation.kindling.utils.HorizontalSplitPane
@@ -47,6 +48,7 @@ import io.github.inductiveautomation.kindling.utils.TrivialListDataListener
 import io.github.inductiveautomation.kindling.utils.add
 import io.github.inductiveautomation.kindling.utils.chooseFiles
 import io.github.inductiveautomation.kindling.utils.getAll
+import io.github.inductiveautomation.kindling.utils.jFrame
 import io.github.inductiveautomation.kindling.utils.scrollToTop
 import io.github.inductiveautomation.kindling.utils.traverseChildren
 import kotlinx.serialization.encodeToString
@@ -63,6 +65,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import javax.swing.JButton
 import javax.swing.JFileChooser
+import javax.swing.JFrame
 import javax.swing.JLabel
 import javax.swing.JOptionPane
 import javax.swing.JPanel
@@ -197,6 +200,27 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
     private val previewLabel = JLabel("YAML Preview").apply {
         font = font.deriveFont(Font.BOLD, 14F)
     }
+
+    private val popoutPreviewTextArea = RSyntaxTextArea().apply {
+        theme = Kindling.Preferences.UI.Theme.currentValue
+        syntaxEditingStyle = SYNTAX_STYLE_YAML
+
+        Kindling.Preferences.UI.Theme.addChangeListener {
+            theme = it
+        }
+    }
+
+    private val previewButton = JButton(
+        Action(description = "Popout", icon = FlatSVGIcon("icons/bx-detail.svg")) {
+            popoutPreview.isVisible = true
+        },
+    )
+
+    private val popoutPreview = jFrame("Preview", 800, 600, false) {
+        add(FlatScrollPane(popoutPreviewTextArea))
+        defaultCloseOperation = JFrame.HIDE_ON_CLOSE
+    }
+
     private val yamlPreview = RSyntaxTextArea().apply {
         theme = Kindling.Preferences.UI.Theme.currentValue
         syntaxEditingStyle = SYNTAX_STYLE_YAML
@@ -241,7 +265,7 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
 
     val previewScrollPane = FlatScrollPane(yamlPreview)
 
-    private val sidebar = JPanel(MigLayout("flowy, nogrid, fill")).apply {
+    private val sidebar = JPanel(MigLayout("flowy, fill")).apply {
         add(
             JPanel(MigLayout("fill, ins 0")).apply {
                 add(importButton, "grow, sg")
@@ -255,13 +279,15 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
         add(volumesList, "grow, gapbottom 3, sg, hmin 100")
         add(networksLabel, "gapbottom 3")
         add(networksList, "grow, gapbottom 10, sg, hmin 100")
-        add(previewLabel, "gapbottom 3")
+        add(previewLabel, "gapbottom 3, split 2, flowx, growx")
+        add(previewButton)
         add(previewScrollPane, "pushy, grow, wmin 300")
     }
 
     private val composeFile: DockerComposeFile
         get() {
             return DockerComposeFile(
+                null,
                 services.map { it.model }.sortedBy { it.containerName },
                 volumes,
                 networks,
@@ -394,7 +420,7 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
                     }
 
                     for (host in outboundHosts) {
-                        val outboundNode = nodes.find { it.model.hostName == host.second } as GatewayServiceNode
+                        val outboundNode = nodes.find { it.model.hostName == host.second } as GatewayServiceNode? ?: continue
                         val connection = GatewayNodeConnector(node, host.first, canvas).apply {
                             to = outboundNode
                         }
@@ -471,12 +497,15 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
     }
 
     private fun updatePreview() {
-        yamlPreview.text = runCatching {
+        val text = runCatching {
             val c = composeFile
             if (c.isEmpty()) "" else YAML.encodeToString(composeFile)
         }.getOrElse { error ->
             error.stackTraceToString()
         }
+
+        yamlPreview.text = text
+        popoutPreviewTextArea.text = text
 
         previewScrollPane.scrollToTop()
     }

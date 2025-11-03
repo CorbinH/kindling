@@ -2,6 +2,7 @@ package io.github.inductiveautomation.kindling.docker.serializers
 
 import io.github.inductiveautomation.kindling.utils.getValue
 import kotlinx.serialization.KSerializer
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.descriptors.PrimitiveKind
 import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.descriptors.SerialDescriptor
@@ -13,13 +14,17 @@ object PointAsStringSerializer : KSerializer<Point> {
     override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor(Point::class.java.name, PrimitiveKind.STRING)
 
     override fun deserialize(decoder: Decoder): Point {
-        val strValue = decoder.decodeString()
-        val matchGroups = pointRegex.find(decoder.decodeString())?.groups ?: error("Invalid serialized format: $strValue")
+        val str = decoder.decodeString()
+        val groups = pointRegex.find(str)?.groups ?: throw SerializationException("Point is not of the format \"(x,y)\": $str")
 
-        val x by matchGroups
-        val y by matchGroups
+        val x by groups
+        val y by groups
 
-        return Point(x.value.toInt(), y.value.toInt())
+        return try {
+            Point(x.value.toInt(), y.value.toInt())
+        } catch (e: NumberFormatException) {
+            throw SerializationException("Unable to parse coordinates for point $str", e)
+        }
     }
 
     override fun serialize(encoder: Encoder, value: Point) {

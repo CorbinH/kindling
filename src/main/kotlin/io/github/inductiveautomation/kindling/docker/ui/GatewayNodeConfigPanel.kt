@@ -6,6 +6,7 @@ import io.github.inductiveautomation.kindling.docker.model.DockerVolume
 import io.github.inductiveautomation.kindling.docker.ui.GenericDockerServiceNode.Companion.SERVICE_NAME_REGEX
 import io.github.inductiveautomation.kindling.docker.ui.editors.GatewayCliArgEditor
 import io.github.inductiveautomation.kindling.docker.ui.editors.GatewayEnvVariablesEditor
+import io.github.inductiveautomation.kindling.docker.ui.editors.GenericEditor
 import io.github.inductiveautomation.kindling.docker.ui.editors.NetworkEditor
 import io.github.inductiveautomation.kindling.docker.ui.editors.PortMappingEditor
 import io.github.inductiveautomation.kindling.docker.ui.editors.VolumeEditor
@@ -127,6 +128,9 @@ class GatewayNodeConfigPanel(
     override val cliSection = GatewayCliArgEditor(node.model.commands).bind()
     override val volumesSection = VolumeEditor(node.model.volumes, volumeOptions).bind()
     override val networksSection = NetworkEditor(node.model.networks, networkOptions).bind()
+    override val genericSection by lazy {
+        GenericEditor(node.model).bind()
+    }
 
     var volumeOptions: List<DockerVolume> by volumesSection::volumeOptions
     var networkOptions: List<DockerNetwork> by networksSection::networkOptions
@@ -138,6 +142,7 @@ class GatewayNodeConfigPanel(
         addTab(envSection, select = false)
         addTab(portsSection, select = false)
         addTab(networksSection, select = false)
+        addLazyTab("Other Compose Properties") { genericSection }
     }
 
     fun resetNames() {

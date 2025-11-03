@@ -1,7 +1,6 @@
 package io.github.inductiveautomation.kindling.docker.serializers
 
 import io.github.inductiveautomation.kindling.docker.model.compose.DependsOn
-import kotlin.reflect.jvm.jvmName
 import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
@@ -12,6 +11,7 @@ import kotlinx.serialization.descriptors.SerialKind
 import kotlinx.serialization.descriptors.buildSerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
+import kotlin.reflect.jvm.jvmName
 
 object DependsOnConfigSerializer : KSerializer<MutableMap<String, DependsOn>> {
     private val listDelegate = ListSerializer(String.serializer())
@@ -26,9 +26,7 @@ object DependsOnConfigSerializer : KSerializer<MutableMap<String, DependsOn>> {
     override fun serialize(
         encoder: Encoder,
         value: MutableMap<String, DependsOn>,
-    ) {
-        TODO("Not yet implemented")
-    }
+    ) = mapDelegate.serialize(encoder, value)
 
     @Suppress("unchecked_cast")
     override fun deserialize(decoder: Decoder): MutableMap<String, DependsOn> {

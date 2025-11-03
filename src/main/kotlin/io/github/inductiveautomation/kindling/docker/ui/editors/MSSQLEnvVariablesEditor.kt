@@ -12,7 +12,9 @@ import io.github.inductiveautomation.kindling.utils.Column
 import io.github.inductiveautomation.kindling.utils.ColumnList
 import io.github.inductiveautomation.kindling.utils.NoSelectionModel
 import io.github.inductiveautomation.kindling.utils.ReifiedJXTable
+import io.github.inductiveautomation.kindling.utils.ReifiedMapTableModel
 import io.github.inductiveautomation.kindling.utils.ReifiedTableModel
+import io.github.inductiveautomation.kindling.utils.StringPairColumns
 import io.github.inductiveautomation.kindling.utils.configureCellRenderer
 import net.miginfocom.swing.MigLayout
 import org.jdesktop.swingx.JXTextArea
@@ -97,12 +99,12 @@ class MSSQLEnvVariablesEditor(
     }
 
     private val customSettingsLabel = JLabel("Custom Environment Variables")
-    private val customVariablesTable = ReifiedJXTable(ReifiedMapTableModel(data)).apply {
+    private val customVariablesTable = ReifiedJXTable(ReifiedMapTableModel(data, StringPairColumns)).apply {
         isColumnControlVisible = false
         isSortable = false
         setRowFilter(
-            object : RowFilter<ReifiedMapTableModel, Int>() {
-                override fun include(entry: Entry<out ReifiedMapTableModel, out Int>?): Boolean {
+            object : RowFilter<ReifiedMapTableModel<String>, Int>() {
+                override fun include(entry: Entry<out ReifiedMapTableModel<String>, out Int>?): Boolean {
                     val k = entry?.model?.getValueAt(entry.identifier, 0) as String
                     val connectionName = k.getConnectionVariableFromInstance()
                     return DockerEnvironmentVariableDefinition.variableDefinitionsByName[k] == null && connectionName == null

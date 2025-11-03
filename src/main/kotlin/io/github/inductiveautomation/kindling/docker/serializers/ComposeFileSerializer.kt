@@ -26,11 +26,12 @@ object ComposeFileSerializer : KSerializer<DockerComposeFile> {
         val networks = fileDelegate.networks.keys.map { DockerNetwork(it) }
         val volumes = fileDelegate.volumes.keys.map { DockerVolume(it) }
 
-        return DockerComposeFile(fileDelegate.services.values.toList(), volumes, networks)
+        return DockerComposeFile(fileDelegate.name, fileDelegate.services.values.toList(), volumes, networks)
     }
 
     override fun serialize(encoder: Encoder, value: DockerComposeFile) {
         val delegate = DockerComposeFileDelegate(
+            value.name,
             value.services.associateBy { it.containerName },
             value.volumes.associate { it.name to null },
             value.networks.associate { it.name to null },
@@ -42,6 +43,7 @@ object ComposeFileSerializer : KSerializer<DockerComposeFile> {
 
 @Serializable
 internal class DockerComposeFileDelegate(
+    val name: String? = null,
     val services: Map<String, DockerServiceModel> = emptyMap(),
     val volumes: Map<String, Nothing?> = emptyMap(),
     val networks: Map<String, Nothing?> = emptyMap(),

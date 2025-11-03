@@ -9,7 +9,7 @@ class MSSQLServiceModel(
     commands: MutableList<CliArgument> = mutableListOf(),
     volumes: MutableList<BindMount> = mutableListOf(),
     networks: MutableList<String> = mutableListOf(),
-    labels: List<String> = emptyList(),
+    labels: MutableMap<String, String> = mutableMapOf(),
 ) : DockerServiceModel(image, hostName, containerName, ports, environment, commands, volumes, networks, labels) {
 
     init {

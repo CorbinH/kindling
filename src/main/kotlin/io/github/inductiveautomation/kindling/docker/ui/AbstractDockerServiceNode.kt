@@ -172,6 +172,7 @@ abstract class NodeConfigPanel() : TabStrip() {
     protected abstract val cliSection: ConfigSection
     protected abstract val volumesSection: ConfigSection
     protected abstract val networksSection: ConfigSection
+    protected abstract val genericSection: ConfigSection
 
     protected fun <T : ConfigSection> T.bind(): T {
         addChangeListener {

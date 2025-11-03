@@ -4,8 +4,8 @@ import io.github.inductiveautomation.kindling.docker.model.DockerEnvironmentVari
 import io.github.inductiveautomation.kindling.docker.model.DockerEnvironmentVariableDefinition.Companion.getConnectionVariableFromInstance
 import io.github.inductiveautomation.kindling.docker.model.DockerEnvironmentVariableDefinition.Companion.isConnectionVariable
 import io.github.inductiveautomation.kindling.docker.model.DockerEnvironmentVariableDefinition.Companion.toYamlString
+import io.github.inductiveautomation.kindling.docker.model.IgnitionStaticDefinition
 import io.github.inductiveautomation.kindling.docker.model.IgnitionVersionComparator
-import io.github.inductiveautomation.kindling.docker.model.StaticDefinition
 import io.github.inductiveautomation.kindling.docker.ui.ConfigSection
 import io.github.inductiveautomation.kindling.docker.ui.editors.GatewayEnvVariablesEditor.Companion.defaultOverrides
 import io.github.inductiveautomation.kindling.utils.ColorHighlighter
@@ -13,7 +13,9 @@ import io.github.inductiveautomation.kindling.utils.Column
 import io.github.inductiveautomation.kindling.utils.ColumnList
 import io.github.inductiveautomation.kindling.utils.NoSelectionModel
 import io.github.inductiveautomation.kindling.utils.ReifiedJXTable
+import io.github.inductiveautomation.kindling.utils.ReifiedMapTableModel
 import io.github.inductiveautomation.kindling.utils.ReifiedTableModel
+import io.github.inductiveautomation.kindling.utils.StringPairColumns
 import io.github.inductiveautomation.kindling.utils.configureCellRenderer
 import net.miginfocom.swing.MigLayout
 import org.jdesktop.swingx.JXTextArea
@@ -56,7 +58,7 @@ class GatewayEnvVariablesEditor(
             val s = gatewaySettingsTable.model.rowCount
 
             val currentVars = gatewaySettingsTable.model.staticVariableData.map { it.first }
-            val newEntry = StaticDefinition.entries.find {
+            val newEntry = IgnitionStaticDefinition.entries.find {
                 it !in currentVars
             }
 
@@ -95,12 +97,12 @@ class GatewayEnvVariablesEditor(
     }
 
     private val customSettingsLabel = JLabel("Custom Environment Variables")
-    private val customVariablesTable = ReifiedJXTable(ReifiedMapTableModel(data)).apply {
+    private val customVariablesTable = ReifiedJXTable(ReifiedMapTableModel(data, StringPairColumns)).apply {
         isColumnControlVisible = false
         isSortable = false
         setRowFilter(
-            object : RowFilter<ReifiedMapTableModel, Int>() {
-                override fun include(entry: Entry<out ReifiedMapTableModel, out Int>?): Boolean {
+            object : RowFilter<ReifiedMapTableModel<String>, Int>() {
+                override fun include(entry: Entry<out ReifiedMapTableModel<String>, out Int>?): Boolean {
                     val k = entry?.model?.getValueAt(entry.identifier, 0) as String
                     val connectionName = k.getConnectionVariableFromInstance()
                     return DockerEnvironmentVariableDefinition.variableDefinitionsByName[k] == null && connectionName == null
@@ -196,13 +198,13 @@ class GatewayEnvVariablesEditor(
     }
 
     companion object {
-        internal val defaultOverrides: Map<StaticDefinition, String> = mapOf(
-            StaticDefinition.TZ to "America/Los_Angeles",
-            StaticDefinition.ACCEPT_IGNITION_EULA to "Y",
-            StaticDefinition.IGNITION_EDITION to "standard",
-            StaticDefinition.GATEWAY_ADMIN_USERNAME to "admin",
-            StaticDefinition.GATEWAY_ADMIN_PASSWORD to "password",
-            StaticDefinition.DISABLE_QUICKSTART to "true",
+        internal val defaultOverrides: Map<IgnitionStaticDefinition, String> = mapOf(
+            IgnitionStaticDefinition.TZ to "America/Los_Angeles",
+            IgnitionStaticDefinition.ACCEPT_IGNITION_EULA to "Y",
+            IgnitionStaticDefinition.IGNITION_EDITION to "standard",
+            IgnitionStaticDefinition.GATEWAY_ADMIN_USERNAME to "admin",
+            IgnitionStaticDefinition.GATEWAY_ADMIN_PASSWORD to "password",
+            IgnitionStaticDefinition.DISABLE_QUICKSTART to "true",
         )
     }
 }
@@ -210,7 +212,7 @@ class GatewayEnvVariablesEditor(
 class GatewayEnvironmentVariableTableModel(
     private val dataSource: MutableMap<String, String>,
     version: String,
-) : AbstractTableModel(), ReifiedTableModel<Pair<StaticDefinition, String>> {
+) : AbstractTableModel(), ReifiedTableModel<Pair<IgnitionStaticDefinition, String>> {
     var version by Delegates.observable(version) { _, _, _ ->
         fireTableDataChanged()
     }
@@ -220,16 +222,16 @@ class GatewayEnvironmentVariableTableModel(
     override fun getColumnClass(columnIndex: Int) = columns[columnIndex].clazz
     override fun getColumnName(columnIndex: Int) = columns[columnIndex].header
 
-    private val allVariables = StaticDefinition.entries.toHashSet()
+    private val allVariables = IgnitionStaticDefinition.entries.toHashSet()
 
     /*
      * The table's actual data. Since maps aren't ordered, we need to copy the data here and keep it
      * in sync with the map data.
      */
 
-    internal val staticVariableData: MutableList<Pair<StaticDefinition, String>> = dataSource.filter {
+    internal val staticVariableData: MutableList<Pair<IgnitionStaticDefinition, String>> = dataSource.filter {
         DockerEnvironmentVariableDefinition.variableDefinitionsByName.containsKey(it.key)
-    }.map { StaticDefinition.valueOf(it.key) to it.value }.toMutableList()
+    }.map { IgnitionStaticDefinition.valueOf(it.key) to it.value }.toMutableList()
 
     override fun isCellEditable(rowIndex: Int, columnIndex: Int): Boolean {
         return columns[columnIndex] == Value || getUnusedOptions().isNotEmpty()
@@ -242,7 +244,7 @@ class GatewayEnvironmentVariableTableModel(
         ) <= 0
     }
 
-    fun getUnusedOptions(forRow: Int? = null): List<StaticDefinition> {
+    fun getUnusedOptions(forRow: Int? = null): List<IgnitionStaticDefinition> {
         val currentKeys = staticVariableData.map { it.first }
         val value = forRow?.let { getValueAt(it, 0) }
 
@@ -258,8 +260,8 @@ class GatewayEnvironmentVariableTableModel(
 
     override fun setValueAt(aValue: Any?, rowIndex: Int, columnIndex: Int) {
         if (columnIndex == 0) {
-            aValue as StaticDefinition
-            val currentValue = getValueAt(rowIndex, columnIndex) as StaticDefinition
+            aValue as IgnitionStaticDefinition
+            val currentValue = getValueAt(rowIndex, columnIndex) as IgnitionStaticDefinition
 
             dataSource.remove(currentValue.name)
 
@@ -275,7 +277,7 @@ class GatewayEnvironmentVariableTableModel(
             fireTableDataChanged()
         } else if (columnIndex == 1) {
             aValue as String
-            val def = getValueAt(rowIndex, 0) as StaticDefinition
+            val def = getValueAt(rowIndex, 0) as IgnitionStaticDefinition
 
             staticVariableData[rowIndex] = Pair(def, aValue)
             if (aValue == def.default && def !in defaultOverrides.keys) {
@@ -288,15 +290,15 @@ class GatewayEnvironmentVariableTableModel(
         }
     }
 
-    operator fun <T> get(rowIndex: Int, column: Column<Pair<StaticDefinition, String>, T>): T {
+    operator fun <T> get(rowIndex: Int, column: Column<Pair<IgnitionStaticDefinition, String>, T>): T {
         return column.getValue(staticVariableData[rowIndex])
     }
 
     override val columns = GatewayEnvVariableColumns
 
-    companion object GatewayEnvVariableColumns : ColumnList<Pair<StaticDefinition, String>>() {
+    companion object GatewayEnvVariableColumns : ColumnList<Pair<IgnitionStaticDefinition, String>>() {
         val Key by column(
-            value = Pair<StaticDefinition, String>::first,
+            value = Pair<IgnitionStaticDefinition, String>::first,
             column = {
                 cellEditor = GatewayEnvironmentVariableTableCellEditor()
                 cellRenderer = object : DefaultTableCellRenderer() {
@@ -310,7 +312,7 @@ class GatewayEnvironmentVariableTableModel(
                     ): Component {
                         @Suppress("unchecked_cast")
                         table as ReifiedJXTable<GatewayEnvironmentVariableTableModel>
-                        value as StaticDefinition
+                        value as IgnitionStaticDefinition
 
                         val modelRow = table.convertRowIndexToModel(row)
 
@@ -328,7 +330,7 @@ class GatewayEnvironmentVariableTableModel(
             },
         )
         val Value by column(
-            value = Pair<StaticDefinition, String>::second,
+            value = Pair<IgnitionStaticDefinition, String>::second,
             column = {
                 cellEditor = GatewayEnvVariableOptionCellEditor()
             },
@@ -337,9 +339,9 @@ class GatewayEnvironmentVariableTableModel(
 
     private class GatewayEnvironmentVariableTableCellEditor : AbstractCellEditor(), TableCellEditor {
         private lateinit var tableRef: ReifiedJXTable<GatewayEnvironmentVariableTableModel>
-        private val comboBox = JComboBox<StaticDefinition>().apply {
+        private val comboBox = JComboBox<IgnitionStaticDefinition>().apply {
             configureCellRenderer { _, value, _, _, _ ->
-                text = (value as StaticDefinition).name
+                text = (value as IgnitionStaticDefinition).name
                 if (::tableRef.isInitialized) {
                     val minVersion = IgnitionVersionComparator.compare(value.minimumVersion, tableRef.model.version) <= 0
                     background = if (!minVersion) {
@@ -366,8 +368,8 @@ class GatewayEnvironmentVariableTableModel(
             return e is MouseEvent && e.clickCount == 2
         }
 
-        override fun getCellEditorValue(): StaticDefinition {
-            return comboBox.selectedItem as StaticDefinition
+        override fun getCellEditorValue(): IgnitionStaticDefinition {
+            return comboBox.selectedItem as IgnitionStaticDefinition
         }
 
         override fun getTableCellEditorComponent(

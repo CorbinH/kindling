@@ -5,6 +5,7 @@ import io.github.inductiveautomation.kindling.docker.model.DockerNetwork
 import io.github.inductiveautomation.kindling.docker.model.DockerVolume
 import io.github.inductiveautomation.kindling.docker.ui.GenericDockerServiceNode.Companion.SERVICE_NAME_REGEX
 import io.github.inductiveautomation.kindling.docker.ui.editors.CliArgumentsEditor
+import io.github.inductiveautomation.kindling.docker.ui.editors.GenericEditor
 import io.github.inductiveautomation.kindling.docker.ui.editors.MSSQLEnvVariablesEditor
 import io.github.inductiveautomation.kindling.docker.ui.editors.NetworkEditor
 import io.github.inductiveautomation.kindling.docker.ui.editors.PortMappingEditor
@@ -100,6 +101,9 @@ class MSSQLNodeConfigPanel(
     override val cliSection = CliArgumentsEditor(node.model.commands).bind()
     override val volumesSection = VolumeEditor(node.model.volumes, volumeOptions).bind()
     override val networksSection = NetworkEditor(node.model.networks, networkOptions).bind()
+    override val genericSection by lazy {
+        GenericEditor(node.model).bind()
+    }
 
     var volumeOptions by volumesSection::volumeOptions
     var networkOptions by networksSection::networkOptions
@@ -111,6 +115,7 @@ class MSSQLNodeConfigPanel(
         addTab(envSection, select = false)
         addTab(portsSection, select = false)
         addTab(networksSection, select = false)
+        addLazyTab("Other Compose Properties") { genericSection }
     }
 
     fun resetNames() {

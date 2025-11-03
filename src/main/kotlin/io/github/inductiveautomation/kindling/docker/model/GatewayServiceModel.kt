@@ -9,7 +9,7 @@ class GatewayServiceModel(
     commands: MutableList<CliArgument> = mutableListOf(),
     volumes: MutableList<BindMount> = mutableListOf(),
     networks: MutableList<String> = mutableListOf(),
-    labels: List<String> = emptyList(),
+    labels: MutableMap<String, String> = mutableMapOf(),
 ) : DockerServiceModel(image, hostName, containerName, ports, environment, commands, volumes, networks, labels) {
 
     init {
@@ -40,10 +40,10 @@ class GatewayServiceModel(
         const val DEFAULT_IMAGE = "inductiveautomation/ignition:latest"
         private val hostNameValidChars = ('A'..'Z') + ('0'..'9') + ('a'..'z') + '-'
         private val DEFAULT_VARIABLES = mapOf(
-            StaticDefinition.ACCEPT_IGNITION_EULA.name to "Y",
-            StaticDefinition.GATEWAY_ADMIN_USERNAME.name to "admin",
-            StaticDefinition.GATEWAY_ADMIN_PASSWORD.name to "password",
-            StaticDefinition.IGNITION_EDITION.name to "standard",
+            IgnitionStaticDefinition.ACCEPT_IGNITION_EULA.name to "Y",
+            IgnitionStaticDefinition.GATEWAY_ADMIN_USERNAME.name to "admin",
+            IgnitionStaticDefinition.GATEWAY_ADMIN_PASSWORD.name to "password",
+            IgnitionStaticDefinition.IGNITION_EDITION.name to "standard",
         )
 
         fun DockerServiceModel.toGatewayServiceModel(): GatewayServiceModel {
