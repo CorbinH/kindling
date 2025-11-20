@@ -1,6 +1,7 @@
 package io.github.inductiveautomation.kindling.livediagnostics
 
 import com.formdev.flatlaf.extras.FlatSVGIcon
+import com.sun.java.accessibility.util.AWTEventMonitor.addActionListener
 import io.github.inductiveautomation.kindling.core.EditorTool
 import io.github.inductiveautomation.kindling.core.Kindling.BETA_VERSION
 import io.github.inductiveautomation.kindling.core.ToolPanel
@@ -10,12 +11,15 @@ import io.github.inductiveautomation.kindling.utils.FileFilter
 import io.github.inductiveautomation.kindling.utils.HorizontalSplitPane
 import io.github.inductiveautomation.kindling.utils.VerticalSplitPane
 import io.ktor.client.HttpClient
+import io.ktor.client.call.body
 import io.ktor.client.request.request
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpMethod
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.Serializable
 import net.miginfocom.swing.MigLayout
 import java.nio.file.Path
 import javax.swing.Icon
@@ -28,7 +32,10 @@ import javax.swing.JTextArea
 import javax.swing.JTextField
 import javax.swing.JTree
 import javax.swing.SwingConstants
+import kotlin.io.path.name
 
+@Serializable
+data class BundleStatus(val status: String)
 
 
 class LiveDiagnosticPanel(existingFile: Path?) : ToolPanel("debug, ins 0, fill, hidemode 3") {
@@ -52,12 +59,16 @@ class LiveDiagnosticPanel(existingFile: Path?) : ToolPanel("debug, ins 0, fill, 
         }
 }
     val liveStats = JTextArea()
-    val APIKey = JTextField()
-    val destinationUrl = JTextField()
+    val APIKey = JTextField("JacobAPIKey:qtqb-8jDJncaOMAtH6YJhX87FivhF4VMhMKtmTBKq5Y ")
+    val destinationUrl = JTextField("http://1.localtest.me:8188")
 
 
     val saveJButton = JButton("Save").apply {
         addActionListener {
+            runBlocking {
+                executeBundleProcess()
+            }
+
 
         }
     }
@@ -77,7 +88,11 @@ class LiveDiagnosticPanel(existingFile: Path?) : ToolPanel("debug, ins 0, fill, 
         add(destinationDropdown, "grow, spanx")
     }
     val leftLowerPanel = JPanel(MigLayout("ins 0, fill, hidemode 3")).apply {
-        add(JButton("Download"), "grow, wrap")
+        add(JButton("Download"), "grow, wrap").apply {
+            addActionListener {
+
+            }
+        }
         add(resourceTree, "grow, push")
     }
     val leftPanel = VerticalSplitPane(leftUpperPanel, leftLowerPanel, resizeWeight = 0.5)
@@ -89,14 +104,50 @@ class LiveDiagnosticPanel(existingFile: Path?) : ToolPanel("debug, ins 0, fill, 
     }
 
     init {
-
+        name = existingFile?.name ?: "Metrics"
         add(mainPanel, "push, grow")
 
     }
 
 
+    suspend fun executeBundleProcess() {
+        val isGenerating = genBundle()
+        println(isGenerating)
+
+
+        val status = bundleStatus()
+
+//        for (i in 0 until 10) {
+//            val status = bundleStatus()
+//            if (status.status == "Valid") {
+//                break
+//            }
+//            if (i == 9) {
+//                println("Call Timed out after 10 seconds")
+//            }
+//            delay(1000)
+//        }
+
+
+
+
+    }
+
+    fun genBundle(): BundleStatus {
+        return runAPICall<BundleStatus>(destinationUrl.text+GEN_DIAG_BUNDLE, APIKey.text, HttpMethod.Post)
+    }
+
+    fun bundleStatus(): BundleStatus {
+        return runAPICall<BundleStatus>(destinationUrl.text+BUNDLE_STATUS, APIKey.text, HttpMethod.Get)
+    }
+
+//    fun downloadBundle() {
+//        runAPICall(destinationUrl.text+DOWNLOAD_BUDNLE, APIKey.text, HttpMethod.Get)
+//    }
+
     companion object {
         const val GEN_DIAG_BUNDLE = "/data/api/v1/diagnostics/bundle/generate"
+        const val BUNDLE_STATUS = "/data/api/v1/diagnostics/bundle/status/"
         const val DOWNLOAD_BUDNLE = "/data/api/v1/diagnostics/bundle/download"
         const val THREAD_EXECUTION_DATA = "/data/api/v1/systemPerformance/threads"
         const val HIST_PERF_DATA = "/data/api/v1/systemPerformance/charts"
@@ -104,17 +155,21 @@ class LiveDiagnosticPanel(existingFile: Path?) : ToolPanel("debug, ins 0, fill, 
 
         //todo create a post and get generic functions
         //todo generate the bundle, check the status if the staus is valid or not x number of time, and then download
-        fun runAPICall(url: String, route: String, token: String, HTTPMethod: HttpMethod) {
+
+        inline fun <reified T> runAPICall(url: String, token: String, HTTPMethod: HttpMethod): T {
             val client = HttpClient()
-            runBlocking {
-                val response: HttpResponse = client.request(url+route) {
+            val result = runBlocking {
+                client.request(url) {
                     method = HTTPMethod
                     url {
+                        headers.append("Content-Type", "application/json")
                         headers.append("X-Ignition-API-Token", token)
                     }
-                }
-                print(response.bodyAsText())
+                }.body<T>()
             }
+            println(result.toString())
+            client.close()
+            return result
         }
     }
 
