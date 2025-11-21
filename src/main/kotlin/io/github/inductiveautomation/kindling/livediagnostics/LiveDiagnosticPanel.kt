@@ -12,14 +12,18 @@ import io.github.inductiveautomation.kindling.utils.HorizontalSplitPane
 import io.github.inductiveautomation.kindling.utils.VerticalSplitPane
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.engine.cio.CIO
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.request
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpMethod
+import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import net.miginfocom.swing.MigLayout
 import java.nio.file.Path
 import javax.swing.Icon
@@ -35,13 +39,17 @@ import javax.swing.SwingConstants
 import kotlin.io.path.name
 
 @Serializable
-data class BundleStatus(val status: String)
+data class BundleStatus(val state: String)
+
+@Serializable
+data class BundleComplete(val state: String, val fileSize: Int)
+
 
 
 class LiveDiagnosticPanel(existingFile: Path?) : ToolPanel("debug, ins 0, fill, hidemode 3") {
 
     override fun getToolTipText(): String? {
-        return ""
+        return "MyCoolToolTip"
     }
     override val icon: Icon = LiveDiagnosticTool.icon
 
@@ -112,21 +120,24 @@ class LiveDiagnosticPanel(existingFile: Path?) : ToolPanel("debug, ins 0, fill, 
 
     suspend fun executeBundleProcess() {
         val isGenerating = genBundle()
-        println(isGenerating)
+        var genComplete = false
 
+        for (i in 0 until 10) {
+            try {
+                val status = bundleStatus()
+                if (status.state == "Valid") {
+                    genComplete = true
+                    break
+                }
+            } catch (e: Exception) {
 
-        val status = bundleStatus()
-
-//        for (i in 0 until 10) {
-//            val status = bundleStatus()
-//            if (status.status == "Valid") {
-//                break
-//            }
-//            if (i == 9) {
-//                println("Call Timed out after 10 seconds")
-//            }
-//            delay(1000)
-//        }
+            }
+            if (i == 9) {
+                println("Call Timed out after 10 seconds")
+            }
+            delay(1000)
+        }
+        println(genComplete)
 
 
 
@@ -137,8 +148,8 @@ class LiveDiagnosticPanel(existingFile: Path?) : ToolPanel("debug, ins 0, fill, 
         return runAPICall<BundleStatus>(destinationUrl.text+GEN_DIAG_BUNDLE, APIKey.text, HttpMethod.Post)
     }
 
-    fun bundleStatus(): BundleStatus {
-        return runAPICall<BundleStatus>(destinationUrl.text+BUNDLE_STATUS, APIKey.text, HttpMethod.Get)
+    fun bundleStatus(): BundleComplete {
+        return runAPICall<BundleComplete>(destinationUrl.text+BUNDLE_STATUS, APIKey.text, HttpMethod.Get)
     }
 
 //    fun downloadBundle() {
@@ -157,7 +168,15 @@ class LiveDiagnosticPanel(existingFile: Path?) : ToolPanel("debug, ins 0, fill, 
         //todo generate the bundle, check the status if the staus is valid or not x number of time, and then download
 
         inline fun <reified T> runAPICall(url: String, token: String, HTTPMethod: HttpMethod): T {
-            val client = HttpClient()
+            val client = HttpClient(CIO) {
+                install(ContentNegotiation) {
+                    json(Json {
+                        prettyPrint = true
+                        isLenient = true
+                        ignoreUnknownKeys = true
+                    })
+                    }
+                }
             val result = runBlocking {
                 client.request(url) {
                     method = HTTPMethod
@@ -175,12 +194,6 @@ class LiveDiagnosticPanel(existingFile: Path?) : ToolPanel("debug, ins 0, fill, 
 
 
 }
-
-
-
-
-
-
 
 
 
