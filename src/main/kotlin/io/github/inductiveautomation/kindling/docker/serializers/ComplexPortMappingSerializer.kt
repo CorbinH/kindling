@@ -1,6 +1,6 @@
 package io.github.inductiveautomation.kindling.docker.serializers
 
-import io.github.inductiveautomation.kindling.docker.model.PortMapping
+import io.github.inductiveautomation.kindling.docker.services.model.PortMapping
 import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.descriptors.PrimitiveKind

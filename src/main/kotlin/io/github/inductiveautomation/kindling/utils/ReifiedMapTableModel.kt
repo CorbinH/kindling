@@ -2,8 +2,8 @@ package io.github.inductiveautomation.kindling.utils
 
 import javax.swing.table.AbstractTableModel
 
-open class ReifiedMapTableModel<V>(
-    open val data: Map<String, V>,
+class ReifiedMapTableModel<V>(
+    val data: Map<String, V>,
     override val columns: ColumnList<Map.Entry<String, V>>,
 ) : AbstractTableModel(), ReifiedTableModel<Map.Entry<String, V>> {
     override fun getRowCount() = data.size
@@ -13,6 +13,8 @@ open class ReifiedMapTableModel<V>(
     override fun getValueAt(rowIndex: Int, columnIndex: Int): Any? {
         return columns[columnIndex].getValue(data.entries.toList()[rowIndex])
     }
+
+    override fun isCellEditable(rowIndex: Int, columnIndex: Int) = true
 }
 
 object StringPairColumns : ColumnList<Map.Entry<String, String>>() {

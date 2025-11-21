@@ -1,6 +1,6 @@
 package io.github.inductiveautomation.kindling.docker.serializers
 
-import io.github.inductiveautomation.kindling.docker.model.BindMount
+import io.github.inductiveautomation.kindling.docker.volumes.model.BindMount
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.descriptors.PrimitiveKind
 import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor

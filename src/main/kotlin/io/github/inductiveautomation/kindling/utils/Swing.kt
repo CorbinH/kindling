@@ -177,6 +177,14 @@ fun DocumentAdapter(block: (e: DocumentEvent) -> Unit): DocumentListener = objec
     override fun removeUpdate(e: DocumentEvent) = block(e)
 }
 
+fun Document.onChange(block: (String) -> Unit) {
+    addDocumentListener(
+        DocumentAdapter {
+            block(text)
+        }
+    )
+}
+
 typealias HighlightPredicateKt = (component: Component, adapter: ComponentAdapter) -> Boolean
 
 data class ColorPalette(

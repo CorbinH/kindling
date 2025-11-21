@@ -1,6 +1,6 @@
 package io.github.inductiveautomation.kindling.docker.serializers
 
-import io.github.inductiveautomation.kindling.docker.model.compose.DependsOn
+import io.github.inductiveautomation.kindling.docker.compose.model.DependsOn
 import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer

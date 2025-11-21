@@ -104,6 +104,9 @@ kotlin {
             resources.srcDir(javadocDirectory)
         }
     }
+    compilerOptions {
+        freeCompilerArgs.add("-Xcontext-parameters")
+    }
 }
 
 spotless {

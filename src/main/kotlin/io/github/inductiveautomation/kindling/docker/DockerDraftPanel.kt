@@ -9,198 +9,158 @@ import com.charleskorn.kaml.decodeFromStream
 import com.charleskorn.kaml.encodeToStream
 import com.formdev.flatlaf.extras.FlatSVGIcon
 import com.formdev.flatlaf.extras.components.FlatSplitPane
+import com.formdev.flatlaf.extras.components.FlatTabbedPane
+import com.formdev.flatlaf.extras.components.FlatTabbedPane.TabType
 import io.github.inductiveautomation.kindling.core.CustomIconView
+import io.github.inductiveautomation.kindling.core.Detail
+import io.github.inductiveautomation.kindling.core.DetailsPane
 import io.github.inductiveautomation.kindling.core.EditorTool
 import io.github.inductiveautomation.kindling.core.Kindling
 import io.github.inductiveautomation.kindling.core.Theme.Companion.theme
 import io.github.inductiveautomation.kindling.core.ToolPanel
-import io.github.inductiveautomation.kindling.docker.model.DockerEnvironmentVariableDefinition.Companion.getConnectionVariableIndex
-import io.github.inductiveautomation.kindling.docker.model.DockerNetwork
-import io.github.inductiveautomation.kindling.docker.model.DockerServiceModel
-import io.github.inductiveautomation.kindling.docker.model.DockerServiceModel.Companion.DEFAULT_GENERIC_IMAGE
-import io.github.inductiveautomation.kindling.docker.model.DockerVolume
-import io.github.inductiveautomation.kindling.docker.model.GatewayServiceModel
-import io.github.inductiveautomation.kindling.docker.model.GatewayServiceModel.Companion.DEFAULT_IMAGE
-import io.github.inductiveautomation.kindling.docker.model.GatewayServiceModel.Companion.toGatewayServiceModelOrNull
-import io.github.inductiveautomation.kindling.docker.model.MSSQLServiceModel
-import io.github.inductiveautomation.kindling.docker.model.MSSQLServiceModel.Companion.DEFAULT_MSSQL_IMAGE
-import io.github.inductiveautomation.kindling.docker.model.MSSQLServiceModel.Companion.toMSSQLServiceModelOrNull
-import io.github.inductiveautomation.kindling.docker.model.PortMapping
-import io.github.inductiveautomation.kindling.docker.ui.AbstractDockerServiceNode
-import io.github.inductiveautomation.kindling.docker.ui.Canvas
-import io.github.inductiveautomation.kindling.docker.ui.CanvasNodeList
-import io.github.inductiveautomation.kindling.docker.ui.ConnectionProgressChangeListener
-import io.github.inductiveautomation.kindling.docker.ui.GatewayNodeConnector
-import io.github.inductiveautomation.kindling.docker.ui.GatewayNodeConnector.Companion.midPoint
-import io.github.inductiveautomation.kindling.docker.ui.GatewayServiceNode
-import io.github.inductiveautomation.kindling.docker.ui.GenericDockerServiceNode
-import io.github.inductiveautomation.kindling.docker.ui.MSSQLServiceNode
-import io.github.inductiveautomation.kindling.docker.ui.NetworksList
-import io.github.inductiveautomation.kindling.docker.ui.NodeInitializer
-import io.github.inductiveautomation.kindling.docker.ui.VolumesList
+import io.github.inductiveautomation.kindling.docker.Canvas.Companion.NODE_LAYER
+import io.github.inductiveautomation.kindling.docker.DockerServiceToolTransferHandler.Companion.DOCKER_SERVICE_DATA_FLAVOR
+import io.github.inductiveautomation.kindling.docker.networks.NetworksTab
+import io.github.inductiveautomation.kindling.docker.networks.model.DockerNetwork
+import io.github.inductiveautomation.kindling.docker.services.AbstractDockerServiceNode
+import io.github.inductiveautomation.kindling.docker.services.DockerServiceTool
+import io.github.inductiveautomation.kindling.docker.services.ignition.IgnitionNodeConnector.Companion.midPoint
+import io.github.inductiveautomation.kindling.docker.services.model.DockerServiceModel
+import io.github.inductiveautomation.kindling.docker.volumes.VolumesTab
+import io.github.inductiveautomation.kindling.docker.volumes.model.DockerVolume
 import io.github.inductiveautomation.kindling.utils.Action
 import io.github.inductiveautomation.kindling.utils.FileFilter
 import io.github.inductiveautomation.kindling.utils.FlatScrollPane
 import io.github.inductiveautomation.kindling.utils.HorizontalSplitPane
 import io.github.inductiveautomation.kindling.utils.PointHelpers.component1
 import io.github.inductiveautomation.kindling.utils.PointHelpers.component2
+import io.github.inductiveautomation.kindling.utils.TabStrip
 import io.github.inductiveautomation.kindling.utils.TrivialListDataListener
-import io.github.inductiveautomation.kindling.utils.add
+import io.github.inductiveautomation.kindling.utils.VerticalSplitPane
 import io.github.inductiveautomation.kindling.utils.chooseFiles
-import io.github.inductiveautomation.kindling.utils.getAll
 import io.github.inductiveautomation.kindling.utils.jFrame
-import io.github.inductiveautomation.kindling.utils.scrollToTop
 import io.github.inductiveautomation.kindling.utils.traverseChildren
-import kotlinx.serialization.encodeToString
-import net.miginfocom.swing.MigLayout
-import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
-import org.fife.ui.rsyntaxtextarea.SyntaxConstants.SYNTAX_STYLE_YAML
-import java.awt.Font
-import java.awt.KeyboardFocusManager
 import java.awt.Point
 import java.awt.event.ContainerEvent
 import java.awt.event.ContainerListener
-import java.awt.event.KeyEvent
 import java.nio.file.Files
 import java.nio.file.Path
 import javax.swing.JButton
 import javax.swing.JFileChooser
 import javax.swing.JFrame
-import javax.swing.JLabel
 import javax.swing.JOptionPane
 import javax.swing.JPanel
+import javax.swing.SwingConstants
 import javax.swing.SwingUtilities
+import javax.swing.TransferHandler
 import javax.swing.filechooser.FileNameExtensionFilter
-import kotlin.collections.find
-import kotlin.collections.flatMap
-import kotlin.collections.map
 import kotlin.io.path.absolutePathString
 import kotlin.io.path.inputStream
 import kotlin.io.path.name
 import kotlin.io.path.outputStream
 import kotlin.random.Random
+import kotlinx.serialization.encodeToString
+import net.miginfocom.swing.MigLayout
+import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
+import org.fife.ui.rsyntaxtextarea.SyntaxConstants.SYNTAX_STYLE_YAML
 
-@Suppress("unused")
 class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3") {
     override val icon = DockerTool.icon
 
-    private val canvas = Canvas("Docker Drafting")
+    val canvas = Canvas("Docker Drafting").apply {
+        transferHandler = object : TransferHandler() {
+            override fun canImport(support: TransferSupport?): Boolean {
+                return support?.isDataFlavorSupported(DOCKER_SERVICE_DATA_FLAVOR) == true
+            }
 
-    private val services: List<AbstractDockerServiceNode<*>>
+            override fun importData(support: TransferSupport?): Boolean {
+                if (!canImport(support)) return false
+
+                val tool = support?.transferable?.getTransferData(DOCKER_SERVICE_DATA_FLAVOR)
+
+                if (tool is DockerServiceTool<*, *>) {
+                    val canvas = support.component as? Canvas ?: return false
+                    val node = with(tool) {
+                        createNode(createModel()).apply {
+                            bindYamlPreview()
+                        }
+                    }
+
+                    val dropLocation = support.dropLocation.dropPoint.let {
+                        Point(it.x - node.preferredSize.width / 2, it.y - node.preferredSize.height / 2)
+                    }
+
+                    canvas.add(node, dropLocation)
+                    canvas.setLayer(node, NODE_LAYER)
+                    return true
+                }
+
+                return false
+            }
+        }
+    }
+
+    val services: List<AbstractDockerServiceNode<*>>
         get() = canvas.traverseChildren(false).filterIsInstance<AbstractDockerServiceNode<*>>().toList()
 
-    private val nodeIdManager = object {
-        val seenIDs = mutableListOf<Int>()
-        fun generateID(): Int {
-            var newID = Random.nextInt(10000)
-            while (newID in seenIDs) {
-                newID = Random.nextInt(10000)
-            }
-            seenIDs.add(newID)
-            return newID
-        }
-    }
+    val serviceData = mutableMapOf<String, Any>()
 
-    private val portMapper = object {
-        val usedPorts = mutableListOf<UShort>()
-        fun generatePort(): UShort {
-            var newPort: UShort = 9088u
-            while (newPort in usedPorts) {
-                newPort++
-            }
-            usedPorts.add(newPort)
-            return newPort
-        }
+    val nodeIdManager = NodeIdManager()
+    val defaultPortManager = DefaultPortManager()
 
-        fun listenForDeletion(node: AbstractDockerServiceNode<*>) {
-            node.addNodeDeleteListener {
-                usedPorts.removeAll(
-                    node.model.ports.flatMap { mapping ->
-                        parsePorts(mapping.published)
-                    },
-                )
-            }
-        }
-    }
-
-    private var volumes: List<DockerVolume> = emptyList()
-        set(value) {
+    /* Sidebar */
+    var volumes: List<DockerVolume> = emptyList()
+        private set(value) {
             field = value
             services.forEach {
                 it.volumeOptions = value
             }
         }
+    private val volumesTab = VolumesTab(volumes).apply {
+        volumesList.model.addListDataListener(
+            TrivialListDataListener {
+                volumes = List<DockerVolume>(volumesList.model.size) {
+                    volumesList.model.getElementAt(it)
+                }
+                updatePreview()
+            },
+        )
+    }
 
-    private var networks: List<DockerNetwork> = emptyList()
-        set(value) {
-            field = value
-            services.forEach {
-                it.networkOptions = value
-            }
+    // services forEach update networkOptions
+    val networks: Map<String, DockerNetwork> = mutableMapOf()
+    private val networksTab = NetworksTab(networks as MutableMap) {
+        services.forEach {
+            it.networkOptions = networks.keys.toList()
         }
-
-    private val connectionObserver = ConnectionObserver()
-
-    private val optionsLabel = JLabel("Components").apply {
-        font = font.deriveFont(Font.BOLD, 14F)
-    }
-    private val optionList = CanvasNodeList(
-        listOf(
-            NodeInitializer(
-                DockerTool.ignitionIcon,
-                "Ignition Gateway Node",
-            ) {
-                GatewayServiceNode(
-                    GatewayServiceModel(
-                        image = DEFAULT_IMAGE,
-                        containerName = "Ignition-${nodeIdManager.generateID()}",
-                        ports = mutableListOf(PortMapping(portMapper.generatePort().toString(), "8088")),
-                    ),
-                    initialNetworkOptions = networks,
-                    initialVolumeOptions = volumes,
-                ).apply {
-                    bindYamlPreview()
-                    connectionObserver.observeConnection(this)
-                    portMapper.listenForDeletion(this)
-                }
-            },
-            NodeInitializer(
-                DockerTool.icon,
-                "Generic Docker Node",
-            ) {
-                GenericDockerServiceNode(
-                    DockerServiceModel(
-                        image = DEFAULT_GENERIC_IMAGE,
-                        containerName = "Container-${nodeIdManager.generateID()}",
-                    ),
-                    initialVolumeOptions = volumes,
-                    initialNetworkOptions = networks,
-                ).apply {
-                    bindYamlPreview()
-                }
-            },
-            NodeInitializer(
-                DockerTool.mssqlIcon,
-                "MSSQL Server",
-            ) {
-                MSSQLServiceNode(
-                    MSSQLServiceModel(
-                        image = DEFAULT_MSSQL_IMAGE,
-                        containerName = "MSSQL-${nodeIdManager.generateID()}",
-                    ),
-                    initialVolumeOptions = volumes,
-                    initialNetworkOptions = networks,
-                ).apply {
-                    bindYamlPreview()
-                }
-            },
-        ),
-    )
-
-    private val previewLabel = JLabel("YAML Preview").apply {
-        font = font.deriveFont(Font.BOLD, 14F)
+        updatePreview()
     }
 
+    private val servicesList = CanvasNodeList(DockerServiceTool.tools)
+
+    private val importButton = JButton("Import Compose File")
+    private val exportButton = JButton("Export Compose File")
+
+    private val sidebar = JPanel(MigLayout("fill, ins 0")).apply {
+        add(importButton, "growx")
+        add(exportButton, "growx, wrap")
+        add(
+            TabStrip().apply {
+                isTabsClosable = false
+                tabType = TabType.card
+                tabHeight = 16
+                tabPlacement = SwingConstants.RIGHT
+                tabRotation = FlatTabbedPane.TabRotation.auto
+
+                addTab("Nodes", servicesList)
+                addTab("Volumes", volumesTab)
+                addTab("Networks", networksTab)
+            },
+            "push, grow, span",
+        )
+    }
+
+    /* YAML Preview */
     private val popoutPreviewTextArea = RSyntaxTextArea().apply {
         theme = Kindling.Preferences.UI.Theme.currentValue
         syntaxEditingStyle = SYNTAX_STYLE_YAML
@@ -210,78 +170,17 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
         }
     }
 
-    private val previewButton = JButton(
-        Action(description = "Popout", icon = FlatSVGIcon("icons/bx-detail.svg")) {
-            popoutPreview.isVisible = true
-        },
-    )
-
-    private val popoutPreview = jFrame("Preview", 800, 600, false) {
+    private val popoutPreview = jFrame("YAML Preview", 800, 600, false) {
         add(FlatScrollPane(popoutPreviewTextArea))
         defaultCloseOperation = JFrame.HIDE_ON_CLOSE
     }
 
-    private val yamlPreview = RSyntaxTextArea().apply {
-        theme = Kindling.Preferences.UI.Theme.currentValue
-        syntaxEditingStyle = SYNTAX_STYLE_YAML
-
-        Kindling.Preferences.UI.Theme.addChangeListener {
-            theme = it
-        }
-    }
-
-    private val volumesLabel = JLabel("Volumes").apply {
-        font = font.deriveFont(Font.BOLD, 14F)
-    }
-    private val volumesList = VolumesList(volumes).apply {
-        volumesList.model.addListDataListener(
-            TrivialListDataListener {
-                val options = Array<DockerVolume>(volumesList.model.size) {
-                    volumesList.model.getElementAt(it)
-                }
-                volumes = options.toList()
-                updatePreview()
-            },
+    private val detailPane = DetailsPane().apply {
+        actions.add(
+            Action(description = "Popout", icon = FlatSVGIcon("icons/bx-detail.svg")) {
+                popoutPreview.isVisible = true
+            }
         )
-    }
-
-    private val networksLabel = JLabel("Networks").apply {
-        font = font.deriveFont(Font.BOLD, 14F)
-    }
-    private val networksList = NetworksList(networks).apply {
-        networksList.model.addListDataListener(
-            TrivialListDataListener {
-                val options = Array<DockerNetwork>(networksList.model.size) {
-                    networksList.model.getElementAt(it)
-                }
-                networks = options.toList()
-                updatePreview()
-            },
-        )
-    }
-
-    private val importButton = JButton("Import Compose File")
-    private val exportButton = JButton("Export Compose File")
-
-    val previewScrollPane = FlatScrollPane(yamlPreview)
-
-    private val sidebar = JPanel(MigLayout("flowy, fill")).apply {
-        add(
-            JPanel(MigLayout("fill, ins 0")).apply {
-                add(importButton, "grow, sg")
-                add(exportButton, "grow, sg")
-            },
-            "growx, gapbottom 3",
-        )
-        add(optionsLabel, "gapbottom 3")
-        add(optionList, "gapbottom 10, wmin 300, growx")
-        add(volumesLabel, "gapbottom 3")
-        add(volumesList, "grow, gapbottom 3, sg, hmin 100")
-        add(networksLabel, "gapbottom 3")
-        add(networksList, "grow, gapbottom 10, sg, hmin 100")
-        add(previewLabel, "gapbottom 3, split 2, flowx, growx")
-        add(previewButton)
-        add(previewScrollPane, "pushy, grow, wmin 300")
     }
 
     private val composeFile: DockerComposeFile
@@ -298,14 +197,21 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
         name = existingFile?.name ?: "New Editor"
         toolTipText = existingFile?.absolutePathString() ?: ""
 
-        val splitPane = HorizontalSplitPane(
+        val innerSplitPane = HorizontalSplitPane(
             left = canvas,
             right = sidebar,
             resizeWeight = 0.5,
             expandableSide = FlatSplitPane.ExpandableSide.left,
         )
 
-        add(splitPane, "push, grow")
+        add(
+            VerticalSplitPane(
+                top = innerSplitPane,
+                bottom = detailPane,
+                resizeWeight = 0.1,
+            ),
+            "push, grow",
+        )
 
         canvas.addContainerListener(
             object : ContainerListener {
@@ -345,7 +251,7 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
         }
 
         SwingUtilities.invokeLater {
-            splitPane.apply {
+            innerSplitPane.apply {
                 dividerLocation = this@apply.size.width -
                     this@apply.insets.right -
                     rightComponent.minimumSize.width - dividerSize
@@ -357,12 +263,18 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
                 }
 
                 updatePreview()
+
+                DockerServiceTool.tools.forEach {
+                    with(it) {
+                        init()
+                    }
+                }
             }
         }
     }
 
     private fun AbstractDockerServiceNode<*>.bindYamlPreview() {
-        addServiceModelChangeListener {
+        model.addServiceModelChangeListener {
             updatePreview()
         }
     }
@@ -382,58 +294,14 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
 
     private fun import(importFile: Path) {
         fun createNodes(services: List<DockerServiceModel>): List<AbstractDockerServiceNode<*>> {
-            return services.map { model ->
-                val actualModel = model.toGatewayServiceModelOrNull() ?: model.toMSSQLServiceModelOrNull() ?: model
-                when (actualModel) {
-                    is GatewayServiceModel -> {
-                        GatewayServiceNode(actualModel, volumes, networks).apply {
-                            bindYamlPreview()
-                            connectionObserver.observeConnection(this)
-                            portMapper.listenForDeletion(this)
-                        }
-                    }
-
-                    is MSSQLServiceModel -> {
-                        MSSQLServiceNode(actualModel, volumes, networks).apply {
-                            bindYamlPreview()
-                        }
-                    }
-
-                    else -> {
-                        GenericDockerServiceNode(actualModel, volumes, networks).apply {
-                            bindYamlPreview()
-                        }
-                    }
-                }
+            return services.mapNotNull { model ->
+                DockerServiceTool.createNode(model)
+            }.onEach {
+                it.bindYamlPreview()
             }
         }
 
-        fun resolveConnections(nodes: List<AbstractDockerServiceNode<*>>): List<GatewayNodeConnector> {
-            val connections = mutableListOf<GatewayNodeConnector>()
-
-            for (node in nodes) {
-                if (node is GatewayServiceNode) {
-                    val outboundHosts = node.model.environment.filter { (k, _) ->
-                        k.startsWith("GATEWAY_NETWORK_") && k.endsWith("_HOST")
-                    }.map {
-                        it.key.getConnectionVariableIndex()!! to it.value
-                    }
-
-                    for (host in outboundHosts) {
-                        val outboundNode = nodes.find { it.model.hostName == host.second } as GatewayServiceNode? ?: continue
-                        val connection = GatewayNodeConnector(node, host.first, canvas).apply {
-                            to = outboundNode
-                        }
-                        node.connections[host.first] = connection
-                        connections.add(connection)
-                    }
-                }
-            }
-
-            return connections
-        }
-
-        fun layoutComponents(nodes: List<AbstractDockerServiceNode<*>>, connections: List<GatewayNodeConnector>) {
+        fun layoutComponents(nodes: List<AbstractDockerServiceNode<*>>) {
             var collateOffset = 0
             for (node in nodes) {
                 val p = node.model.canvasLocation ?: run {
@@ -445,28 +313,6 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
                 canvas.add(node, p)
                 canvas.setComponentZOrder(node, 0)
             }
-
-            for (c in connections) {
-                canvas.add(c)
-            }
-        }
-
-        fun parseExistingIDs(nodes: List<AbstractDockerServiceNode<*>>) {
-            for (node in nodes) {
-                val possibleID = node.model.containerName.split("-").getOrNull(1)?.toIntOrNull()
-                if (possibleID != null) {
-                    nodeIdManager.seenIDs.add(possibleID)
-                }
-            }
-        }
-
-        fun parseExistingPorts(nodes: List<AbstractDockerServiceNode<*>>) {
-            val usedPorts = nodes.flatMap { node ->
-                node.model.ports.flatMap { mapping ->
-                    parsePorts(mapping.published)
-                }
-            }
-            portMapper.usedPorts.addAll(usedPorts)
         }
 
         val composeFile = try {
@@ -482,14 +328,11 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
             return
         }
 
-        networks = composeFile.networks
+        (networks as MutableMap).putAll(composeFile.networks)
         volumes = composeFile.volumes
 
         val nodes = createNodes(composeFile.services)
-        val connections = resolveConnections(nodes)
-        layoutComponents(nodes, connections)
-        parseExistingIDs(nodes)
-        parseExistingPorts(nodes)
+        layoutComponents(nodes)
     }
 
     private fun clear() {
@@ -504,10 +347,13 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
             error.stackTraceToString()
         }
 
-        yamlPreview.text = text
+        detailPane.events = listOf(
+            Detail(
+                "YAML Preview",
+                body = text.split("\n")
+            )
+        )
         popoutPreviewTextArea.text = text
-
-        previewScrollPane.scrollToTop()
     }
 
     companion object {
@@ -531,99 +377,38 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
         }
     }
 
-    private inner class ConnectionObserver {
-        var inProgressConnection: GatewayNodeConnector? = null
-            set(value) {
-                field = value
-                toolTipText = if (value != null) {
-                    "Press ESC to cancel adding a connection."
-                } else {
-                    ""
-                }
-                fireConnectionProgressChange()
+    inner class NodeIdManager {
+        private val seenIDs = services.map {
+            it.name.takeLastWhile { c -> c.isDigit() }.toInt()
+        }.toMutableList()
+
+        fun generateID(): Int {
+            var newID = Random.nextInt(100000) // Not going to bother with collisions since they're extremely unlikely.
+            while (newID in seenIDs) {
+                newID = Random.nextInt(100000)
             }
-
-        init {
-            KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher { e ->
-                if (e.keyCode == KeyEvent.VK_ESCAPE) {
-                    inProgressConnection?.let {
-                        canvas.remove(it)
-                        it.from.connections.remove(it.index)
-                        inProgressConnection = null
-                        canvas.repaint()
-                    }
-                    true
-                } else {
-                    false
-                }
-            }
-        }
-
-        fun handleConnectionInit(node: GatewayServiceNode) {
-            if (inProgressConnection == null) {
-                val index = node.connections.keys.maxOrNull()?.plus(1) ?: 1
-                val connection = GatewayNodeConnector(node, index, canvas)
-                node.connections[index] = connection
-
-                canvas.add(connection, Canvas.CONNECTION_LAYER)
-                canvas.setLayer(connection, Canvas.CONNECTION_LAYER)
-
-                inProgressConnection = connection
-            } else {
-                if (validateConnection(inProgressConnection!!.from, node)) {
-                    inProgressConnection!!.to = node
-                    inProgressConnection = null
-                    SwingUtilities.invokeLater {
-                        canvas.repaint()
-                    }
-                } else {
-                    JOptionPane.showMessageDialog(
-                        null,
-                        "Please select a different node!",
-                        "Invalid Connection",
-                        JOptionPane.WARNING_MESSAGE,
-                    )
-                }
-            }
-        }
-
-        fun addConnectionProgressChangeListener(l: ConnectionProgressChangeListener) = listenerList.add(l)
-
-        private fun fireConnectionProgressChange() {
-            listenerList.getAll<ConnectionProgressChangeListener>().forEach {
-                it.onConnectionProgressChangeRequest(inProgressConnection != null)
-            }
-        }
-
-        private fun validateConnection(from: GatewayServiceNode, to: GatewayServiceNode): Boolean {
-            if (from === to) return false
-            if (from.model.hostName.isNullOrEmpty() || to.model.hostName.isNullOrEmpty()) return false
-
-            return to.model.networks.any {
-                it in from.model.networks
-            } || (from.model.networks.isEmpty() || to.model.networks.isEmpty())
-        }
-
-        fun observeConnection(node: GatewayServiceNode) {
-            node.addConnectionInitListener {
-                handleConnectionInit(node)
-            }
-
-            addConnectionProgressChangeListener { inProgress: Boolean ->
-                node.updateValidConnectionTarget(inProgress)
-            }
+            seenIDs.add(newID)
+            return newID
         }
     }
 
-    private fun parsePorts(s: String): List<UShort> {
-        val portStrings = s.split(":").last().split("-")
-        return if (portStrings.size > 1) {
-            (portStrings.first().toUShort()..portStrings.last().toUShort()).map {
-                it.toUShort()
+    inner class DefaultPortManager {
+        private val usedPorts: List<UShort>
+            get() = services.flatMap { node ->
+                node.model.ports.mapNotNull { portMapping ->
+                    portMapping.published.toUShortOrNull()
+                }
             }
-        } else {
-            portStrings.map {
-                it.toUShort()
+
+        fun requestPorts(numPorts: Int): List<UShort> = buildList {
+            val p = usedPorts.toMutableList()
+            var newPort: UShort = 9088u
+            repeat(numPorts) {
+                while(newPort in p) {
+                    newPort++
+                }
+                p.add(newPort)
+                add(newPort)
             }
         }
     }
@@ -634,10 +419,6 @@ object DockerTool : EditorTool {
     override val title: String = "Docker Draft"
     override val description: String = "Open or create docker-compose.yaml files."
     override val icon: FlatSVGIcon = FlatSVGIcon("icons/bx-docker.svg")
-
-    internal val ignitionIcon: FlatSVGIcon = FlatSVGIcon("icons/Logo-Ignition-Check.svg")
-
-    internal val mssqlIcon: FlatSVGIcon = FlatSVGIcon("icons/microsoft-sql-server.svg")
 
     override fun open(path: Path): ToolPanel {
         return DockerDraftPanel(path)

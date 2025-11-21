@@ -1,8 +1,8 @@
 package io.github.inductiveautomation.kindling.docker.serializers
 
-import io.github.inductiveautomation.kindling.docker.model.CLI_REGEX
-import io.github.inductiveautomation.kindling.docker.model.CliArgument
-import io.github.inductiveautomation.kindling.docker.model.isValid
+import io.github.inductiveautomation.kindling.docker.services.ignition.model.CLI_REGEX
+import io.github.inductiveautomation.kindling.docker.services.ignition.model.CliArgument
+import io.github.inductiveautomation.kindling.docker.services.ignition.model.isValid
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.descriptors.PrimitiveKind
 import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
