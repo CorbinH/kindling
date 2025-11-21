@@ -19,12 +19,14 @@ import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpMethod
 import io.ktor.serialization.kotlinx.json.json
+import io.ktor.utils.io.ByteReadChannel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import net.miginfocom.swing.MigLayout
+import java.io.File
 import java.nio.file.Path
 import javax.swing.Icon
 import javax.swing.JButton
@@ -37,6 +39,17 @@ import javax.swing.JTextField
 import javax.swing.JTree
 import javax.swing.SwingConstants
 import kotlin.io.path.name
+import io.ktor.client.*
+import io.ktor.client.call.*
+import io.ktor.client.engine.cio.*
+import io.ktor.client.plugins.*
+import io.ktor.client.plugins.contentnegotiation.*
+import io.ktor.client.request.*
+import io.ktor.http.*
+import io.ktor.utils.io.copyTo          // Import for efficient stream copy
+import io.ktor.utils.io.jvm.javaio.copyTo
+import kotlinx.coroutines.runBlocking
+import java.io.OutputStream
 
 @Serializable
 data class BundleStatus(val state: String)
@@ -119,28 +132,33 @@ class LiveDiagnosticPanel(existingFile: Path?) : ToolPanel("debug, ins 0, fill, 
 
 
     suspend fun executeBundleProcess() {
-        val isGenerating = genBundle()
-        var genComplete = false
+        val isGenerating = genBundle().state == "Generating"
+        if (isGenerating) {
+            var genComplete = false
 
-        for (i in 0 until 10) {
-            try {
-                val status = bundleStatus()
-                if (status.state == "Valid") {
-                    genComplete = true
-                    break
+            for (i in 0 until 10) {
+                try {
+                    val status = bundleStatus()
+                    if (status.state == "Valid") {
+                        genComplete = true
+                        break
+                    }
+                } catch (e: Exception) {
+
                 }
-            } catch (e: Exception) {
+                if (i == 9) {
+                    println("Call Timed out after 10 seconds")
+                }
+                delay(1000)
+            }
+            println(genComplete)
 
+            if (genComplete) {
+                downloadBundle()
             }
-            if (i == 9) {
-                println("Call Timed out after 10 seconds")
-            }
-            delay(1000)
+        } else {
+            println("Failed to start generating bundle")
         }
-        println(genComplete)
-
-
-
 
     }
 
@@ -152,9 +170,17 @@ class LiveDiagnosticPanel(existingFile: Path?) : ToolPanel("debug, ins 0, fill, 
         return runAPICall<BundleComplete>(destinationUrl.text+BUNDLE_STATUS, APIKey.text, HttpMethod.Get)
     }
 
-//    fun downloadBundle() {
-//        runAPICall(destinationUrl.text+DOWNLOAD_BUDNLE, APIKey.text, HttpMethod.Get)
-//    }
+    suspend fun downloadBundle(): File {
+        val tempFile = File.createTempFile("downloaded_", ".tmp")
+        val channel: ByteReadChannel = runAPICall(destinationUrl.text+DOWNLOAD_BUDNLE, APIKey.text, HttpMethod.Get)
+        val outputStream: OutputStream = tempFile.outputStream()
+        try {
+            channel.copyTo(outputStream)
+        } finally {
+            outputStream.close()
+        }
+        return tempFile
+    }
 
     companion object {
         const val GEN_DIAG_BUNDLE = "/data/api/v1/diagnostics/bundle/generate"
