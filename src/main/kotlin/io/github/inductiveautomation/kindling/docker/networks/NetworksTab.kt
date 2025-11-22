@@ -62,7 +62,7 @@ class NetworksTab(
         }
     )
 
-    private val table = ReifiedJXTable(ReifiedMapTableModel(networks, NetworksColumns)).apply {
+    val table = ReifiedJXTable(ReifiedMapTableModel(networks, NetworksColumns)).apply {
         isColumnControlVisible = false
         selectionMode = ListSelectionModel.SINGLE_SELECTION
     }

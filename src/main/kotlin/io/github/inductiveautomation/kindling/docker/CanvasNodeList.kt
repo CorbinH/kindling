@@ -11,13 +11,13 @@ import javax.swing.TransferHandler
 import kotlin.jvm.java
 
 class CanvasNodeList(
-    initializers: List<DockerServiceTool<*, *>>,
-) : JList<DockerServiceTool<*, *>>(CanvasNodeListModel(initializers)) {
+    initializers: List<DockerServiceTool>,
+) : JList<DockerServiceTool>(CanvasNodeListModel(initializers)) {
     override fun getModel(): CanvasNodeListModel = super.getModel() as CanvasNodeListModel
 
     init {
         dragEnabled = true
-        cellRenderer = listCellRenderer<DockerServiceTool<*, *>> { _, value, _, _, _ ->
+        cellRenderer = listCellRenderer<DockerServiceTool> { _, value, _, _, _ ->
             text = value.name
             icon = value.icon
         }
@@ -25,10 +25,10 @@ class CanvasNodeList(
         transferHandler = DockerServiceToolTransferHandler()
     }
 
-    class CanvasNodeListModel(private val data: List<DockerServiceTool<*, *>>) : AbstractListModel<DockerServiceTool<*, *>>() {
+    class CanvasNodeListModel(private val data: List<DockerServiceTool>) : AbstractListModel<DockerServiceTool>() {
         override fun getSize(): Int = data.size
 
-        override fun getElementAt(index: Int): DockerServiceTool<*, *> = data[index]
+        override fun getElementAt(index: Int): DockerServiceTool = data[index]
     }
 }
 
@@ -38,7 +38,7 @@ class DockerServiceToolTransferHandler : TransferHandler() {
 
     override fun createTransferable(c: JComponent?): Transferable? {
         if (c is JList<*>) {
-            val selectedInitializer = c.selectedValue as? DockerServiceTool<*, *>
+            val selectedInitializer = c.selectedValue as? DockerServiceTool
 
             if (selectedInitializer != null) {
                 return DockerServiceToolTransferable(selectedInitializer)
@@ -49,7 +49,7 @@ class DockerServiceToolTransferHandler : TransferHandler() {
     }
 
     class DockerServiceToolTransferable(
-        private val initializer: DockerServiceTool<*, *>,
+        private val initializer: DockerServiceTool,
     ) : Transferable {
         override fun getTransferDataFlavors(): Array<DataFlavor> {
             return arrayOf(DOCKER_SERVICE_DATA_FLAVOR)

@@ -4,7 +4,7 @@ import io.github.inductiveautomation.kindling.docker.services.model.DefaultDocke
 import io.github.inductiveautomation.kindling.docker.services.model.DockerServiceModel
 
 class IgnitionServiceModel(
-    val model: DefaultDockerServiceModel,
+    model: DefaultDockerServiceModel,
 ) : DockerServiceModel by model {
 
     init {
@@ -32,7 +32,6 @@ class IgnitionServiceModel(
     }
 
     companion object {
-        const val IGNITION_DEFAULT_IMAGE = "inductiveautomation/ignition:latest"
         private val hostNameValidChars = ('A'..'Z') + ('0'..'9') + ('a'..'z') + '-'
         private val IGNITION_DEFAULT_VARIABLES = mapOf(
             IgnitionStaticDefinition.ACCEPT_IGNITION_EULA.name to "Y",
@@ -40,18 +39,6 @@ class IgnitionServiceModel(
             IgnitionStaticDefinition.GATEWAY_ADMIN_PASSWORD.name to "password",
             IgnitionStaticDefinition.IGNITION_EDITION.name to "standard",
         )
-
-        fun DefaultDockerServiceModel.asIgnitionServiceModel(): IgnitionServiceModel {
-            require(image.startsWith("inductiveautomation/ignition")) {
-                "Invalid image name for Ignition gateway: $image"
-            }
-
-            return IgnitionServiceModel(this)
-        }
-
-        fun DefaultDockerServiceModel.asIgnitionServiceModelOrNull(): IgnitionServiceModel? {
-            return runCatching { asIgnitionServiceModel() }.getOrNull()
-        }
     }
 }
 enum class GatewayServiceFlavor {

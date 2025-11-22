@@ -25,7 +25,7 @@ import io.github.inductiveautomation.kindling.docker.networks.model.DockerNetwor
 import io.github.inductiveautomation.kindling.docker.services.AbstractDockerServiceNode
 import io.github.inductiveautomation.kindling.docker.services.DockerServiceTool
 import io.github.inductiveautomation.kindling.docker.services.ignition.IgnitionNodeConnector.Companion.midPoint
-import io.github.inductiveautomation.kindling.docker.services.model.DockerServiceModel
+import io.github.inductiveautomation.kindling.docker.services.model.DefaultDockerServiceModel
 import io.github.inductiveautomation.kindling.docker.volumes.VolumesTab
 import io.github.inductiveautomation.kindling.docker.volumes.model.DockerVolume
 import io.github.inductiveautomation.kindling.utils.Action
@@ -45,6 +45,7 @@ import java.awt.event.ContainerEvent
 import java.awt.event.ContainerListener
 import java.nio.file.Files
 import java.nio.file.Path
+import javax.swing.DefaultListModel
 import javax.swing.JButton
 import javax.swing.JFileChooser
 import javax.swing.JFrame
@@ -78,12 +79,10 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
 
                 val tool = support?.transferable?.getTransferData(DOCKER_SERVICE_DATA_FLAVOR)
 
-                if (tool is DockerServiceTool<*, *>) {
+                if (tool is DockerServiceTool) {
                     val canvas = support.component as? Canvas ?: return false
-                    val node = with(tool) {
-                        createNode(createModel()).apply {
-                            bindYamlPreview()
-                        }
+                    val node = tool.createNode(tool.createModel()).apply {
+                        bindYamlPreview()
                     }
 
                     val dropLocation = support.dropLocation.dropPoint.let {
@@ -187,7 +186,7 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
         get() {
             return DockerComposeFile(
                 null,
-                services.map { it.model }.sortedBy { it.containerName },
+                services.map { it.model.defaultModel }.sortedBy { it.containerName },
                 volumes,
                 networks,
             )
@@ -293,9 +292,13 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
     }
 
     private fun import(importFile: Path) {
-        fun createNodes(services: List<DockerServiceModel>): List<AbstractDockerServiceNode<*>> {
+        fun createNodes(services: List<DefaultDockerServiceModel>): List<AbstractDockerServiceNode<*>> {
             return services.mapNotNull { model ->
-                DockerServiceTool.createNode(model)
+                val tool = DockerServiceTool.tools.find {
+                    it.isValidCandidate(model)
+                } ?: return@mapNotNull null
+
+                tool.createNode(tool.modelFromDefault(model))
             }.onEach {
                 it.bindYamlPreview()
             }
@@ -329,7 +332,9 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
         }
 
         (networks as MutableMap).putAll(composeFile.networks)
-        volumes = composeFile.volumes
+        networksTab.table.model.fireTableDataChanged()
+
+        (volumesTab.volumesList.model as DefaultListModel<DockerVolume>).addAll(composeFile.volumes)
 
         val nodes = createNodes(composeFile.services)
         layoutComponents(nodes)

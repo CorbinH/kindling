@@ -50,6 +50,7 @@ interface DockerServiceModel {
     var pid: String?
 
     var canvasLocation: Point?
+    val defaultModel: DefaultDockerServiceModel
 
     fun addServiceModelChangeListener(l: ServiceModelChangeListener)
     fun removeServiceModelChangeListener(l: ServiceModelChangeListener)
@@ -106,15 +107,14 @@ class DefaultDockerServiceModel(
     @Transient
     private val listenerList = EventListenerList()
 
+    @Transient
+    override val defaultModel = this
+
     override fun addServiceModelChangeListener(l: ServiceModelChangeListener) = listenerList.add(l)
     override fun removeServiceModelChangeListener(l: ServiceModelChangeListener) = listenerList.remove(l)
 
     override fun fireServiceModelChangedEvent() {
         listenerList.getAll<ServiceModelChangeListener>().forEach(ServiceModelChangeListener::onServiceModelChanged)
-    }
-
-    companion object {
-        const val DEFAULT_GENERIC_IMAGE = "kcollins/mssql:latest"
     }
 }
 

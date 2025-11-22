@@ -4,7 +4,7 @@ import io.github.inductiveautomation.kindling.docker.services.model.DefaultDocke
 import io.github.inductiveautomation.kindling.docker.services.model.DockerServiceModel
 
 class MSSQLServiceModel(
-    val model: DefaultDockerServiceModel,
+    model: DefaultDockerServiceModel,
 ) : DockerServiceModel by model {
 
     init {
@@ -26,17 +26,5 @@ class MSSQLServiceModel(
     companion object {
         const val DEFAULT_MSSQL_IMAGE = "kcollins/mssql:latest"
         private val hostNameValidChars = ('A'..'Z') + ('0'..'9') + ('a'..'z') + '-'
-
-        fun DefaultDockerServiceModel.asMSSQLServiceModel(): MSSQLServiceModel {
-            require(image.startsWith("kcollins/mssql")) {
-                "Invalid image name for MSSQL Server: $image"
-            }
-
-            return MSSQLServiceModel(this)
-        }
-
-        fun DefaultDockerServiceModel.asMSSQLServiceModelOrNull(): MSSQLServiceModel? {
-            return runCatching { asMSSQLServiceModel() }.getOrNull()
-        }
     }
 }

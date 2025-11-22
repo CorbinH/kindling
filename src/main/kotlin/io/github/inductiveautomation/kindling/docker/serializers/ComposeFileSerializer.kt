@@ -4,10 +4,6 @@ import io.github.inductiveautomation.kindling.docker.DockerComposeFile
 import io.github.inductiveautomation.kindling.docker.networks.model.DockerNetwork
 import io.github.inductiveautomation.kindling.docker.services.model.DefaultDockerServiceModel
 import io.github.inductiveautomation.kindling.docker.volumes.model.DockerVolume
-import io.github.inductiveautomation.kindling.docker.services.ignition.model.IgnitionServiceModel
-import io.github.inductiveautomation.kindling.docker.services.ignition.model.IgnitionServiceModel.Companion.asIgnitionServiceModelOrNull
-import io.github.inductiveautomation.kindling.docker.services.mssql.model.MSSQLServiceModel
-import io.github.inductiveautomation.kindling.docker.services.mssql.model.MSSQLServiceModel.Companion.asMSSQLServiceModelOrNull
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.descriptors.SerialDescriptor
@@ -31,9 +27,7 @@ object ComposeFileSerializer : KSerializer<DockerComposeFile> {
 
         return DockerComposeFile(
             fileDelegate.name,
-            fileDelegate.services.values.map {
-                it.asIgnitionServiceModelOrNull() ?: it.asMSSQLServiceModelOrNull() ?: it
-            },
+            fileDelegate.services.values.toList(),
             volumes,
             fileDelegate.networks,
         )
@@ -43,12 +37,7 @@ object ComposeFileSerializer : KSerializer<DockerComposeFile> {
         val composeFile = DockerComposeFileDelegate(
             value.name,
             value.services.associate {
-                when (it) {
-                    is DefaultDockerServiceModel -> it.containerName to it
-                    is IgnitionServiceModel -> it.containerName to it.model
-                    is MSSQLServiceModel-> it.containerName to it.model
-                    else -> error("Unknown model")
-                }
+                it.containerName to it.defaultModel
             },
             value.volumes.associate { it.name to null },
             value.networks,

@@ -4,10 +4,10 @@ import com.formdev.flatlaf.extras.FlatSVGIcon
 import io.github.inductiveautomation.kindling.docker.DockerDraftPanel
 import io.github.inductiveautomation.kindling.docker.services.DockerServiceTool
 import io.github.inductiveautomation.kindling.docker.services.ignition.model.IgnitionServiceModel
-import io.github.inductiveautomation.kindling.docker.services.ignition.model.IgnitionServiceModel.Companion.asIgnitionServiceModel
 import io.github.inductiveautomation.kindling.docker.services.ignition.model.IgnitionVersionComparator
 import io.github.inductiveautomation.kindling.docker.services.model.DefaultDockerServiceModel
 import io.github.inductiveautomation.kindling.docker.services.model.DockerEnvironmentVariableDefinition.Companion.getConnectionVariableIndex
+import io.github.inductiveautomation.kindling.docker.services.model.DockerServiceModel
 import io.github.inductiveautomation.kindling.docker.services.model.PortMapping
 import java.net.URI
 import java.net.http.HttpClient
@@ -26,26 +26,31 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
-object IgnitionServiceTool : DockerServiceTool<IgnitionServiceModel, IgnitionServiceNode> {
+object IgnitionServiceTool : DockerServiceTool {
     override val icon = FlatSVGIcon("icons/Logo-Ignition-Check.svg")
     override val name = "Ignition Gateway Node"
     override val defaultImage = "inductiveautomation/ignition:latest"
-    override val modelClass = IgnitionServiceModel::class
 
     private const val DOCKER_URL =
         "https://hub.docker.com/v2/repositories/inductiveautomation/ignition/tags?page_size=1000&page=1&ordering=last_updated"
 
     context(panel: DockerDraftPanel)
     override fun createModel(): IgnitionServiceModel {
-        return DefaultDockerServiceModel(
-            image = defaultImage,
-            containerName = "Ignition-${panel.nodeIdManager.generateID()}",
-            ports = mutableListOf(PortMapping(panel.defaultPortManager.requestPorts(1).single().toString(), "8088")),
-        ).asIgnitionServiceModel()
+        return modelFromDefault(
+            DefaultDockerServiceModel(
+                image = defaultImage,
+                containerName = "Ignition-${panel.nodeIdManager.generateID()}",
+                ports = mutableListOf(PortMapping(panel.defaultPortManager.requestPorts(1).single().toString(), "8088")),
+            )
+        )
     }
 
     context(panel: DockerDraftPanel)
-    override fun createNode(model: IgnitionServiceModel): IgnitionServiceNode {
+    override fun createNode(model: DockerServiceModel): IgnitionServiceNode {
+        require(model is IgnitionServiceModel) {
+            "Model ${model::class.java.name} is not an Ignition Service Model"
+        }
+
         val observer = panel.serviceData["connectionObserver"] as ConnectionObserver?
 
         return IgnitionServiceNode(model, panel.volumes, panel.networks.keys.toList()).apply {
@@ -68,6 +73,12 @@ object IgnitionServiceTool : DockerServiceTool<IgnitionServiceModel, IgnitionSer
             observer.observeConnection(service)
         }
     }
+
+    override fun isValidCandidate(model: DefaultDockerServiceModel): Boolean {
+        return model.image.startsWith("inductiveautomation/ignition")
+    }
+
+    override fun modelFromDefault(model: DefaultDockerServiceModel) = IgnitionServiceModel(model)
 
     fun DockerDraftPanel.resolveConnections(nodes: List<IgnitionServiceNode>): List<IgnitionNodeConnector> {
         val connections = mutableListOf<IgnitionNodeConnector>()
