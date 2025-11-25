@@ -1,0 +1,435 @@
+package io.github.inductiveautomation.kindling.docker.services.ignition
+
+import io.github.inductiveautomation.kindling.docker.services.ConfigSection
+import io.github.inductiveautomation.kindling.docker.services.ignition.model.IgnitionStaticDefinition
+import io.github.inductiveautomation.kindling.docker.services.ignition.model.IgnitionVersionComparator
+import io.github.inductiveautomation.kindling.docker.services.model.DockerEnvironmentVariableDefinition
+import io.github.inductiveautomation.kindling.docker.services.model.DockerEnvironmentVariableDefinition.Companion.getConnectionVariableFromInstance
+import io.github.inductiveautomation.kindling.docker.services.model.DockerEnvironmentVariableDefinition.Companion.isConnectionVariable
+import io.github.inductiveautomation.kindling.docker.services.model.DockerEnvironmentVariableDefinition.Companion.toYamlString
+import io.github.inductiveautomation.kindling.utils.ColorHighlighter
+import io.github.inductiveautomation.kindling.utils.Column
+import io.github.inductiveautomation.kindling.utils.ColumnList
+import io.github.inductiveautomation.kindling.utils.NoSelectionModel
+import io.github.inductiveautomation.kindling.utils.ReifiedJXTable
+import io.github.inductiveautomation.kindling.utils.ReifiedMapTableModel
+import io.github.inductiveautomation.kindling.utils.ReifiedTableModel
+import io.github.inductiveautomation.kindling.utils.StringPairColumns
+import io.github.inductiveautomation.kindling.utils.configureCellRenderer
+import java.awt.Color
+import java.awt.Component
+import java.awt.event.MouseEvent
+import java.util.EventObject
+import javax.swing.AbstractCellEditor
+import javax.swing.DefaultComboBoxModel
+import javax.swing.DefaultListModel
+import javax.swing.JButton
+import javax.swing.JComboBox
+import javax.swing.JLabel
+import javax.swing.JList
+import javax.swing.JPanel
+import javax.swing.JTable
+import javax.swing.JTextField
+import javax.swing.ListSelectionModel
+import javax.swing.RowFilter
+import javax.swing.UIManager
+import javax.swing.table.AbstractTableModel
+import javax.swing.table.DefaultTableCellRenderer
+import javax.swing.table.TableCellEditor
+import kotlin.properties.Delegates
+import net.miginfocom.swing.MigLayout
+import org.jdesktop.swingx.JXTextArea
+
+class IgnitionEnvironmentVariablesEditor(
+    private val data: MutableMap<String, String>,
+    version: String,
+) : ConfigSection("Environment Variables", "fill, ins 0, gap 4") {
+    /**
+     * Divided into 3 sections: Pre-canned variables, variables from connection settings, and custom variables.
+     */
+    private val gatewaySettingsTable = ReifiedJXTable(GatewayEnvironmentVariableTableModel(data, version)).apply {
+        selectionMode = ListSelectionModel.SINGLE_SELECTION
+    }
+    var version: String by gatewaySettingsTable.model::version
+    private val gatewaySettingsLabel = JLabel("Ignition Environment Variables")
+    private val addButton = JButton("+").apply {
+        addActionListener {
+            val s = gatewaySettingsTable.model.rowCount
+
+            val currentVars = gatewaySettingsTable.model.staticVariableData.map { it.first }
+            val newEntry = IgnitionStaticDefinition.entries.find {
+                it !in currentVars
+            }
+
+            if (newEntry != null) {
+                val newValue = defaultOverrides[newEntry]
+
+                if (newValue == null) {
+                    gatewaySettingsTable.model.staticVariableData.add(Pair(newEntry, newEntry.default))
+                } else {
+                    gatewaySettingsTable.model.staticVariableData.add(Pair(newEntry, newValue))
+                    data[newEntry.name] = newValue
+                }
+
+                gatewaySettingsTable.model.fireTableRowsInserted(s, s)
+            }
+        }
+
+        gatewaySettingsTable.model.addTableModelListener {
+            isEnabled = (it.source as GatewayEnvironmentVariableTableModel).getUnusedOptions().isNotEmpty()
+        }
+    }
+    private val removeButton = JButton("-").apply {
+        isEnabled = false
+        gatewaySettingsTable.selectionModel.addListSelectionListener {
+            isEnabled = !(it.source as ListSelectionModel).isSelectionEmpty
+        }
+
+        addActionListener {
+            val index = gatewaySettingsTable.selectionModel.selectedIndices.first()
+            val modelIndex = gatewaySettingsTable.convertRowIndexToModel(index)
+
+            val removed = gatewaySettingsTable.model.staticVariableData.removeAt(modelIndex)
+            data.remove(removed.first.name)
+            gatewaySettingsTable.model.fireTableDataChanged()
+        }
+    }
+
+    private val customSettingsLabel = JLabel("Custom Environment Variables")
+    private val customVariablesTable = ReifiedJXTable(ReifiedMapTableModel(data, StringPairColumns)).apply {
+        isColumnControlVisible = false
+        isSortable = false
+        setRowFilter(
+            object : RowFilter<ReifiedMapTableModel<String>, Int>() {
+                override fun include(entry: Entry<out ReifiedMapTableModel<String>, out Int>?): Boolean {
+                    val k = entry?.model?.getValueAt(entry.identifier, 0) as String
+                    val connectionName = k.getConnectionVariableFromInstance()
+                    return DockerEnvironmentVariableDefinition.variableDefinitionsByName[k] == null && connectionName == null
+                }
+            },
+        )
+    }
+
+    private val customVariablesHeader = JPanel(MigLayout("fill")).apply {
+        val envVariableLabel = JLabel("Add/Remove")
+        val keyEntry = JXTextArea("Key")
+        val valueEntry = JXTextArea("Value")
+
+        val addEnvButton = JButton("+").apply {
+            addActionListener {
+                if (!keyEntry.text.isNullOrEmpty() && !valueEntry.text.isNullOrEmpty()) {
+                    data[keyEntry.text] = valueEntry.text
+                    customVariablesTable.model.fireTableDataChanged()
+                }
+            }
+        }
+
+        val removeEnvButton = JButton("-").apply {
+            isEnabled = !customVariablesTable.selectionModel.isSelectionEmpty
+
+            customVariablesTable.selectionModel.addListSelectionListener {
+                isEnabled = !(it.source as ListSelectionModel).isSelectionEmpty
+            }
+
+            addActionListener {
+                val entries = data.keys.toList()
+                val toRemove = customVariablesTable.selectionModel.selectedIndices.map {
+                    entries[customVariablesTable.convertRowIndexToModel(it)]
+                }
+                toRemove.forEach { data.remove(it) }
+                customVariablesTable.model.fireTableDataChanged()
+            }
+        }
+
+        add(envVariableLabel, "west")
+        add(keyEntry, "grow, sg")
+        add(valueEntry, "grow, sg")
+        add(addEnvButton, "east")
+        add(removeEnvButton, "east")
+    }
+
+    private val connectionSettingsLabel = JLabel("Variables from connection settings")
+    private val connectionVariablesList = JList<String>().apply {
+        selectionModel = NoSelectionModel()
+    }
+
+    init {
+        add(gatewaySettingsLabel, "growx")
+        add(removeButton)
+        add(addButton, "wrap")
+        add(gatewaySettingsTable, "push, grow, span, sg")
+        add(customSettingsLabel, "growx, spanx")
+        add(customVariablesHeader, "growx, spanx")
+        add(customVariablesTable, "push, grow, span, sg")
+        add(connectionSettingsLabel, "growx, spanx")
+        add(connectionVariablesList, "push, grow, span, sg")
+
+        updateData()
+
+        gatewaySettingsTable.model.addTableModelListener {
+            fireConfigChange()
+        }
+
+        customVariablesTable.model.addTableModelListener {
+            fireConfigChange()
+        }
+
+        gatewaySettingsTable.addHighlighter(
+            ColorHighlighter(UIManager.getColor("Actions.Red"), Color.WHITE) { _, adapter ->
+                val modelRow = gatewaySettingsTable.convertRowIndexToModel(adapter.row)
+                !gatewaySettingsTable.model.meetsMinimumVersion(modelRow)
+            },
+        )
+    }
+
+    override fun updateData() {
+        connectionVariablesList.model = DefaultListModel<String>().apply {
+            addAll(
+                data.entries.map {
+                    it.toPair()
+                }.filter {
+                    it.isConnectionVariable()
+                }.map {
+                    it.toYamlString()
+                },
+            )
+        }
+    }
+
+    companion object {
+        internal val defaultOverrides: Map<IgnitionStaticDefinition, String> = mapOf(
+            IgnitionStaticDefinition.TZ to "America/Los_Angeles",
+            IgnitionStaticDefinition.ACCEPT_IGNITION_EULA to "Y",
+            IgnitionStaticDefinition.IGNITION_EDITION to "standard",
+            IgnitionStaticDefinition.GATEWAY_ADMIN_USERNAME to "admin",
+            IgnitionStaticDefinition.GATEWAY_ADMIN_PASSWORD to "password",
+            IgnitionStaticDefinition.DISABLE_QUICKSTART to "true",
+        )
+    }
+}
+
+class GatewayEnvironmentVariableTableModel(
+    private val dataSource: MutableMap<String, String>,
+    version: String,
+) : AbstractTableModel(), ReifiedTableModel<Pair<IgnitionStaticDefinition, String>> {
+    var version by Delegates.observable(version) { _, _, _ ->
+        fireTableDataChanged()
+    }
+
+    override fun getRowCount() = staticVariableData.size
+    override fun getColumnCount() = size
+    override fun getColumnClass(columnIndex: Int) = columns[columnIndex].clazz
+    override fun getColumnName(columnIndex: Int) = columns[columnIndex].header
+
+    private val allVariables = IgnitionStaticDefinition.entries.toHashSet()
+
+    /*
+     * The table's actual data. Since maps aren't ordered, we need to copy the data here and keep it
+     * in sync with the map data.
+     */
+
+    internal val staticVariableData: MutableList<Pair<IgnitionStaticDefinition, String>> = dataSource.filter {
+        DockerEnvironmentVariableDefinition.variableDefinitionsByName.containsKey(it.key)
+    }.map { IgnitionStaticDefinition.valueOf(it.key) to it.value }.toMutableList()
+
+    override fun isCellEditable(rowIndex: Int, columnIndex: Int): Boolean {
+        return columns[columnIndex] == Value || getUnusedOptions().isNotEmpty()
+    }
+
+    fun meetsMinimumVersion(rowIndex: Int): Boolean {
+        return IgnitionVersionComparator.compare(
+            staticVariableData[rowIndex].first.minimumVersion,
+            version,
+        ) <= 0
+    }
+
+    fun getUnusedOptions(forRow: Int? = null): List<IgnitionStaticDefinition> {
+        val currentKeys = staticVariableData.map { it.first }
+        val value = forRow?.let { getValueAt(it, 0) }
+
+        return allVariables.filter { it !in currentKeys || it == value }.sortedBy {
+            it.name
+        }
+    }
+
+    override fun getValueAt(rowIndex: Int, columnIndex: Int): Any? {
+        require(columnIndex in 0..1) { "Column index $columnIndex out of bounds. Should be 0 or 1." }
+        return columns[columnIndex].getValue(staticVariableData[rowIndex])
+    }
+
+    override fun setValueAt(aValue: Any?, rowIndex: Int, columnIndex: Int) {
+        if (columnIndex == 0) {
+            aValue as IgnitionStaticDefinition
+            val currentValue = getValueAt(rowIndex, columnIndex) as IgnitionStaticDefinition
+
+            dataSource.remove(currentValue.name)
+
+            val newValue = IgnitionEnvironmentVariablesEditor.defaultOverrides[aValue]
+
+            if (newValue == null) {
+                staticVariableData[rowIndex] = Pair(aValue, aValue.default)
+            } else {
+                staticVariableData[rowIndex] = Pair(aValue, newValue)
+                dataSource[aValue.name] = newValue
+            }
+
+            fireTableDataChanged()
+        } else if (columnIndex == 1) {
+            aValue as String
+            val def = getValueAt(rowIndex, 0) as IgnitionStaticDefinition
+
+            staticVariableData[rowIndex] = Pair(def, aValue)
+            if (aValue == def.default && def !in IgnitionEnvironmentVariablesEditor.defaultOverrides.keys) {
+                dataSource.remove(def.name)
+            } else {
+                dataSource[def.name] = aValue
+            }
+
+            fireTableDataChanged()
+        }
+    }
+
+    operator fun <T> get(rowIndex: Int, column: Column<Pair<IgnitionStaticDefinition, String>, T>): T {
+        return column.getValue(staticVariableData[rowIndex])
+    }
+
+    override val columns = GatewayEnvVariableColumns
+
+    companion object GatewayEnvVariableColumns : ColumnList<Pair<IgnitionStaticDefinition, String>>() {
+        val Key by column(
+            value = Pair<IgnitionStaticDefinition, String>::first,
+            column = {
+                cellEditor = GatewayEnvironmentVariableTableCellEditor()
+                cellRenderer = object : DefaultTableCellRenderer() {
+                    override fun getTableCellRendererComponent(
+                        table: JTable?,
+                        value: Any?,
+                        isSelected: Boolean,
+                        hasFocus: Boolean,
+                        row: Int,
+                        column: Int,
+                    ): Component {
+                        @Suppress("unchecked_cast")
+                        table as ReifiedJXTable<GatewayEnvironmentVariableTableModel>
+                        value as IgnitionStaticDefinition
+
+                        val modelRow = table.convertRowIndexToModel(row)
+
+                        toolTipText = if (!table.model.meetsMinimumVersion(modelRow)) {
+                            """⚠ Variable will have no effect. ⚠
+                                Minimum Version: ${value.minimumVersion}
+                                Current Version: ${table.model.version}
+                            """.trimIndent()
+                        } else {
+                            null
+                        }
+                        return super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column)
+                    }
+                }
+            },
+        )
+        val Value by column(
+            value = Pair<IgnitionStaticDefinition, String>::second,
+            column = {
+                cellEditor = GatewayEnvVariableOptionCellEditor()
+            },
+        )
+    }
+
+    private class GatewayEnvironmentVariableTableCellEditor : AbstractCellEditor(), TableCellEditor {
+        private lateinit var tableRef: ReifiedJXTable<GatewayEnvironmentVariableTableModel>
+        private val comboBox = JComboBox<IgnitionStaticDefinition>().apply {
+            configureCellRenderer { _, value, _, _, _ ->
+                text = (value as IgnitionStaticDefinition).name
+                if (::tableRef.isInitialized) {
+                    val minVersion = IgnitionVersionComparator.compare(value.minimumVersion, tableRef.model.version) <= 0
+                    background = if (!minVersion) {
+                        UIManager.getColor("Actions.Red")
+                    } else {
+                        null
+                    }
+                    foreground = if (!minVersion) {
+                        Color.WHITE
+                    } else {
+                        null
+                    }
+                }
+            }
+        }
+
+        init {
+            comboBox.addItemListener {
+                super.fireEditingStopped()
+            }
+        }
+
+        override fun isCellEditable(e: EventObject?): Boolean {
+            return e is MouseEvent && e.clickCount == 2
+        }
+
+        override fun getCellEditorValue(): IgnitionStaticDefinition {
+            return comboBox.selectedItem as IgnitionStaticDefinition
+        }
+
+        override fun getTableCellEditorComponent(
+            table: JTable?,
+            value: Any?,
+            isSelected: Boolean,
+            row: Int,
+            column: Int,
+        ): Component {
+            @Suppress("unchecked_cast")
+            tableRef = table as ReifiedJXTable<GatewayEnvironmentVariableTableModel>
+
+            val unusedOptions = table.model.getUnusedOptions(forRow = row)
+
+            comboBox.model = DefaultComboBoxModel(unusedOptions.toTypedArray())
+            comboBox.selectedItem = value ?: unusedOptions.first()
+
+            return comboBox
+        }
+    }
+
+    private class GatewayEnvVariableOptionCellEditor : AbstractCellEditor(), TableCellEditor {
+        private val comboBox = JComboBox<String>()
+        private val textField = JTextField()
+
+        init {
+            comboBox.addItemListener {
+                super.fireEditingStopped()
+            }
+        }
+
+        override fun getCellEditorValue(): Any? {
+            return comboBox.selectedItem ?: textField.text
+        }
+
+        override fun isCellEditable(e: EventObject?): Boolean {
+            return e is MouseEvent && e.clickCount == 2
+        }
+
+        override fun getTableCellEditorComponent(
+            table: JTable?,
+            value: Any?,
+            isSelected: Boolean,
+            row: Int,
+            column: Int,
+        ): Component {
+            @Suppress("unchecked_cast")
+            table as ReifiedJXTable<GatewayEnvironmentVariableTableModel>
+
+            val envVar = table.model[row, table.model.columns.Key]
+
+            if (envVar.options != null) {
+                textField.text = null
+                comboBox.model = DefaultComboBoxModel(envVar.options.toTypedArray())
+                comboBox.selectedItem = value ?: envVar.default
+                return comboBox
+            } else {
+                comboBox.selectedItem = null
+                textField.text = value as? String ?: envVar.default
+                return textField
+            }
+        }
+    }
+}

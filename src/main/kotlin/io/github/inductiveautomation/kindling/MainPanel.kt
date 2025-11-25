@@ -11,6 +11,7 @@ import com.formdev.flatlaf.util.SystemInfo
 import com.jidesoft.swing.StyleRange.STYLE_UNDERLINED
 import io.github.inductiveautomation.kindling.core.ClipboardTool
 import io.github.inductiveautomation.kindling.core.CustomIconView
+import io.github.inductiveautomation.kindling.core.EditorTool
 import io.github.inductiveautomation.kindling.core.Kindling
 import io.github.inductiveautomation.kindling.core.Kindling.Preferences.Advanced.Debug
 import io.github.inductiveautomation.kindling.core.Kindling.Preferences.General.ChoosableEncodings
@@ -169,6 +170,24 @@ class MainPanel : JPanel(MigLayout("ins 6, fill, hidemode 3")) {
             predicate = { tool.filter.accept(it) },
             callback = { openFiles(it, tool) },
         )
+
+        if (tool is EditorTool) {
+            this@apply.toolTipText = "Right-click for more options"
+            this@apply.attachPopupMenu {
+                JPopupMenu().also { menu ->
+                    menu.add(
+                        Action("New Editor") {
+                            openOrError(tool.title, tool.description, tool::open)
+                        },
+                    )
+                    menu.add(
+                        Action("Open Existing") {
+                            this@apply.doClick()
+                        },
+                    )
+                }
+            }
+        }
     }
 
     private val landingScrollpane = FlatScrollPane(landingPanel) {
@@ -252,6 +271,16 @@ class MainPanel : JPanel(MigLayout("ins 6, fill, hidemode 3")) {
                     fileChooser.chooseFiles(this@MainPanel)?.let { selectedFiles ->
                         openFiles(selectedFiles, tool)
                     }
+                },
+            )
+        }
+        addSeparator()
+        for (tool in Tool.tools.filterIsInstance<EditorTool>()) {
+            add(
+                Action(
+                    name = "New Empty ${tool.title}",
+                ) {
+                    openOrError(tool.title, tool.description, tool::open)
                 },
             )
         }

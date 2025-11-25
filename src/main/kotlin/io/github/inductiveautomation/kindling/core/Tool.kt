@@ -3,6 +3,7 @@ package io.github.inductiveautomation.kindling.core
 import com.formdev.flatlaf.extras.FlatSVGIcon
 import io.github.inductiveautomation.kindling.alarm.AlarmViewer
 import io.github.inductiveautomation.kindling.cache.CacheViewer
+import io.github.inductiveautomation.kindling.docker.DockerTool
 import io.github.inductiveautomation.kindling.gatewaynetwork.GatewayNetworkTool
 import io.github.inductiveautomation.kindling.idb.IdbViewer
 import io.github.inductiveautomation.kindling.localization.TranslationTool
@@ -54,17 +55,18 @@ interface Tool : KindlingSerializable {
     companion object {
         val tools: List<Tool> by lazy {
             listOf(
-                AlarmViewer,
+                MultiThreadViewer,
+                LogViewer,
+                IdbViewer,
                 CacheViewer,
                 GatewayNetworkTool,
-                IdbViewer,
-                LogViewer,
-                MultiThreadViewer,
-                QuestDbViewer,
+                AlarmViewer,
                 SerialViewer,
                 TranslationTool,
+                QuestDbViewer,
                 XmlTool,
                 ZipViewer,
+                DockerTool,
             )
         }
 
@@ -102,6 +104,10 @@ interface MultiTool : Tool {
  */
 interface ClipboardTool : Tool {
     fun open(data: String): ToolPanel
+}
+
+interface EditorTool : Tool {
+    fun open(): ToolPanel
 }
 
 /**
