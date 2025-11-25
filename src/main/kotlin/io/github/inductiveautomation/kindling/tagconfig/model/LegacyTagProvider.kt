@@ -94,16 +94,6 @@ class LegacyTagProvider(
         if (orphanedParentNode.config.tags.isNotEmpty()) {
             providerNode.addChildTag(orphanedParentNode)
         }
-
-        // Make the missing definitions list distinct
-        val seen = HashSet<String>()
-        val iterator = providerStatistics.missingUdtDefinition.value.iterator()
-        while (iterator.hasNext()) {
-            val element = iterator.next()
-            if (!seen.add(element)) {
-                iterator.remove()
-            }
-        }
     }
 
     // Effectively just the TagConfig table in memory.
@@ -185,11 +175,13 @@ class LegacyTagProvider(
         )
     }
 
-    private fun IdbNode.getFullUdtDefinitionPath(): String = if (folderId == "_types_") {
-        name
-    } else {
-        val parentName = nodeGroups[folderId!!]?.first()?.getFullUdtDefinitionPath()
-        "$parentName/$name"
+    private fun IdbNode.getFullUdtDefinitionPath(): String {
+        return if (folderId == "_types_") {
+            name
+        } else {
+            val parentName = nodeGroups[folderId!!]?.first()?.getFullUdtDefinitionPath()
+            "$parentName/$name"
+        }
     }
 
     override fun Node.resolveInheritance() {
@@ -220,11 +212,12 @@ class LegacyTagProvider(
         }
     }
 
-    override val Node.parentType: IdbNode?
+    override val Node.parentType: Node?
         get() {
-            val typeId = config.typeId ?: return null
-            // Some typeIds start with _types_, or even [ProviderName]_types_. It's unclear why.
-            return udtDefinitions[typeId.substringAfter("_types_/")]
+            require((statistics.isUdtDefinition || statistics.isUdtInstance) && config.typeId != null) {
+                "Not a top level UDT Instance or type! $this"
+            }
+            return udtDefinitions[config.typeId]
         }
 
     override fun Node.copyChildrenFrom(other: Node) {
@@ -233,21 +226,14 @@ class LegacyTagProvider(
 
         val thisNodeGroup = checkNotNull(nodeGroups[id]) { "This should never happen" }
 
-        val otherDefinition = other.parentType ?: run {
-            other.config.typeId?.let {
-                providerStatistics.missingUdtDefinition.value.add(it)
-            }
-            return
-        }
+        val otherDefinition = checkNotNull(other.parentType as IdbNode?) { "Parent type is null!" }
         val inheritedNodeGroup = checkNotNull(nodeGroups[otherDefinition.id]) { "This should never happen" }
 
         if (!otherDefinition.resolved) {
             otherDefinition.resolveInheritance()
         }
 
-        check(other.statistics.isUdtInstance || other.statistics.isUdtDefinition) {
-            "Not a UDT Structure!"
-        }
+        check(other.statistics.isUdtInstance) { "Not a UDT Instance!" }
 
         inheritedNodeGroup.drop(1).forEach { childNode ->
             val newId = childNode.id.replace(otherDefinition.id, other.id)

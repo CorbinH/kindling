@@ -3,7 +3,6 @@ package io.github.inductiveautomation.kindling.idb
 import com.formdev.flatlaf.extras.FlatSVGIcon
 import com.formdev.flatlaf.extras.components.FlatTabbedPane
 import com.formdev.flatlaf.extras.components.FlatTabbedPane.TabType
-import io.github.inductiveautomation.kindling.cache.sqlite.CacheView
 import io.github.inductiveautomation.kindling.core.MultiTool
 import io.github.inductiveautomation.kindling.core.ToolPanel
 import io.github.inductiveautomation.kindling.idb.generic.GenericView
@@ -18,8 +17,6 @@ import io.github.inductiveautomation.kindling.utils.TabStrip
 import io.github.inductiveautomation.kindling.utils.executeQuery
 import io.github.inductiveautomation.kindling.utils.get
 import io.github.inductiveautomation.kindling.utils.toList
-import org.sqlite.SQLiteConfig
-import org.sqlite.SQLiteException
 import java.nio.file.Path
 import javax.swing.SwingConstants
 import kotlin.io.path.name
@@ -67,11 +64,7 @@ class IdbView(paths: List<Path>) : ToolPanel() {
 class IdbConnection(
     val path: Path,
 ) : AutoCloseable {
-    val connection = try {
-        SQLiteConnection(path)
-    } catch (_: SQLiteException) { // Most likely journal mode is required.
-        SQLiteConnection(path, journalMode = SQLiteConfig.JournalMode.WAL)
-    }
+    val connection = SQLiteConnection(path)
 
     val tables = connection.metaData
         .getTables("", "", "", null)
@@ -89,28 +82,46 @@ class IdbConnection(
 
 private enum class IdbTool {
     Generic {
-        override fun supports(connections: List<IdbConnection>): Boolean = connections.size == 1
+        override fun supports(connections: List<IdbConnection>): Boolean {
+            return connections.size == 1
+        }
 
-        override fun open(connections: List<IdbConnection>): ToolPanel = GenericView(connections.single().connection)
+        override fun open(connections: List<IdbConnection>): ToolPanel {
+            return GenericView(connections.single().connection)
+        }
 
         override val tabName: String = "Tables"
     },
     Metrics {
-        override fun supports(connections: List<IdbConnection>): Boolean = connections.singleOrNull { "SYSTEM_METRICS" in it.tables } != null
-        override fun open(connections: List<IdbConnection>): ToolPanel = MetricsView(connections.single().connection)
+        override fun supports(connections: List<IdbConnection>): Boolean {
+            return connections.singleOrNull { "SYSTEM_METRICS" in it.tables } != null
+        }
+        override fun open(connections: List<IdbConnection>): ToolPanel {
+            return MetricsView(connections.single().connection)
+        }
     },
     Images {
-        override fun supports(connections: List<IdbConnection>): Boolean = connections.singleOrNull { "IMAGES" in it.tables } != null
-        override fun open(connections: List<IdbConnection>): ToolPanel = ImagesPanel(connections.single())
+        override fun supports(connections: List<IdbConnection>): Boolean {
+            return connections.singleOrNull { "IMAGES" in it.tables } != null
+        }
+        override fun open(connections: List<IdbConnection>): ToolPanel {
+            return ImagesPanel(connections.single())
+        }
     },
     TagConfig {
-        override fun supports(connections: List<IdbConnection>): Boolean = connections.singleOrNull { "TAGCONFIG" in it.tables } != null
-        override fun open(connections: List<IdbConnection>): ToolPanel = TagConfigView.fromIdb(connections.single().connection)
+        override fun supports(connections: List<IdbConnection>): Boolean {
+            return connections.singleOrNull { "TAGCONFIG" in it.tables } != null
+        }
+        override fun open(connections: List<IdbConnection>): ToolPanel {
+            return TagConfigView.fromIdb(connections.single().connection)
+        }
 
         override val tabName: String = "Tag Config"
     },
     Logs {
-        override fun supports(connections: List<IdbConnection>): Boolean = connections.all { conn -> "logging_event" in conn.tables }
+        override fun supports(connections: List<IdbConnection>): Boolean {
+            return connections.all { conn -> "logging_event" in conn.tables }
+        }
 
         override fun open(connections: List<IdbConnection>): ToolPanel {
             val paths = connections.map { it.path }
@@ -122,11 +133,7 @@ private enum class IdbTool {
             return SystemLogPanel(paths, logFiles)
         }
     },
-    Cache {
-        override fun supports(connections: List<IdbConnection>): Boolean = connections.all { "persistent_data" in it.tables }
-
-        override fun open(connections: List<IdbConnection>): ToolPanel = CacheView.fromConnection(connections.single().connection)
-    }, ;
+    ;
 
     open val tabName: String = name
 
@@ -139,7 +146,7 @@ data object IdbViewer : MultiTool {
     override val serialKey = "idb-viewer"
     override val title = "SQLite Database"
     override val description = "SQLite Database (.idb)"
-    override val icon = FlatSVGIcon("icons/bx-data.svg")
+    override val icon = FlatSVGIcon("icons/bx-hdd.svg")
     override val filter = FileFilter(description, "idb", "db", "sqlite")
 
     override fun open(path: Path): ToolPanel = IdbView(listOf(path))
