@@ -1,6 +1,7 @@
 package io.github.inductiveautomation.kindling.livediagnostics
 
 import com.formdev.flatlaf.extras.FlatSVGIcon
+import com.sun.java.accessibility.util.AWTEventMonitor
 import com.sun.java.accessibility.util.AWTEventMonitor.addActionListener
 import io.github.inductiveautomation.kindling.core.EditorTool
 import io.github.inductiveautomation.kindling.core.Kindling.BETA_VERSION
@@ -49,7 +50,10 @@ import io.ktor.http.*
 import io.ktor.utils.io.copyTo          // Import for efficient stream copy
 import io.ktor.utils.io.jvm.javaio.copyTo
 import kotlinx.coroutines.runBlocking
+import org.apache.wicket.ajax.json.JSONObject
 import java.io.OutputStream
+import javax.swing.JFileChooser
+import javax.swing.filechooser.FileSystemView
 
 @Serializable
 data class BundleStatus(val state: String)
@@ -57,6 +61,8 @@ data class BundleStatus(val state: String)
 @Serializable
 data class BundleComplete(val state: String, val fileSize: Int)
 
+@Serializable
+data class LiveDiagnosticConfigFile(val url: String, val key: String)
 
 
 class LiveDiagnosticPanel(existingFile: Path?) : ToolPanel("debug, ins 0, fill, hidemode 3") {
@@ -80,23 +86,25 @@ class LiveDiagnosticPanel(existingFile: Path?) : ToolPanel("debug, ins 0, fill, 
         }
 }
     val liveStats = JTextArea()
-    val APIKey = JTextField("JacobAPIKey:qtqb-8jDJncaOMAtH6YJhX87FivhF4VMhMKtmTBKq5Y ")
-    val destinationUrl = JTextField("http://1.localtest.me:8188")
+    var APIKey = JTextField("JacobAPIKey:qtqb-8jDJncaOMAtH6YJhX87FivhF4VMhMKtmTBKq5Y")
+    var destinationUrl = JTextField("http://1.localtest.me:8188")
 
 
     val saveJButton = JButton("Save").apply {
         addActionListener {
+            saveConfigToJson()
+        }
+    }
+    val reloadButon = JButton("Reload").apply {
+        addActionListener {
             runBlocking {
                 executeBundleProcess()
             }
-
-
         }
     }
-    val configButon = JButton("Config")
 
     val leftUpperPanel = JPanel(MigLayout("ins 0, fill, hidemode 3")).apply {
-        add(configButon, "grow, pushx")
+        add(reloadButon, "grow, pushx")
         add(saveJButton,"grow, wrap, pushx")
         add(JLabel("URL: "), "grow")
         add(destinationUrl, "grow, wrap, pushx")
@@ -127,9 +135,34 @@ class LiveDiagnosticPanel(existingFile: Path?) : ToolPanel("debug, ins 0, fill, 
     init {
         name = existingFile?.name ?: "Metrics"
         add(mainPanel, "push, grow")
+        if (existingFile != null) {
+            val configValues = readJSONFile(existingFile)
+            APIKey.text = configValues.key
+            destinationUrl.text = configValues.url
+        }
+
 
     }
 
+
+    fun saveConfigToJson() {
+        val jsonString = Json{ prettyPrint = true }.encodeToString(LiveDiagnosticConfigFile(destinationUrl.text, APIKey.text))
+        val fileChooser = JFileChooser()
+        fileChooser.selectedFile = File("default_output.json")
+        val userSelection = fileChooser.showSaveDialog(mainPanel)
+        if (userSelection == JFileChooser.APPROVE_OPTION) {
+            val fileToSave = fileChooser.selectedFile
+            fileToSave.writeText(jsonString)
+        }
+//        filePath.toFile().writeText(jsonString, Charsets.UTF_8)
+
+    }
+
+
+    fun readJSONFile(filePath: Path): LiveDiagnosticConfigFile {
+        val JSONString = filePath.toFile().readText(Charsets.UTF_8)
+        return Json.decodeFromString<LiveDiagnosticConfigFile>(JSONString)
+    }
 
     suspend fun executeBundleProcess() {
         val isGenerating = genBundle().state == "Generating"
@@ -171,7 +204,7 @@ class LiveDiagnosticPanel(existingFile: Path?) : ToolPanel("debug, ins 0, fill, 
     }
 
     suspend fun downloadBundle(): File {
-        val tempFile = File.createTempFile("downloaded_", ".tmp")
+        val tempFile = File.createTempFile("downloaded_diagnostic_bundle", ".tmp")
         val channel: ByteReadChannel = runAPICall(destinationUrl.text+DOWNLOAD_BUDNLE, APIKey.text, HttpMethod.Get)
         val outputStream: OutputStream = tempFile.outputStream()
         try {
@@ -222,12 +255,11 @@ class LiveDiagnosticPanel(existingFile: Path?) : ToolPanel("debug, ins 0, fill, 
 }
 
 
-
 object LiveDiagnosticTool : EditorTool {
     override val serialKey: String = "livediagnostics"
     override val title: String = "Live Diagnostics"
     override val description: String = "Open tool for viewing and retrieving diagnostic data"
-    override val icon: FlatSVGIcon = FlatSVGIcon("icons/bx-docker.svg")
+    override val icon: FlatSVGIcon = FlatSVGIcon("icons/bx-docker.svg")  // Find and add an icon for the tool
 
     internal val ignitionIcon: FlatSVGIcon = FlatSVGIcon("icons/Logo-Ignition-Check.svg")
 
