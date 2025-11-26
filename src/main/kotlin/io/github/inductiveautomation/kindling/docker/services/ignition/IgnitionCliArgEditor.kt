@@ -10,13 +10,13 @@ import io.github.inductiveautomation.kindling.utils.RegexInputVerifier
 import io.github.inductiveautomation.kindling.utils.ReifiedJXTable
 import io.github.inductiveautomation.kindling.utils.ReifiedListTableModel
 import io.github.inductiveautomation.kindling.utils.configureCellRenderer
+import net.miginfocom.swing.MigLayout
 import javax.swing.DefaultComboBoxModel
 import javax.swing.JButton
 import javax.swing.JComboBox
 import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.ListSelectionModel
-import net.miginfocom.swing.MigLayout
 
 class IgnitionCliArgEditor(
     private val args: MutableList<CliArgument>,

@@ -26,12 +26,10 @@ import kotlin.reflect.KClass
 typealias SimulatorProgram = MutableList<ProgramItem>
 
 @OptIn(ExperimentalSerializationApi::class)
-fun List<ProgramItem>.toSimulatorCsv(): String {
-    return Csv {
-        quoteMode = ALL
-        hasHeaderRecord = true
-    }.encodeToString(ListSerializer(ProgramItem.serializer()), this)
-}
+fun List<ProgramItem>.toSimulatorCsv(): String = Csv {
+    quoteMode = ALL
+    hasHeaderRecord = true
+}.encodeToString(ListSerializer(ProgramItem.serializer()), this)
 
 fun List<ProgramItem>.exportToFile(filePath: Path) {
     if (isEmpty()) return
@@ -227,9 +225,7 @@ sealed interface SimulatorFunction {
     ) : SimulatorFunction
 
     companion object {
-        fun defaultFunctionForType(type: ProgramDataType): KClass<*> {
-            return if (type in ProgramDataType.NUMERIC_TYPES) Sine::class else Writable::class
-        }
+        fun defaultFunctionForType(type: ProgramDataType): KClass<*> = if (type in ProgramDataType.NUMERIC_TYPES) Sine::class else Writable::class
 
         val functions = mapOf<KClass<*>, () -> SimulatorFunction>(
             Sine::class to { Sine() },
@@ -388,9 +384,7 @@ object SimulatorFunctionSerializer : KSerializer<SimulatorFunction> {
         encoder.encodeString(output)
     }
 
-    override fun deserialize(decoder: Decoder): SimulatorFunction {
-        throw NotImplementedError("Importing of Device Simulator CSV Files is not Supported.")
-    }
+    override fun deserialize(decoder: Decoder): SimulatorFunction = throw NotImplementedError("Importing of Device Simulator CSV Files is not Supported.")
 }
 
 object ProgramDataTypeSerializer : KSerializer<ProgramDataType> {

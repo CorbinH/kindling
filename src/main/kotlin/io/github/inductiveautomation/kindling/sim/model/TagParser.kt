@@ -259,9 +259,7 @@ class TagParser(tagProvider: NodeStructure) {
             return JsonPrimitive(boundStringValue)
         }
 
-        private fun resolveBuiltInParamBinding(struct: NodeStructure, boundParamName: String): String {
-            return builtInParameters[boundParamName]!!.invoke(struct)
-        }
+        private fun resolveBuiltInParamBinding(struct: NodeStructure, boundParamName: String): String = builtInParameters[boundParamName]!!.invoke(struct)
 
         private fun findParentParameterValue(struct: NodeStructure, parameterName: String): String {
             val parentUdt = struct.getUdtParent() ?: return "{$parameterName}"
@@ -278,21 +276,17 @@ class TagParser(tagProvider: NodeStructure) {
             )
         }
 
-        private fun parseBoundValueNames(boundValue: String): List<String> {
-            return PARAM_REGEX.findAll(boundValue).map { result ->
-                result.groupValues[1]
-            }.toList()
-        }
+        private fun parseBoundValueNames(boundValue: String): List<String> = PARAM_REGEX.findAll(boundValue).map { result ->
+            result.groupValues[1]
+        }.toList()
 
-        private fun NodeStructure.getPath(): String {
-            return buildString {
-                var p = parent
-                while (!p.isTagProvider) {
-                    insert(0, "${p.name}/")
-                    p = p.parent
-                }
-            } + name
-        }
+        private fun NodeStructure.getPath(): String = buildString {
+            var p = parent
+            while (!p.isTagProvider) {
+                insert(0, "${p.name}/")
+                p = p.parent
+            }
+        } + name
         private fun NodeStructure.isAtomicTag(): Boolean = tagType == "AtomicTag"
         private fun NodeStructure.isFolder(): Boolean = tagType == "Folder"
         private fun NodeStructure.isUdtInstance(): Boolean = tagType == "UdtInstance"

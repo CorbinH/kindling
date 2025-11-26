@@ -3,10 +3,10 @@ package io.github.inductiveautomation.kindling.docker.compose
 import io.github.inductiveautomation.kindling.docker.compose.model.Deploy
 import io.github.inductiveautomation.kindling.utils.DocumentAdapter
 import io.github.inductiveautomation.kindling.utils.text
+import net.miginfocom.swing.MigLayout
 import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.JTextField
-import net.miginfocom.swing.MigLayout
 
 @Suppress("unused")
 class DeployEditor(data: Deploy) : ComposeObjectEditor<Deploy>("Deploy", data) {

@@ -34,10 +34,9 @@ private suspend fun HttpClient.checkFileAndUser(
     return Pair(response.status, response.bodyAsText().toBoolean())
 }
 
-fun checkFileAndUserBlocking(filename: String, username: String): Pair<HttpStatusCode, Boolean> =
-    runBlocking(Dispatchers.IO) {
-        uploadClient.checkFileAndUser(filename, username)
-    }
+fun checkFileAndUserBlocking(filename: String, username: String): Pair<HttpStatusCode, Boolean> = runBlocking(Dispatchers.IO) {
+    uploadClient.checkFileAndUser(filename, username)
+}
 
 suspend fun HttpClient.upload(model: TableModel, filename: String, username: String): Boolean {
     val httpResponse = post(UPLOAD_URL) {
@@ -51,8 +50,7 @@ suspend fun HttpClient.upload(model: TableModel, filename: String, username: Str
     return httpResponse.body<String>().toBoolean()
 }
 
-fun uploadBlocking(model: TableModel, filename: String, username: String): Boolean =
-    runBlocking(Dispatchers.IO) { uploadClient.upload(model, filename, username) }
+fun uploadBlocking(model: TableModel, filename: String, username: String): Boolean = runBlocking(Dispatchers.IO) { uploadClient.upload(model, filename, username) }
 
 fun TableModel.uploadToWeb(filename: String) {
     val username = JOptionPane.showInputDialog(null, "Enter Username:\n")

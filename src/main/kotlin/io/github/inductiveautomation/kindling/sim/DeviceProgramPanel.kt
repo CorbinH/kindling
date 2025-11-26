@@ -17,7 +17,8 @@ import kotlin.math.min
 class DeviceProgramPanel(
     val deviceName: String,
     private val programItems: SimulatorProgram,
-) : JPanel(MigLayout("fill, ins 0, flowy")), PopupMenuCustomizer {
+) : JPanel(MigLayout("fill, ins 0, flowy")),
+    PopupMenuCustomizer {
     val numberOfTags by programItems::size
 
     private val scrollPane = JScrollPane()

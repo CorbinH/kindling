@@ -7,6 +7,7 @@ import io.github.inductiveautomation.kindling.utils.ColumnList
 import io.github.inductiveautomation.kindling.utils.ReifiedJXTable
 import io.github.inductiveautomation.kindling.utils.ReifiedListTableModel
 import io.github.inductiveautomation.kindling.utils.configureCellRenderer
+import net.miginfocom.swing.MigLayout
 import java.awt.Component
 import java.awt.EventQueue
 import java.awt.event.MouseEvent
@@ -21,7 +22,6 @@ import javax.swing.JTable
 import javax.swing.ListSelectionModel
 import javax.swing.table.TableCellEditor
 import javax.swing.table.TableModel
-import net.miginfocom.swing.MigLayout
 
 class VolumeEditor(
     initialVolumes: MutableList<BindMount>,
@@ -150,7 +150,9 @@ internal class DockerVolumesTableModel(
         )
     }
 
-    private class BindMountCellEditor : AbstractCellEditor(), TableCellEditor {
+    private class BindMountCellEditor :
+        AbstractCellEditor(),
+        TableCellEditor {
         private val comboBox = JComboBox<String>().apply {
             configureCellRenderer { _, value, _, _, _ ->
                 text = value as String
@@ -166,9 +168,7 @@ internal class DockerVolumesTableModel(
             }
         }
 
-        override fun isCellEditable(e: EventObject?): Boolean {
-            return e is MouseEvent && e.clickCount == 2
-        }
+        override fun isCellEditable(e: EventObject?): Boolean = e is MouseEvent && e.clickCount == 2
 
         override fun getCellEditorValue(): String? {
             println("Getting selected item: ${comboBox.selectedItem}")

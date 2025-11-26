@@ -42,9 +42,7 @@ data class NodeStructure(
         }
     }
 
-    override fun toString(): String {
-        return "Name: $name, Type: $tagType, Parent: $typeId"
-    }
+    override fun toString(): String = "Name: $name, Type: $tagType, Parent: $typeId"
 
     val isTagProvider: Boolean
         get() = tagType == "Provider"

@@ -24,10 +24,10 @@ import kotlin.io.path.name
 object MachineLearningModel {
     private var needsUpdate = true
     var enabled = false
-    private const val pmmlFileNamePrefix = "thread_machine_learning_"
-    private const val supportAppsGatewayEndpoint = "https://iazendesk.inductiveautomation.com/system/webdev/ThreadCSVImportTool/LogisticRegressionThread.pmml"
-    private const val versionEndpoint = "https://iazendesk.inductiveautomation.com/system/webdev/ThreadCSVImportTool/validate_pmml_version"
-    private const val kindlingDownloadUrl = "https://iazendesk.inductiveautomation.com/data/perspective/client/zendesk_display"
+    private const val PMML_FILE_NAME_PREFIX = "thread_machine_learning_"
+    private const val SAG_ENDPOINT = "https://iazendesk.inductiveautomation.com/system/webdev/ThreadCSVImportTool/LogisticRegressionThread.pmml"
+    private const val VERSION_ENDPOINT = "https://iazendesk.inductiveautomation.com/system/webdev/ThreadCSVImportTool/validate_pmml_version"
+    private const val KINDLING_DOWNLOAD_URL = "https://iazendesk.inductiveautomation.com/data/perspective/client/zendesk_display"
 
     val pmmlFilePath: String
         get() {
@@ -38,7 +38,7 @@ object MachineLearningModel {
             }
 
             return folder.toFile().listFiles().findLast { file ->
-                file.isFile && file.name.contains(pmmlFileNamePrefix)
+                file.isFile && file.name.contains(PMML_FILE_NAME_PREFIX)
             }!!.absolutePath
         }
 
@@ -51,7 +51,7 @@ object MachineLearningModel {
     private val currentPMMLVersion by lazy {
         val client = HttpClient()
         runBlocking {
-            val response: HttpResponse = client.request(versionEndpoint) {
+            val response: HttpResponse = client.request(VERSION_ENDPOINT) {
                 method = HttpMethod.Get
                 url {
                     parameters.append("version", Kindling.VERSION)
@@ -66,8 +66,8 @@ object MachineLearningModel {
         if (!folder.exists()) { // If no cache file already, get bundled version
             folder = File("src/main/resources")
         }
-        val lastFileName = folder.listFiles().findLast {file ->
-            file.isFile && file.name.contains(pmmlFileNamePrefix)
+        val lastFileName = folder.listFiles().findLast { file ->
+            file.isFile && file.name.contains(PMML_FILE_NAME_PREFIX)
         }?.toString()
         lastFileName?.substringBeforeLast(".pmml")?.substringAfterLast("_") ?: ""
     }
@@ -81,7 +81,7 @@ object MachineLearningModel {
                     val msg = "There is a new version of Kindling Beta available. Would you like to upgrade?"
                     if (pmmlPopup(title, msg, arrayOf("No", "Upgrade Now!")) == 1) {
                         val desk = Desktop.getDesktop()
-                        desk.browse(URI(kindlingDownloadUrl))
+                        desk.browse(URI(KINDLING_DOWNLOAD_URL))
                     }
                 }
                 else -> {
@@ -101,7 +101,7 @@ object MachineLearningModel {
         val listOfFiles = folder.listFiles()
         if (listOfFiles != null && currentPMMLVersion != "") {
             val filteredList = listOfFiles.filter { file ->
-                file.isFile && pmmlFileNamePrefix in file.name
+                file.isFile && PMML_FILE_NAME_PREFIX in file.name
             }
             filteredList.forEach { file ->
                 if (file.name.substringBeforeLast(".pmml").substringAfterLast("_") != currentPMMLVersion) {
@@ -116,16 +116,16 @@ object MachineLearningModel {
     }
 
     private fun updatePMML() {
-        if (cacheFilePath.name.isNotEmpty()){
+        if (cacheFilePath.name.isNotEmpty()) {
             val client = HttpClient()
             runBlocking {
-                val response: HttpResponse = client.request(supportAppsGatewayEndpoint) {
+                val response: HttpResponse = client.request(SAG_ENDPOINT) {
                     method = HttpMethod.Get
                 }
                 withContext(Dispatchers.IO) {
                     Files.createDirectories(cacheFilePath)
                 }
-                val filename = "$pmmlFileNamePrefix$currentPMMLVersion.pmml"
+                val filename = "$PMML_FILE_NAME_PREFIX$currentPMMLVersion.pmml"
                 cacheFilePath.resolve(filename).bufferedWriter().use { out ->
                     out.write(response.bodyAsText())
                 }
@@ -134,16 +134,14 @@ object MachineLearningModel {
         }
     }
 
-    private fun pmmlPopup(title: String, message: String, options: Array<String>): Int {
-        return JOptionPane.showOptionDialog(
-            JFrame(),
-            message,
-            title,
-            JOptionPane.YES_NO_OPTION,
-            JOptionPane.QUESTION_MESSAGE,
-            ImageIcon(Kindling.frameIcons[0]),
-            options,
-            options[1]
-        )
-    }
+    private fun pmmlPopup(title: String, message: String, options: Array<String>): Int = JOptionPane.showOptionDialog(
+        JFrame(),
+        message,
+        title,
+        JOptionPane.YES_NO_OPTION,
+        JOptionPane.QUESTION_MESSAGE,
+        ImageIcon(Kindling.frameIcons[0]),
+        options,
+        options[1],
+    )
 }

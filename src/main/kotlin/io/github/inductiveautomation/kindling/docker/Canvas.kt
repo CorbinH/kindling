@@ -165,7 +165,6 @@ class Canvas(
 
         addMouseListener {
             mouseClicked {
-
             }
         }
     }

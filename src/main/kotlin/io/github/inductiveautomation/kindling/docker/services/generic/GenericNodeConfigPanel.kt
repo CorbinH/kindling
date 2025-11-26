@@ -1,12 +1,12 @@
 package io.github.inductiveautomation.kindling.docker.services.generic
 
-import io.github.inductiveautomation.kindling.docker.volumes.model.DockerVolume
 import io.github.inductiveautomation.kindling.docker.services.ConfigSection
 import io.github.inductiveautomation.kindling.docker.services.NodeConfigPanel
+import io.github.inductiveautomation.kindling.docker.volumes.model.DockerVolume
 import io.github.inductiveautomation.kindling.utils.RegexInputVerifier
+import org.jdesktop.swingx.JXFormattedTextField
 import javax.swing.JLabel
 import javax.swing.JTextField
-import org.jdesktop.swingx.JXFormattedTextField
 
 class GenericNodeConfigPanel(
     override val node: GenericDockerServiceNode,

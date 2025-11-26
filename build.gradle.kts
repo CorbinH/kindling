@@ -44,7 +44,7 @@ dependencies {
     runtimeOnly(libs.bundles.ia.transitive)
     testImplementation(libs.bundles.kotest)
 
-    //Beta
+    // Beta
     api(libs.bundles.ktor)
     api(libs.jpmml)
 }

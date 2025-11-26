@@ -51,17 +51,11 @@ class DockerServiceToolTransferHandler : TransferHandler() {
     class DockerServiceToolTransferable(
         private val initializer: DockerServiceTool,
     ) : Transferable {
-        override fun getTransferDataFlavors(): Array<DataFlavor> {
-            return arrayOf(DOCKER_SERVICE_DATA_FLAVOR)
-        }
+        override fun getTransferDataFlavors(): Array<DataFlavor> = arrayOf(DOCKER_SERVICE_DATA_FLAVOR)
 
-        override fun isDataFlavorSupported(flavor: DataFlavor?): Boolean {
-            return flavor == DOCKER_SERVICE_DATA_FLAVOR
-        }
+        override fun isDataFlavorSupported(flavor: DataFlavor?): Boolean = flavor == DOCKER_SERVICE_DATA_FLAVOR
 
-        override fun getTransferData(flavor: DataFlavor?): Any {
-            return initializer
-        }
+        override fun getTransferData(flavor: DataFlavor?): Any = initializer
     }
 
     companion object {

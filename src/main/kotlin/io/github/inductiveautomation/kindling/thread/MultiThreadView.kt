@@ -150,10 +150,10 @@ class MultiThreadView(
                     Color.BLACK,
                 ) { _, adapter ->
                     val rowNum = convertRowIndexToModel(adapter.row)
-                    model[rowNum, model.columns.id] in threadsOfInterest.map {  thread: Thread ->
+                    model[rowNum, model.columns.id] in threadsOfInterest.map { thread: Thread ->
                         thread.id
                     }
-                }
+                },
             )
 
             fun toggleMarkAllWithSameValue(property: Column<ThreadLifespan, *>) {
@@ -209,7 +209,7 @@ class MultiThreadView(
                     "${COLUMN_CONTROL_MARKER}.markThreadsOfInterest",
                     Action("Mark Threads of Interest") {
                         markThreadsOfInterest()
-                    }
+                    },
                 )
             }
 
@@ -256,7 +256,7 @@ class MultiThreadView(
         val pathToModel = MachineLearningModel.pmmlFilePath
         try {
             javaClass.getResourceAsStream(pathToModel).use(this::load)
-        } catch(e: Exception) {
+        } catch (e: Exception) {
             Paths.get(pathToModel).inputStream().use(this::load)
         }
         build()
@@ -272,7 +272,7 @@ class MultiThreadView(
                 val evaluation = evaluator.evaluate(
                     evaluator.inputFields.associate { field ->
                         field.name to field.prepare(thread.getPmmlProperty(field.name))
-                    }
+                    },
                 )
                 val result = (evaluation["marked"] as ProbabilityDistribution<*>).result as Int
                 if (result == 1) add(thread)
@@ -377,7 +377,7 @@ class MultiThreadView(
         mainTable.model.fireTableDataChanged()
     }
 
-    private fun Thread.getPmmlProperty(prop: String): Any? = when(prop) {
+    private fun Thread.getPmmlProperty(prop: String): Any? = when (prop) {
         "thread_state" -> state.toString()
         "system" -> system
         "scope" -> scope

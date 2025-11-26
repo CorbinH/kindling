@@ -1,13 +1,13 @@
 package io.github.inductiveautomation.kindling.docker.services.ignition
 
+import io.github.inductiveautomation.kindling.docker.Canvas
+import io.github.inductiveautomation.kindling.docker.services.ConfigSection
+import io.github.inductiveautomation.kindling.docker.services.NodeDeleteListener
 import io.github.inductiveautomation.kindling.docker.services.ignition.model.ConnectionDefinition
+import io.github.inductiveautomation.kindling.docker.services.ignition.model.IgnitionVersionComparator
 import io.github.inductiveautomation.kindling.docker.services.model.DockerEnvironmentVariableDefinition
 import io.github.inductiveautomation.kindling.docker.services.model.DockerEnvironmentVariableDefinition.Companion.addOrRemove
 import io.github.inductiveautomation.kindling.docker.services.model.ServiceModelChangeListener
-import io.github.inductiveautomation.kindling.docker.services.ConfigSection
-import io.github.inductiveautomation.kindling.docker.services.NodeDeleteListener
-import io.github.inductiveautomation.kindling.docker.Canvas
-import io.github.inductiveautomation.kindling.docker.services.ignition.model.IgnitionVersionComparator
 import io.github.inductiveautomation.kindling.utils.Action
 import io.github.inductiveautomation.kindling.utils.MouseListenerBuilder.Companion.addMouseListener
 import io.github.inductiveautomation.kindling.utils.MouseMotionListenerBuilder.Companion.addMouseMotionListener
@@ -17,6 +17,7 @@ import io.github.inductiveautomation.kindling.utils.PointHelpers.convert
 import io.github.inductiveautomation.kindling.utils.attachPopupMenu
 import io.github.inductiveautomation.kindling.utils.jFrame
 import io.github.inductiveautomation.kindling.utils.tag
+import net.miginfocom.swing.MigLayout
 import java.awt.BasicStroke
 import java.awt.Font
 import java.awt.Graphics
@@ -42,7 +43,6 @@ import javax.swing.JTextField
 import javax.swing.SpinnerNumberModel
 import javax.swing.SwingUtilities
 import javax.swing.Timer
-import net.miginfocom.swing.MigLayout
 
 /**
  * Responsible for drawing connection on the screen and editing connection properties.
@@ -103,9 +103,7 @@ class IgnitionNodeConnector(
             }
         }
 
-    override fun contains(point: Point): Boolean {
-        return boundingPath.contains(point)
-    }
+    override fun contains(point: Point): Boolean = boundingPath.contains(point)
 
     init {
         layout = null
@@ -432,9 +430,7 @@ class IgnitionNodeConnector(
     }
 
     companion object {
-        fun JComponent.midPoint(): Point {
-            return Point(width / 2, height / 2)
-        }
+        fun JComponent.midPoint(): Point = Point(width / 2, height / 2)
 
         private fun boldJLabel(text: String? = null) = JLabel(text).apply {
             font = font.deriveFont(Font.BOLD)

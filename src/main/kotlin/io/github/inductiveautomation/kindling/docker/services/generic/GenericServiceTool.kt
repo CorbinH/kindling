@@ -1,8 +1,8 @@
 package io.github.inductiveautomation.kindling.docker.services.generic
 
 import io.github.inductiveautomation.kindling.docker.DockerDraftPanel
-import io.github.inductiveautomation.kindling.docker.services.DockerServiceTool
 import io.github.inductiveautomation.kindling.docker.DockerTool
+import io.github.inductiveautomation.kindling.docker.services.DockerServiceTool
 import io.github.inductiveautomation.kindling.docker.services.model.DefaultDockerServiceModel
 import io.github.inductiveautomation.kindling.docker.services.model.DockerServiceModel
 import javax.swing.Icon
@@ -13,12 +13,10 @@ object GenericServiceTool : DockerServiceTool {
     override val defaultImage: String = "ubuntu"
 
     context(panel: DockerDraftPanel)
-    override fun createModel(): DefaultDockerServiceModel {
-        return DefaultDockerServiceModel(
-            image = defaultImage,
-            containerName = "Container-${panel.nodeIdManager.generateID()}",
-        )
-    }
+    override fun createModel(): DefaultDockerServiceModel = DefaultDockerServiceModel(
+        image = defaultImage,
+        containerName = "Container-${panel.nodeIdManager.generateID()}",
+    )
 
     context(panel: DockerDraftPanel)
     override fun createNode(model: DockerServiceModel): GenericDockerServiceNode {

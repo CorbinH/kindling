@@ -334,16 +334,14 @@ object SimulatorViewer : Tool {
         predicate = { file ->
             file.extension == "json" &&
                 "\"tagType\": \"Provider\"," in buildString {
-                file.bufferedReader().use { br ->
-                    repeat(10) { append(br.readLine()) }
+                    file.bufferedReader().use { br ->
+                        repeat(10) { append(br.readLine()) }
+                    }
                 }
-            }
         },
     )
 
-    override fun open(path: Path): ToolPanel {
-        return SimulatorView(path)
-    }
+    override fun open(path: Path): ToolPanel = SimulatorView(path)
 }
 
 class SimulatorViewerProxy : Tool by SimulatorViewer
