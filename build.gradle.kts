@@ -1,3 +1,5 @@
+import java.time.LocalDate
+
 plugins {
     alias(libs.plugins.kotlin)
     alias(libs.plugins.serialization)
@@ -5,6 +7,10 @@ plugins {
     alias(libs.plugins.conveyor)
     alias(libs.plugins.dokka)
     application
+
+    // Beta
+    alias(libs.plugins.shadow)
+    alias(libs.plugins.runtime)
 }
 
 repositories {
@@ -37,6 +43,10 @@ dependencies {
     api(libs.bundles.jackson)
     runtimeOnly(libs.bundles.ia.transitive)
     testImplementation(libs.bundles.kotest)
+
+    //Beta
+    api(libs.bundles.ktor)
+    api(libs.jpmml)
 }
 
 group = "io.github.inductiveautomation"
@@ -90,6 +100,15 @@ tasks {
         duplicatesStrategy = DuplicatesStrategy.WARN
         dependsOn(download79, download80, download81)
     }
+    shadowJar {
+        manifest {
+            attributes["Main-Class"] = "io.github.paulgriffith.kindling.MainPanel"
+        }
+        archiveBaseName.set("kindling-bundle")
+        archiveClassifier.set("")
+        archiveVersion.set("")
+        mergeServiceFiles()
+    }
 }
 
 kotlin {
@@ -126,5 +145,60 @@ spotless {
     }
     kotlinGradle {
         ktlint()
+    }
+}
+
+runtime {
+    options.set(listOf("--strip-debug", "--compress", "2", "--no-header-files", "--no-man-pages"))
+
+    modules.set(
+        listOf(
+            "java.desktop",
+            "java.sql",
+            "java.logging",
+            "java.naming",
+            "java.xml",
+            "jdk.zipfs",
+            "jdk.crypto.ec",
+        ),
+    )
+
+    jpackage {
+        val currentOs = org.gradle.internal.os.OperatingSystem.current()
+        val imgType = if (currentOs.isWindows) "ico" else "png"
+        appVersion = project.version.toString()
+        imageOptions = listOf("--icon", "src/main/resources/icons/ignition.$imgType")
+        val options: Map<String, String?> = buildMap {
+            put("resource-dir", "src/main/resources")
+            put("vendor", "Paul Griffith")
+            put("copyright", LocalDate.now().year.toString())
+            put("description", "A collection of useful tools for troubleshooting Ignition")
+
+            when {
+                currentOs.isWindows -> {
+                    put("win-per-user-install", null)
+                    put("win-dir-chooser", null)
+                    put("win-menu", null)
+                    put("win-shortcut", null)
+                    // random (consistent) UUID makes upgrades smoother
+                    put("win-upgrade-uuid", "8e7428c8-bbc6-460a-9995-db6d8b04a690")
+                }
+
+                currentOs.isLinux -> {
+                    put("linux-shortcut", null)
+                }
+            }
+        }
+
+        // add-exports is used to bypass Java modular restrictions
+        jvmArgs = listOf("--add-exports", "java.desktop/com.sun.java.swing.plaf.windows=ALL-UNNAMED")
+
+        installerOptions = options.flatMap { (key, value) ->
+            listOfNotNull("--$key", value)
+        }
+
+        imageName = "kindling beta"
+        installerName = "kindling"
+        mainJar = "kindling-bundle.jar"
     }
 }

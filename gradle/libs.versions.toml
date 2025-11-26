@@ -6,6 +6,7 @@ flatlaf = "3.6.1"
 kotest = "5.9.1"
 ignition = "8.3.0"
 jackson = "2.20.1"
+ktor = "3.3.2"
 
 [plugins]
 kotlin = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
@@ -13,6 +14,9 @@ serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref 
 conveyor = { id = "dev.hydraulic.conveyor", version = "1.12" }
 spotless = { id = "com.diffplug.spotless", version = "8.0.0" }
 dokka = { id = "org.jetbrains.dokka", version = "2.0.0" }
+
+shadow = { id = "com.github.johnrengelman.shadow", version = "7.1.2" }
+runtime = { id = "org.beryx.runtime", version = "1.13.0" }
 
 [libraries]
 # core functionality
@@ -29,6 +33,12 @@ excelkt = { group = "io.github.evanrupert", name = "excelkt", version = "1.0.2" 
 jsvg = { group = "com.github.weisj", name = "jsvg", version = "2.0.0" }
 jackson-kotlin = { group = "com.fasterxml.jackson.module", name = "jackson-module-kotlin", version.ref = "jackson" }
 jackson-xml = { group = "com.fasterxml.jackson.dataformat", name = "jackson-dataformat-xml", version.ref = "jackson" }
+
+client-core = { group = "io.ktor", name = "ktor-client-core", version.ref = "ktor" }
+client-cio = { group = "io.ktor", name = "ktor-client-cio", version.ref = "ktor" }
+client-content-negotiation = { group = "io.ktor", name = "ktor-client-content-negotiation", version.ref = "ktor" }
+client-serialization-kotlinx-json = { group = "io.ktor", name = "ktor-serialization-kotlinx-json", version.ref = "ktor" }
+jpmml = { group = "org.jpmml", name = "pmml-evaluator-metro", version = "1.6.4" }
 
 # build
 jsoup = { group = "org.jsoup", name = "jsoup", version = "1.21.2" }
@@ -97,4 +107,10 @@ ia-transitive = [
     "ia-gson",
     "ia-jython",
     "slf4j",
+]
+ktor = [
+    "client-serialization-kotlinx-json",
+    "client-content-negotiation",
+    "client-cio",
+    "client-core",
 ]

@@ -15,6 +15,7 @@ import io.github.inductiveautomation.kindling.core.ToolOpeningException
 import io.github.inductiveautomation.kindling.core.ToolPanel
 import io.github.inductiveautomation.kindling.core.add
 import io.github.inductiveautomation.kindling.thread.comparison.ThreadComparisonPane
+import io.github.inductiveautomation.kindling.thread.model.MachineLearningModel
 import io.github.inductiveautomation.kindling.thread.model.Thread
 import io.github.inductiveautomation.kindling.thread.model.ThreadDump
 import io.github.inductiveautomation.kindling.thread.model.ThreadLifespan
@@ -36,14 +37,20 @@ import io.github.inductiveautomation.kindling.utils.escapeHtml
 import io.github.inductiveautomation.kindling.utils.rowIndices
 import io.github.inductiveautomation.kindling.utils.selectedRowIndices
 import io.github.inductiveautomation.kindling.utils.toBodyLine
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.miginfocom.swing.MigLayout
 import org.jdesktop.swingx.JXSearchField
 import org.jdesktop.swingx.table.ColumnControlButton.COLUMN_CONTROL_MARKER
+import org.jpmml.evaluator.LoadingModelEvaluatorBuilder
+import org.jpmml.evaluator.ModelEvaluator
+import org.jpmml.evaluator.ProbabilityDistribution
+import java.awt.Color
 import java.awt.Desktop
 import java.nio.file.Path
+import java.nio.file.Paths
 import javax.swing.ButtonGroup
 import javax.swing.JLabel
 import javax.swing.JMenu
@@ -54,6 +61,7 @@ import javax.swing.JRadioButton
 import javax.swing.ListSelectionModel
 import javax.swing.SortOrder
 import javax.swing.UIManager
+import kotlin.collections.map
 import kotlin.io.path.createTempFile
 import kotlin.io.path.inputStream
 import kotlin.io.path.name
@@ -136,6 +144,18 @@ class MultiThreadView(
                 },
             )
 
+            addHighlighter(
+                ColorHighlighter(
+                    UIManager.getColor("Objects.YellowDark"),
+                    Color.BLACK,
+                ) { _, adapter ->
+                    val rowNum = convertRowIndexToModel(adapter.row)
+                    model[rowNum, model.columns.id] in threadsOfInterest.map {  thread: Thread ->
+                        thread.id
+                    }
+                }
+            )
+
             fun toggleMarkAllWithSameValue(property: Column<ThreadLifespan, *>) {
                 val selectedRowIndex = selectedRowIndices().first()
                 val selectedPropertyValue = model[selectedRowIndex, property]
@@ -184,6 +204,15 @@ class MultiThreadView(
             }
             actionMap.put("$COLUMN_CONTROL_MARKER.clearAllMarks", clearAllMarks)
 
+            if (MachineLearningModel.enabled) {
+                actionMap.put(
+                    "${COLUMN_CONTROL_MARKER}.markThreadsOfInterest",
+                    Action("Mark Threads of Interest") {
+                        markThreadsOfInterest()
+                    }
+                )
+            }
+
             attachPopupMenu table@{ event ->
                 val rowAtPoint = rowAtPoint(event.point)
                 selectionModel.setSelectionInterval(rowAtPoint, rowAtPoint)
@@ -218,6 +247,35 @@ class MultiThreadView(
                         },
                     )
                 }
+            }
+        }
+    }
+
+    private val evaluator: ModelEvaluator<*> = LoadingModelEvaluatorBuilder().run {
+        MachineLearningModel.verifyPMML()
+        val pathToModel = MachineLearningModel.pmmlFilePath
+        try {
+            javaClass.getResourceAsStream(pathToModel).use(this::load)
+        } catch(e: Exception) {
+            Paths.get(pathToModel).inputStream().use(this::load)
+        }
+        build()
+    }
+
+    private val threadsOfInterest: List<Thread> by lazy {
+        if (threadDumps.any(ThreadDump::isLegacy) || !MachineLearningModel.enabled) return@lazy emptyList()
+
+        buildList {
+            val threads = mainTable.model.threadData
+
+            threads.flatten().filterNotNull().forEach { thread ->
+                val evaluation = evaluator.evaluate(
+                    evaluator.inputFields.associate { field ->
+                        field.name to field.prepare(thread.getPmmlProperty(field.name))
+                    }
+                )
+                val result = (evaluation["marked"] as ProbabilityDistribution<*>).result as Int
+                if (result == 1) add(thread)
             }
         }
     }
@@ -306,6 +364,30 @@ class MultiThreadView(
         }
 
         threadCountLabel.visibleThreads = mainTable.model.threadData.flatten().filterNotNull().size
+    }
+
+    private fun markThreadsOfInterest() = CoroutineScope(Dispatchers.Default).launch {
+        val model = mainTable.model.threadData
+
+        model.flatten().filterNotNull().forEach { thread ->
+            if (thread in threadsOfInterest) {
+                thread.marked = true
+            }
+        }
+        mainTable.model.fireTableDataChanged()
+    }
+
+    private fun Thread.getPmmlProperty(prop: String): Any? = when(prop) {
+        "thread_state" -> state.toString()
+        "system" -> system
+        "scope" -> scope
+        "stacktrace_depth" -> stacktrace.size
+        "cpu_usage" -> cpuUsage
+        "daemon" -> isDaemon
+        "thread_pool" -> pool
+        "version" -> threadDumps.first().version
+        "thread_id" -> id
+        else -> null
     }
 
     init {

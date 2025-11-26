@@ -26,6 +26,7 @@ import io.github.inductiveautomation.kindling.core.ToolOpeningException
 import io.github.inductiveautomation.kindling.core.ToolPanel
 import io.github.inductiveautomation.kindling.core.preferencesEditor
 import io.github.inductiveautomation.kindling.internal.FileTransferHandler
+import io.github.inductiveautomation.kindling.thread.model.MachineLearningModel
 import io.github.inductiveautomation.kindling.utils.Action
 import io.github.inductiveautomation.kindling.utils.EmptyBorder
 import io.github.inductiveautomation.kindling.utils.FlatScrollPane
@@ -68,6 +69,7 @@ import java.nio.charset.Charset
 import java.util.function.BiFunction
 import javax.swing.Icon
 import javax.swing.JButton
+import javax.swing.JCheckBoxMenuItem
 import javax.swing.JComboBox
 import javax.swing.JFileChooser
 import javax.swing.JFrame
@@ -333,6 +335,13 @@ class MainPanel : JPanel(MigLayout("ins 6, fill, hidemode 3")) {
                         },
                     )
                 }
+                add(
+                    JCheckBoxMenuItem("Machine Learning Thread Prediction").apply {
+                        addActionListener {
+                            MachineLearningModel.enabled = !MachineLearningModel.enabled
+                        }
+                    },
+                )
             },
         )
     }

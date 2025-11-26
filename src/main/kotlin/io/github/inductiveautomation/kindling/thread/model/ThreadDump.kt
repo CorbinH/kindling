@@ -19,6 +19,8 @@ data class ThreadDump internal constructor(
     val threads: List<Thread>,
     @SerialName("deadlocks")
     val deadlockIds: List<Long> = emptyList(),
+    @Transient
+    val isLegacy: Boolean = false,
 ) : FileFilterableCollection<Thread?> {
     @Transient
     override val items = threads
@@ -53,6 +55,7 @@ data class ThreadDump internal constructor(
                         else -> parseWebPage(text)
                     },
                     deadlockIds = deadlockIds,
+                    isLegacy = true,
                 )
             }
         }

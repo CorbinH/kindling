@@ -289,4 +289,6 @@ data object Kindling {
             }
         }
     }
+
+    const val VERSION = "1.6.0"
 }
