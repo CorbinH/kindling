@@ -96,18 +96,28 @@ tasks {
         )
         baseOutputDirectory = javadocDirectory
     }
+    val download83 by registering(DownloadJavadocs::class) {
+        version = "8.3"
+        urls = listOf(
+            "https://files.inductiveautomation.com/sdk/javadoc/ignition83/8.3.0/allclasses-index.html",
+            "https://docs.oracle.com/en/java/javase/17/docs/api/allclasses-index.html",
+            "https://www.javadoc.io/static/org.python/jython-standalone/2.7.3/allclasses-noframe.html",
+        )
+        baseOutputDirectory = javadocDirectory
+    }
     processResources {
         duplicatesStrategy = DuplicatesStrategy.WARN
-        dependsOn(download79, download80, download81)
+        dependsOn(download79, download80, download81, download83)
     }
     shadowJar {
         manifest {
             attributes["Main-Class"] = "io.github.paulgriffith.kindling.MainPanel"
         }
-        archiveBaseName.set("kindling-bundle")
+        archiveBaseName.set("kindling-beta")
         archiveClassifier.set("")
-        archiveVersion.set("")
+        archiveVersion.set("1.6.0")
         mergeServiceFiles()
+        isZip64 = true
     }
 }
 
@@ -167,10 +177,10 @@ runtime {
         val currentOs = org.gradle.internal.os.OperatingSystem.current()
         val imgType = if (currentOs.isWindows) "ico" else "png"
         appVersion = project.version.toString()
-        imageOptions = listOf("--icon", "src/main/resources/icons/ignition.$imgType")
+        imageOptions = listOf("--icon", "src/main/resources/ignition.$imgType")
         val options: Map<String, String?> = buildMap {
             put("resource-dir", "src/main/resources")
-            put("vendor", "Paul Griffith")
+            put("vendor", "IA Support Applications")
             put("copyright", LocalDate.now().year.toString())
             put("description", "A collection of useful tools for troubleshooting Ignition")
 
@@ -198,7 +208,7 @@ runtime {
         }
 
         imageName = "kindling beta"
-        installerName = "kindling"
-        mainJar = "kindling-bundle.jar"
+        installerName = "kindling beta 1.6.0"
+        mainJar = "kindling-beta-1.6.0.jar"
     }
 }
