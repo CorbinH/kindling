@@ -10,6 +10,7 @@ import io.github.inductiveautomation.kindling.localization.TranslationTool
 import io.github.inductiveautomation.kindling.log.LogViewer
 import io.github.inductiveautomation.kindling.quest.QuestDbViewer
 import io.github.inductiveautomation.kindling.serial.SerialViewer
+import io.github.inductiveautomation.kindling.sim.SimulatorViewer
 import io.github.inductiveautomation.kindling.thread.MultiThreadViewer
 import io.github.inductiveautomation.kindling.utils.FileFilter
 import io.github.inductiveautomation.kindling.xml.XmlTool
@@ -67,6 +68,7 @@ interface Tool : KindlingSerializable {
                 XmlTool,
                 ZipViewer,
                 DockerTool,
+                SimulatorViewer,
             )
         }
 

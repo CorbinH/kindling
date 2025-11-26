@@ -15,6 +15,7 @@ repositories {
 dependencies {
     api(libs.serialization.json)
     api(libs.serialization.yaml)
+    api(libs.serialization.csv)
     api(libs.xerial.jdbc)
     api(libs.hsql)
     api(libs.miglayout)

@@ -178,10 +178,9 @@ class ProgramItemPanel(val item: ProgramItem) : JPanel(MigLayout("ins 5, flowy, 
                         is SimulatorFunctionParameter.Period,
                         is SimulatorFunctionParameter.SetPoint,
                         -> {
-                            require(param.value is Int)
                             JSpinner(
                                 SpinnerNumberModel(
-                                    param.value as Int,
+                                    param.value,
                                     Integer.MIN_VALUE,
                                     Integer.MAX_VALUE,
                                     1,
