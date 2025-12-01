@@ -45,11 +45,13 @@ class RootNode(zipFile: FileSystem) : AbstractTreeNode() {
 
 class ZipFileModel(fileSystem: FileSystem) : DefaultTreeModel(RootNode(fileSystem))
 
-class ZipFileTree(fileSystem: FileSystem) : JTree(ZipFileModel(fileSystem)) {
+class ZipFileTree(fileSystem: FileSystem?) : JTree() {
     init {
+        if (fileSystem != null) {
+            model = ZipFileModel(fileSystem)
+        }
         isRootVisible = false
         setShowsRootHandles(true)
-
         setCellRenderer(
             treeCellRenderer { _, value, selected, _, _, _, _ ->
                 if (value is PathNode) {
@@ -69,7 +71,8 @@ class ZipFileTree(fileSystem: FileSystem) : JTree(ZipFileModel(fileSystem)) {
 
     override fun getModel(): ZipFileModel? = super.getModel() as ZipFileModel?
     override fun setModel(newModel: TreeModel?) {
-        newModel as ZipFileModel
-        super.setModel(newModel)
+        if (newModel is ZipFileModel) {
+            super.setModel(newModel)
+        }
     }
 }
