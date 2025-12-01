@@ -1,27 +1,31 @@
 package io.github.inductiveautomation.kindling.livediagnostics
 
+import com.formdev.flatlaf.FlatClientProperties.TABBED_PANE_TAB_CLOSABLE
 import com.formdev.flatlaf.extras.FlatSVGIcon
-import com.sun.java.accessibility.util.AWTEventMonitor
-import com.sun.java.accessibility.util.AWTEventMonitor.addActionListener
+import com.formdev.flatlaf.extras.components.FlatPopupMenu
+import com.formdev.flatlaf.extras.components.FlatTabbedPane
 import io.github.inductiveautomation.kindling.core.EditorTool
-import io.github.inductiveautomation.kindling.core.Kindling.BETA_VERSION
 import io.github.inductiveautomation.kindling.core.ToolPanel
-import io.github.inductiveautomation.kindling.docker.DockerDraftPanel
-import io.github.inductiveautomation.kindling.docker.DockerTool
+import io.github.inductiveautomation.kindling.utils.Action
 import io.github.inductiveautomation.kindling.utils.FileFilter
 import io.github.inductiveautomation.kindling.utils.HorizontalSplitPane
+import io.github.inductiveautomation.kindling.utils.PathNode
+import io.github.inductiveautomation.kindling.utils.TabStrip
 import io.github.inductiveautomation.kindling.utils.VerticalSplitPane
+import io.github.inductiveautomation.kindling.utils.ZipFileModel
+import io.github.inductiveautomation.kindling.utils.ZipFileTree
+import io.github.inductiveautomation.kindling.utils.attachPopupMenu
+import io.github.inductiveautomation.kindling.utils.transferTo
+import io.github.inductiveautomation.kindling.zip.ZipViewer.createView
+import io.github.inductiveautomation.kindling.zip.views.PathView
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.request
-import io.ktor.client.statement.HttpResponse
-import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpMethod
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.utils.io.ByteReadChannel
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.Serializable
@@ -37,23 +41,29 @@ import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.JTextArea
 import javax.swing.JTextField
-import javax.swing.JTree
 import javax.swing.SwingConstants
 import kotlin.io.path.name
-import io.ktor.client.*
-import io.ktor.client.call.*
-import io.ktor.client.engine.cio.*
-import io.ktor.client.plugins.*
-import io.ktor.client.plugins.contentnegotiation.*
-import io.ktor.client.request.*
-import io.ktor.http.*
-import io.ktor.utils.io.copyTo          // Import for efficient stream copy
 import io.ktor.utils.io.jvm.javaio.copyTo
-import kotlinx.coroutines.runBlocking
-import org.apache.wicket.ajax.json.JSONObject
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import java.awt.Dimension
+import java.awt.event.MouseAdapter
+import java.awt.event.MouseEvent
 import java.io.OutputStream
+import java.nio.file.FileSystems
+import java.nio.file.spi.FileSystemProvider
+import javax.swing.BorderFactory
+import javax.swing.JDialog
 import javax.swing.JFileChooser
-import javax.swing.filechooser.FileSystemView
+import javax.swing.JProgressBar
+import javax.swing.JSpinner
+import javax.swing.SpinnerNumberModel
+import javax.swing.SwingUtilities
+import javax.swing.UIManager
+import javax.swing.plaf.SpinnerUI
+import kotlin.coroutines.cancellation.CancellationException
 
 @Serializable
 data class BundleStatus(val state: String)
@@ -64,89 +74,193 @@ data class BundleComplete(val state: String, val fileSize: Int)
 @Serializable
 data class LiveDiagnosticConfigFile(val url: String, val key: String)
 
+@Serializable
+data class CurrentPermanceData(val cpu: Double, val heapMemory: Double, val nonHeapMemory: Double? = 0.0)
 
-class LiveDiagnosticPanel(existingFile: Path?) : ToolPanel("debug, ins 0, fill, hidemode 3") {
 
+class LiveDiagnosticPanel(var path: Path?) : ToolPanel("ins 0, fill, hidemode 3") {
+
+
+    private val apiScope = CoroutineScope(Dispatchers.IO)
+    private var apiJob: Job? = null
     override fun getToolTipText(): String? {
-        return "MyCoolToolTip"
+        return "Live Diagnostic Tool"
     }
     override val icon: Icon = LiveDiagnosticTool.icon
 
-    val resourceTree = JTree()
-    val destinationDropdown = JComboBox(arrayOf("Test1", "test2"))
-    val captureRate = JTextField().apply {
-        isEnabled = false
-        //set a default value for the rate and do safe input checking
+    var provider: FileSystemProvider? = null
+    private val tabStrip = TabStrip()
+    private val FlatTabbedPane.tabs: Sequence<PathView>
+        get() = sequence {
+            repeat(tabCount) { i ->
+                yield(getComponentAt(i) as PathView)
+            }
+        }
+    val fileTree = ZipFileTree(null)
+    val destinationDropdown = JComboBox(arrayOf("Current Performance Data", "Thread Execution Data", "Historic Performance Data"))
+    val captureRate = JSpinner(SpinnerNumberModel(5000L, 500L, Long.MAX_VALUE, 500L))
+
+    val liveValuesButton = JButton("Get Live Values").apply {
+        addActionListener {
+            if (apiJob == null) {
+                text = "Stop"
+                apiJob = apiScope.launch {
+                    startPolling()
+                }
+            } else {
+                text = "Get Live Values"
+                stopPolling()
+            }
+        }
     }
 
-    val liveValuesCheckBox = JCheckBox("Live Values  ", false).apply {
-        horizontalTextPosition = SwingConstants.LEFT
-        addActionListener {
-            captureRate.isEnabled = isSelected
-        }
-}
     val liveStats = JTextArea()
-    var APIKey = JTextField("JacobAPIKey:qtqb-8jDJncaOMAtH6YJhX87FivhF4VMhMKtmTBKq5Y")
-    var destinationUrl = JTextField("http://1.localtest.me:8188")
+    var apiKeyField = JTextField()
+    var urlField = JTextField()
 
 
-    val saveJButton = JButton("Save").apply {
+    val saveButton = JButton("Save Config").apply {
         addActionListener {
             saveConfigToJson()
         }
     }
-    val reloadButon = JButton("Reload").apply {
+    val downloadBundleButton = JButton("Download Bundle").apply {
         addActionListener {
+            runBlocking {
+                executeBundleProcess()
+                getLiveData()
+//                updateLiveMetrics()
+            }
+        }
+    }
+
+    val leftUpperPanel = JPanel(MigLayout("ins 3, fill, hidemode 3")).apply {
+        border = BorderFactory.createLineBorder(UIManager.getColor("Component.borderColor"))
+        add(JPanel(MigLayout("fill")).apply {
+            add(JLabel("URL: "))
+            add(urlField, "grow, wrap, pushx")
+            add(JLabel("API Key:  "))
+            add(apiKeyField, "grow, wrap, pushx")
+        }, "grow, wrap")
+        add(JPanel(MigLayout("fill")).apply{
+            add(downloadBundleButton, "grow, pushx")
+            add(saveButton,"grow, pushx")
+        }, "grow, wrap")
+        add(liveStats, "push, grow, wrap")
+        add(JPanel(MigLayout("fill")).apply {
+            add(liveValuesButton, "grow")
+            add(JLabel("Capture Rate: ").apply {
+                horizontalAlignment = SwingConstants.RIGHT
+            }, "grow")
+            add(captureRate, "grow, wrap")
+            add(destinationDropdown, "grow, spanx")
+        },"grow, wrap")
+
+    }
+    val leftLowerPanel = JPanel(MigLayout("ins 3, fill, hidemode 3")).apply {
+        border = BorderFactory.createLineBorder(UIManager.getColor("Component.borderColor"))
+        add(fileTree, "grow, push, wrap")
+        add(JButton("Save Bundle").apply {
+            addActionListener {
+
+            }
+        }, "grow")
+    }
+    val leftPanel = VerticalSplitPane(leftUpperPanel, leftLowerPanel, resizeWeight = 0.5)
+    val mainPanel = HorizontalSplitPane(leftPanel, tabStrip, resizeWeight = 0.25)
+
+    init {
+        name = "Live Diagnostics"
+        add(mainPanel, "push, grow")
+        if (path != null) {
+            name = path!!.name
+            val configValues = readJSONFile(path!!)
+            apiKeyField.text = configValues.key
+            urlField.text = configValues.url
             runBlocking {
                 executeBundleProcess()
             }
         }
-    }
+        fileTree.addMouseListener(
+            object : MouseAdapter() {
+                override fun mousePressed(e: MouseEvent?) {
+                    if (e?.clickCount == 2) {
+                        val pathNode = fileTree.selectionPath?.lastPathComponent as? PathNode ?: return
+                        val actualPath = pathNode.userObject
+                        maybeAddNewTab(actualPath)
+                    }
+                }
+            },
+        )
 
-    val leftUpperPanel = JPanel(MigLayout("ins 0, fill, hidemode 3")).apply {
-        add(reloadButon, "grow, pushx")
-        add(saveJButton,"grow, wrap, pushx")
-        add(JLabel("URL: "), "grow")
-        add(destinationUrl, "grow, wrap, pushx")
-        add(JLabel("API Key:  "), "grow")
-        add(APIKey, "grow, wrap, pushx")
-        add(liveStats, "push, grow, wrap, span 2")
-        add(liveValuesCheckBox, "grow ,wrap")
-        add(JLabel("Capture rate: "), "grow")
-        add(captureRate, "grow, wrap")
-        add(destinationDropdown, "grow, spanx")
-    }
-    val leftLowerPanel = JPanel(MigLayout("ins 0, fill, hidemode 3")).apply {
-        add(JButton("Download"), "grow, wrap").apply {
-            addActionListener {
+        fileTree.attachPopupMenu {
+            selectionPaths?.let { selectedPaths ->
+                FlatPopupMenu().apply {
+                    val openIndividually =
+                        Action("Open File") {
+                            for (treePath in selectedPaths) {
+                                val actualPath = (treePath.lastPathComponent as PathNode).userObject
+                                maybeAddNewTab(actualPath)
+                            }
+                        }
+                    if (selectedPaths.size > 1) {
+                        add(
+                            Action("Open in new aggregate view") {
+                                val actualPaths =
+                                    Array(selectedPaths.size) {
+                                        (selectedPaths[it].lastPathComponent as PathNode).userObject
+                                    }
+                                maybeAddNewTab(*actualPaths)
+                            },
+                        )
+                        openIndividually.name = "Open ${selectedPaths.size} files individually"
+                    }
+                    add(openIndividually)
 
+                    val selectedNode = selectedPaths.first().lastPathComponent as PathNode
+
+                    if (selectedPaths.size == 1 && selectedNode.isLeaf) {
+                        add(
+                            Action("Save As") {
+                                exportFileChooser.apply {
+                                    resetChoosableFileFilters()
+                                    selectedFile = File(selectedNode.userObject.name)
+                                    if (provider != null && showSaveDialog(this@attachPopupMenu) == JFileChooser.APPROVE_OPTION) {
+                                        provider!!.newInputStream(selectedNode.userObject) transferTo selectedFile.outputStream()
+                                    }
+                                }
+                            },
+                        )
+                    }
+                }
             }
         }
-        add(resourceTree, "grow, push")
-    }
-    val leftPanel = VerticalSplitPane(leftUpperPanel, leftLowerPanel, resizeWeight = 0.5)
-    val rightPanel = JPanel()
-
-
-    val mainPanel = HorizontalSplitPane(leftPanel, rightPanel, resizeWeight = 0.25).apply {
-
     }
 
-    init {
-        name = existingFile?.name ?: "Metrics"
-        add(mainPanel, "push, grow")
-        if (existingFile != null) {
-            val configValues = readJSONFile(existingFile)
-            APIKey.text = configValues.key
-            destinationUrl.text = configValues.url
+    private val json = Json {prettyPrint = true}
+    private var isActive = false
+
+    fun stopPolling() {
+        isActive = false
+        apiJob?.cancel()
+    }
+
+    suspend fun startPolling() {
+        isActive = true
+        try {
+            while (isActive) {
+                updateLiveMetrics()
+                delay(captureRate.value as Long)
+            }
+        } catch (e: CancellationException) {
+            println("Polling job cancelled.")
+        } finally {
+            apiJob = null
         }
-
-
     }
-
 
     fun saveConfigToJson() {
-        val jsonString = Json{ prettyPrint = true }.encodeToString(LiveDiagnosticConfigFile(destinationUrl.text, APIKey.text))
+        val jsonString = json.encodeToString(LiveDiagnosticConfigFile(urlField.text, apiKeyField.text))
         val fileChooser = JFileChooser()
         fileChooser.selectedFile = File("default_output.json")
         val userSelection = fileChooser.showSaveDialog(mainPanel)
@@ -154,91 +268,135 @@ class LiveDiagnosticPanel(existingFile: Path?) : ToolPanel("debug, ins 0, fill, 
             val fileToSave = fileChooser.selectedFile
             fileToSave.writeText(jsonString)
         }
-//        filePath.toFile().writeText(jsonString, Charsets.UTF_8)
-
     }
 
 
     fun readJSONFile(filePath: Path): LiveDiagnosticConfigFile {
-        val JSONString = filePath.toFile().readText(Charsets.UTF_8)
-        return Json.decodeFromString<LiveDiagnosticConfigFile>(JSONString)
+        val jsonString = filePath.toFile().readText(Charsets.UTF_8)
+        return Json.decodeFromString<LiveDiagnosticConfigFile>(jsonString)
     }
 
-    suspend fun executeBundleProcess() {
+    fun executeBundleProcess() {
+        val dialog = LoadingDialog()
+        dialog.updateStatus(0, 10, "Generating")
         val isGenerating = genBundle().state == "Generating"
         if (isGenerating) {
+            dialog.updateStatus(0, 10, "Status")
             var genComplete = false
-
-            for (i in 0 until 10) {
+            for (i in 1 .. 10) {
+                dialog.updateStatus(i, 10, "Status")
+                runBlocking {delay(1000)}
                 try {
                     val status = bundleStatus()
                     if (status.state == "Valid") {
                         genComplete = true
+                        dialog.updateStatus(i, 10, "Downloading")
                         break
                     }
-                } catch (e: Exception) {
-
-                }
+                } catch (_: Exception) { }
                 if (i == 9) {
-                    println("Call Timed out after 10 seconds")
+                    dialog.updateStatus(0, 10, "Download Failed to Generate after ${10} attempts.")
                 }
-                delay(1000)
-            }
-            println(genComplete)
 
+            }
             if (genComplete) {
-                downloadBundle()
+                val file = downloadBundle()
+                path = file.toPath()
+                loadModel(path!!)
+
+                dialog.updateStatus(0, 10, "Complete")
             }
         } else {
-            println("Failed to start generating bundle")
+            dialog.updateStatus(0, 10, "Bundle Failed to Start Generating.")
         }
 
     }
 
+    var currentPermanceData: CurrentPermanceData? = null
+
+    fun updateLiveMetrics() {
+        currentPermanceData = getLiveData()
+
+        val cpuPercentage = currentPermanceData?.cpu?.let { "%.2f".format(it) } ?: 0
+        val heapMemory = currentPermanceData?.heapMemory?.let { "%.2f".format(it/1024/1024) } ?: 0
+        val nonHeapMemory = currentPermanceData?.nonHeapMemory?.let { "%.2f".format(it/1024/1024) } ?: 0
+
+        SwingUtilities.invokeLater {
+            liveStats.text = """
+            CPU: $cpuPercentage%
+            HeapMemory: $heapMemory MB
+            NonHeapMemory: $nonHeapMemory MB
+        """.trimIndent()
+        }
+    }
+
+    fun getLiveData(): CurrentPermanceData {
+        return runAPICall<CurrentPermanceData>(urlField.text+LIVE_PERF_DATA, apiKeyField.text, HttpMethod.Get)
+
+    }
+
     fun genBundle(): BundleStatus {
-        return runAPICall<BundleStatus>(destinationUrl.text+GEN_DIAG_BUNDLE, APIKey.text, HttpMethod.Post)
+        return runAPICall<BundleStatus>(urlField.text+GENERATE_BUNDLE, apiKeyField.text, HttpMethod.Post)
     }
 
     fun bundleStatus(): BundleComplete {
-        return runAPICall<BundleComplete>(destinationUrl.text+BUNDLE_STATUS, APIKey.text, HttpMethod.Get)
+        return runAPICall<BundleComplete>(urlField.text+BUNDLE_STATUS, apiKeyField.text, HttpMethod.Get)
     }
 
-    suspend fun downloadBundle(): File {
+    fun downloadBundle(): File {
         val tempFile = File.createTempFile("downloaded_diagnostic_bundle", ".tmp")
-        val channel: ByteReadChannel = runAPICall(destinationUrl.text+DOWNLOAD_BUDNLE, APIKey.text, HttpMethod.Get)
+        val channel: ByteReadChannel = runAPICall(urlField.text+DOWNLOAD_BUNDLE, apiKeyField.text, HttpMethod.Get)
         val outputStream: OutputStream = tempFile.outputStream()
         try {
-            channel.copyTo(outputStream)
+            runBlocking {channel.copyTo(outputStream)}
         } finally {
             outputStream.close()
         }
         return tempFile
     }
 
+    fun loadModel(path: Path) {
+        val zipFile = FileSystems.newFileSystem(path)
+        provider = zipFile.provider()
+        fileTree.model = ZipFileModel(zipFile)
+    }
+
+    private fun maybeAddNewTab(vararg paths: Path) {
+        val pathList = paths.toList()
+        val existingTab = tabStrip.tabs.find { tab -> tab.paths == pathList }
+        if (existingTab == null) {
+            val pathView = createView(provider!!, *paths)
+            if (pathView != null) {
+                pathView.putClientProperty(TABBED_PANE_TAB_CLOSABLE, pathView.closable)
+                tabStrip.addTab(component = pathView, select = true)
+            }
+        } else {
+            tabStrip.selectedComponent = existingTab
+        }
+    }
+
     companion object {
-        const val GEN_DIAG_BUNDLE = "/data/api/v1/diagnostics/bundle/generate"
-        const val BUNDLE_STATUS = "/data/api/v1/diagnostics/bundle/status/"
-        const val DOWNLOAD_BUDNLE = "/data/api/v1/diagnostics/bundle/download"
+        const val GENERATE_BUNDLE = "/data/api/v1/diagnostics/bundle/generate"
+        const val BUNDLE_STATUS = "/data/api/v1/diagnostics/bundle/status"
+        const val DOWNLOAD_BUNDLE = "/data/api/v1/diagnostics/bundle/download"
         const val THREAD_EXECUTION_DATA = "/data/api/v1/systemPerformance/threads"
         const val HIST_PERF_DATA = "/data/api/v1/systemPerformance/charts"
         const val LIVE_PERF_DATA = "/data/api/v1/systemPerformance/currentGauges"
 
-        //todo create a post and get generic functions
-        //todo generate the bundle, check the status if the staus is valid or not x number of time, and then download
 
-        inline fun <reified T> runAPICall(url: String, token: String, HTTPMethod: HttpMethod): T {
+        inline fun <reified T> runAPICall(url: String, token: String, httpMethod: HttpMethod): T {
             val client = HttpClient(CIO) {
                 install(ContentNegotiation) {
                     json(Json {
                         prettyPrint = true
                         isLenient = true
                         ignoreUnknownKeys = true
-                    })
+                        })
                     }
                 }
             val result = runBlocking {
                 client.request(url) {
-                    method = HTTPMethod
+                    method = httpMethod
                     url {
                         headers.append("Content-Type", "application/json")
                         headers.append("X-Ignition-API-Token", token)
@@ -250,27 +408,79 @@ class LiveDiagnosticPanel(existingFile: Path?) : ToolPanel("debug, ins 0, fill, 
             return result
         }
     }
+    class LoadingDialog(): JDialog() {
+        val statusLabel = JLabel("").apply {
+            horizontalAlignment = SwingConstants.CENTER
+        }
+        val detailsLabel = JLabel("").apply {
+            horizontalAlignment = SwingConstants.CENTER
+        }
+        val progressBar = JProgressBar().apply {
+            isIndeterminate = true
+            isVisible = true
+        }
+        val panel = JPanel(MigLayout("ins 0, fill, hidemode 3")).apply {
+            border = BorderFactory.createEmptyBorder(20, 20, 20, 20)
+            add(statusLabel, "grow, wrap")
+            add(detailsLabel, "grow, wrap")
+            add(progressBar, "grow, wrap")
+        }
+        fun updateStatus(attempt: Int, total: Int, status: String) {
+            when (status) {
+                "Generating" -> {
+                    statusLabel.text = "Generating Bundle"
+                    detailsLabel.text = ""
+                    progressBar.isVisible = true
+                }
+                "Status" -> {
+                    statusLabel.text = "Checking Status${".".repeat(attempt % 4)}"
+                    detailsLabel.text = "Attempt: $attempt of $total"
+                    progressBar.isVisible = true
+                }
+                "Downloading" -> {
+                    statusLabel.text = "Downloading .zip"
+                    detailsLabel.text = ""
+                    progressBar.isVisible = true
+                }
+                "Complete" -> {
+                    statusLabel.text = "Download Complete!"
+                    detailsLabel.text = ""
+                    progressBar.isVisible = false
+                }
+                else -> {
+                    statusLabel.text = "Download Failed!"
+                    detailsLabel.text = status
+                    progressBar.isVisible = false
+                }
 
+            }
+            panel.revalidate()
+            panel.repaint()
+        }
+
+        init {
+            isVisible = true
+            title = "Downloading Diagnostic Bundles"
+            contentPane.add(panel)
+            preferredSize = Dimension(350, 120)
+            pack()
+            setLocationRelativeTo(owner)
+        }
+    }
 
 }
 
-
-object LiveDiagnosticTool : EditorTool {
+object LiveDiagnosticTool: EditorTool {
     override val serialKey: String = "livediagnostics"
     override val title: String = "Live Diagnostics"
     override val description: String = "Open tool for viewing and retrieving diagnostic data"
-    override val icon: FlatSVGIcon = FlatSVGIcon("icons/bx-docker.svg")  // Find and add an icon for the tool
-
-    internal val ignitionIcon: FlatSVGIcon = FlatSVGIcon("icons/Logo-Ignition-Check.svg")
-
+    override val icon: FlatSVGIcon = FlatSVGIcon("icons/bx-tachometer.svg")
     override fun open(path: Path): ToolPanel {
         return LiveDiagnosticPanel(path)
     }
-
     override fun open(): ToolPanel {
         return LiveDiagnosticPanel(null)
     }
-
     override val filter: FileFilter = FileFilter("json files", "json")
 }
 
