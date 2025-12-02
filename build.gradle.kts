@@ -208,7 +208,7 @@ runtime {
         }
 
         imageName = "kindling beta"
-        installerName = "kindling beta 1.6.0"
+        installerName = "kindling Beta"
         mainJar = "kindling-beta-1.6.0.jar"
     }
 }

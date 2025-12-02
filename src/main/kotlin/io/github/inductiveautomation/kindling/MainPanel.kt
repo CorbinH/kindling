@@ -442,7 +442,7 @@ class MainPanel : JPanel(MigLayout("ins 6, fill, hidemode 3")) {
                 lafSetup()
 
                 jFrame(
-                    title = "Kindling $BETA_VERSION",
+                    title = "Kindling Beta $BETA_VERSION",
                     width = 1280,
                     height = 800,
                     embedContentIntoTitleBar = true,
