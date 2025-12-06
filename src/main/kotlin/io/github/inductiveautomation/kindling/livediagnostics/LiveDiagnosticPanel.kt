@@ -35,8 +35,6 @@ import java.io.File
 import java.nio.file.Path
 import javax.swing.Icon
 import javax.swing.JButton
-import javax.swing.JCheckBox
-import javax.swing.JComboBox
 import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.JTextArea
@@ -62,7 +60,6 @@ import javax.swing.JSpinner
 import javax.swing.SpinnerNumberModel
 import javax.swing.SwingUtilities
 import javax.swing.UIManager
-import javax.swing.plaf.SpinnerUI
 import kotlin.coroutines.cancellation.CancellationException
 
 @Serializable
@@ -75,15 +72,20 @@ data class BundleComplete(val state: String, val fileSize: Int)
 data class LiveDiagnosticConfigFile(val url: String, val key: String)
 
 @Serializable
-data class CurrentPermanceData(val cpu: Double, val heapMemory: Double, val nonHeapMemory: Double? = 0.0)
+data class CurrentPerformanceData(val cpu: Double, val heapMemory: Double, val nonHeapMemory: Double? = 0.0)
+
+@Serializable
+data class CurrentThreadData(val running: Int, val waiting: Double, val timedWaiting: Double, val blocked: Double)
 
 
 class LiveDiagnosticPanel(var path: Path?) : ToolPanel("ins 0, fill, hidemode 3") {
 
 
     private val apiScope = CoroutineScope(Dispatchers.IO)
-    private var apiJob: Job? = null
-    override fun getToolTipText(): String? {
+    private var resourceJob: Job? = null
+    private var threadJob: Job? = null
+
+    override fun getToolTipText(): String {
         return "Live Diagnostic Tool"
     }
     override val icon: Icon = LiveDiagnosticTool.icon
@@ -97,24 +99,39 @@ class LiveDiagnosticPanel(var path: Path?) : ToolPanel("ins 0, fill, hidemode 3"
             }
         }
     val fileTree = ZipFileTree(null)
-    val destinationDropdown = JComboBox(arrayOf("Current Performance Data", "Thread Execution Data", "Historic Performance Data"))
-    val captureRate = JSpinner(SpinnerNumberModel(5000L, 500L, Long.MAX_VALUE, 500L))
+    val resourceRateSpinner = JSpinner(SpinnerNumberModel(5000L, 500L, Long.MAX_VALUE, 500L))
+    val threadRateSpinner = JSpinner(SpinnerNumberModel(5000L, 500L, Long.MAX_VALUE, 500L))
 
-    val liveValuesButton = JButton("Get Live Values").apply {
+    val liveResourceMetricsButton = JButton("Get Live Values").apply {
         addActionListener {
-            if (apiJob == null) {
+            if (resourceJob == null) {
                 text = "Stop"
-                apiJob = apiScope.launch {
-                    startPolling()
+                resourceJob = apiScope.launch {
+                    startResourcePolling()
                 }
             } else {
                 text = "Get Live Values"
-                stopPolling()
+                stopResourcePolling()
             }
         }
     }
 
-    val liveStats = JTextArea()
+    val liveThreadsButton = JButton("Capture Threads").apply {
+        addActionListener {
+            if (threadJob == null) {
+                text = "Stop"
+                threadJob = apiScope.launch {
+                    startThreadPolling()
+                }
+            } else {
+                text = "Capture Threads"
+                stopThreadPolling()
+            }
+        }
+    }
+
+    val resourceStats = JTextArea()
+    val threadStats = JTextArea()
     var apiKeyField = JTextField()
     var urlField = JTextField()
 
@@ -129,7 +146,6 @@ class LiveDiagnosticPanel(var path: Path?) : ToolPanel("ins 0, fill, hidemode 3"
             runBlocking {
                 executeBundleProcess()
                 getLiveData()
-//                updateLiveMetrics()
             }
         }
     }
@@ -142,18 +158,26 @@ class LiveDiagnosticPanel(var path: Path?) : ToolPanel("ins 0, fill, hidemode 3"
             add(JLabel("API Key:  "))
             add(apiKeyField, "grow, wrap, pushx")
         }, "grow, wrap")
+
         add(JPanel(MigLayout("fill")).apply{
             add(downloadBundleButton, "grow, pushx")
             add(saveButton,"grow, pushx")
         }, "grow, wrap")
-        add(liveStats, "push, grow, wrap")
+        add(resourceStats, "push, grow, wrap, h 100!")
+        add(threadStats, "push, grow, wrap, h 100!")
         add(JPanel(MigLayout("fill")).apply {
-            add(liveValuesButton, "grow")
+            add(JLabel("Live Resource Capture"), "grow")
             add(JLabel("Capture Rate: ").apply {
                 horizontalAlignment = SwingConstants.RIGHT
             }, "grow")
-            add(captureRate, "grow, wrap")
-            add(destinationDropdown, "grow, spanx")
+            add(resourceRateSpinner, "grow")
+            add(liveResourceMetricsButton, "grow, wrap")
+            add(JLabel("Live Thread Capture"), "grow")
+            add(JLabel("Capture Rate: ").apply {
+                horizontalAlignment = SwingConstants.RIGHT
+            }, "grow")
+            add(threadRateSpinner, "grow")
+            add(liveThreadsButton, "grow, wrap")
         },"grow, wrap")
 
     }
@@ -240,22 +264,39 @@ class LiveDiagnosticPanel(var path: Path?) : ToolPanel("ins 0, fill, hidemode 3"
     private val json = Json {prettyPrint = true}
     private var isActive = false
 
-    fun stopPolling() {
-        isActive = false
-        apiJob?.cancel()
+    fun stopResourcePolling() {
+        resourceJob?.cancel()
+        resourceJob = null
     }
 
-    suspend fun startPolling() {
-        isActive = true
+    fun stopThreadPolling() {
+        threadJob?.cancel()
+        threadJob = null
+    }
+
+    suspend fun startResourcePolling() {
         try {
-            while (isActive) {
-                updateLiveMetrics()
-                delay(captureRate.value as Long)
+            while (true) {
+                updateResourceMetrics()
+                delay(resourceRateSpinner.value as Long)
             }
         } catch (e: CancellationException) {
-            println("Polling job cancelled.")
+            println("Resource Polling job cancelled.")
         } finally {
-            apiJob = null
+            resourceJob = null
+        }
+    }
+
+    suspend fun startThreadPolling() {
+        try {
+            while (true) {
+                updateThreadMetrics()
+                delay(threadRateSpinner.value as Long)
+            }
+        } catch (e: CancellationException) {
+            println("Thread Polling job cancelled.")
+        } finally {
+            threadJob = null
         }
     }
 
@@ -279,10 +320,12 @@ class LiveDiagnosticPanel(var path: Path?) : ToolPanel("ins 0, fill, hidemode 3"
     fun executeBundleProcess() {
         val dialog = LoadingDialog()
         dialog.updateStatus(0, 10, "Generating")
-        val isGenerating = genBundle().state == "Generating"
-        if (isGenerating) {
+        val isGenerating = genBundle().state
+
+        if (isGenerating == "Generating" || isGenerating == "Valid") {
             dialog.updateStatus(0, 10, "Status")
             var genComplete = false
+
             for (i in 1 .. 10) {
                 dialog.updateStatus(i, 10, "Status")
                 runBlocking {delay(1000)}
@@ -312,17 +355,19 @@ class LiveDiagnosticPanel(var path: Path?) : ToolPanel("ins 0, fill, hidemode 3"
 
     }
 
-    var currentPermanceData: CurrentPermanceData? = null
+    var currentPerformanceData: CurrentPerformanceData? = null
+    var currentThreadData: CurrentThreadData? = null
 
-    fun updateLiveMetrics() {
-        currentPermanceData = getLiveData()
+    fun updateResourceMetrics() {
+        currentPerformanceData = getLiveData()
 
-        val cpuPercentage = currentPermanceData?.cpu?.let { "%.2f".format(it) } ?: 0
-        val heapMemory = currentPermanceData?.heapMemory?.let { "%.2f".format(it/1024/1024) } ?: 0
-        val nonHeapMemory = currentPermanceData?.nonHeapMemory?.let { "%.2f".format(it/1024/1024) } ?: 0
+        val cpuPercentage = currentPerformanceData?.cpu?.let { "%.2f".format(it) } ?: "0.00"
+        val heapMemory = currentPerformanceData?.heapMemory?.let { "%.2f".format(it / 1024.0 / 1024.0) } ?: "0.00"
+        val nonHeapMemory = currentPerformanceData?.nonHeapMemory?.let { "%.2f".format(it / 1024.0 / 1024.0) } ?: "0.00"
 
         SwingUtilities.invokeLater {
-            liveStats.text = """
+            resourceStats.text = """
+            Resource Data
             CPU: $cpuPercentage%
             HeapMemory: $heapMemory MB
             NonHeapMemory: $nonHeapMemory MB
@@ -330,8 +375,31 @@ class LiveDiagnosticPanel(var path: Path?) : ToolPanel("ins 0, fill, hidemode 3"
         }
     }
 
-    fun getLiveData(): CurrentPermanceData {
-        return runAPICall<CurrentPermanceData>(urlField.text+LIVE_PERF_DATA, apiKeyField.text, HttpMethod.Get)
+    fun updateThreadMetrics() {
+        currentThreadData = getThreadData()
+
+        val running = currentThreadData?.running ?: 0
+        val waiting = currentThreadData?.waiting ?: 0
+        val timedWaiting = currentThreadData?.timedWaiting ?: 0
+        val blocked = currentThreadData?.blocked ?: 0
+
+        SwingUtilities.invokeLater {
+            threadStats.text = """
+            Threading Data
+            Running: $running
+            Waiting: $waiting
+            TimedWaiting: $timedWaiting
+            Blocked: $blocked
+        """.trimIndent()
+        }
+    }
+
+    fun getThreadData(): CurrentThreadData {
+        return runAPICall<CurrentThreadData>(urlField.text+THREAD_EXECUTION_DATA, apiKeyField.text, HttpMethod.Get)
+    }
+
+    fun getLiveData(): CurrentPerformanceData {
+        return runAPICall<CurrentPerformanceData>(urlField.text+LIVE_PERF_DATA, apiKeyField.text, HttpMethod.Get)
 
     }
 
@@ -408,6 +476,7 @@ class LiveDiagnosticPanel(var path: Path?) : ToolPanel("ins 0, fill, hidemode 3"
             return result
         }
     }
+
     class LoadingDialog(): JDialog() {
         val statusLabel = JLabel("").apply {
             horizontalAlignment = SwingConstants.CENTER
