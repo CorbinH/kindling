@@ -26,7 +26,6 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.decodeFromStream
 import kotlinx.serialization.json.encodeToStream
-import net.miginfocom.swing.MigLayout
 import org.jdesktop.swingx.JXTextField
 import java.awt.Image
 import java.awt.event.ItemEvent
@@ -403,5 +402,5 @@ data object Kindling {
         }
     }
 
-    const val BETA_VERSION = "1.6.0"
+    const val BETA_VERSION = "1.6.1"
 }

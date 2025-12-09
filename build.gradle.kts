@@ -111,11 +111,11 @@ tasks {
     }
     shadowJar {
         manifest {
-            attributes["Main-Class"] = "io.github.paulgriffith.kindling.MainPanel"
+            attributes["Main-Class"] = "io.github.inductiveautomation.kindling.MainPanel"
         }
         archiveBaseName.set("kindling-beta")
         archiveClassifier.set("")
-        archiveVersion.set("1.6.0")
+        archiveVersion.set("1.6.1")
         mergeServiceFiles()
         isZip64 = true
     }
@@ -177,7 +177,7 @@ runtime {
         val currentOs = org.gradle.internal.os.OperatingSystem.current()
         val imgType = if (currentOs.isWindows) "ico" else "png"
         appVersion = project.version.toString()
-        imageOptions = listOf("--icon", "src/main/resources/ignition.$imgType")
+        imageOptions = listOf("--icon", "src/main/resources/beta-logo.$imgType")
         val options: Map<String, String?> = buildMap {
             put("resource-dir", "src/main/resources")
             put("vendor", "IA Support Applications")
@@ -201,14 +201,18 @@ runtime {
         }
 
         // add-exports is used to bypass Java modular restrictions
-        jvmArgs = listOf("--add-exports", "java.desktop/com.sun.java.swing.plaf.windows=ALL-UNNAMED")
+        jvmArgs = listOf(
+            "--add-exports", "java.desktop/com.sun.java.swing.plaf.windows=ALL-UNNAMED",
+            "--add-exports=java.base/sun.security.action=ALL-UNNAMED",
+            "--add-opens", "java.base/sun.misc=ALL-UNNAMED MainPanel",
+        )
 
         installerOptions = options.flatMap { (key, value) ->
             listOfNotNull("--$key", value)
         }
 
-        imageName = "kindling beta"
-        installerName = "kindling Beta"
-        mainJar = "kindling-beta-1.6.0.jar"
+        imageName = "Kindling Beta"
+        installerName = "Kindling Beta"
+        mainJar = "kindling-beta-1.6.1.jar"
     }
 }

@@ -422,6 +422,7 @@ object DockerTool : EditorTool {
     override val title: String = "Docker Draft"
     override val description: String = "Open or create docker-compose.yaml files."
     override val icon: FlatSVGIcon = FlatSVGIcon("icons/bx-docker.svg")
+    override val extensions: Array<String> = arrayOf("yaml", "yml")
 
     override fun open(path: Path): ToolPanel = DockerDraftPanel(path)
 

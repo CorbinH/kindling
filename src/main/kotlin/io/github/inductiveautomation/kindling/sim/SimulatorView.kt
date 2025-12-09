@@ -329,6 +329,7 @@ object SimulatorViewer : Tool {
     override val description = "Tag Export (json)"
     override val icon: FlatSVGIcon = FlatSVGIcon("icons/bx-tag.svg")
     override val title = "Tag Export (Device Sim)"
+    override val extensions: Array<String> = arrayOf("json")
     override val filter = FileFilter(
         description = description,
         predicate = { file ->
