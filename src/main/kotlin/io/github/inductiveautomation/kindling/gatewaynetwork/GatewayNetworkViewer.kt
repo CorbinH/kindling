@@ -6,7 +6,6 @@ import io.github.inductiveautomation.kindling.core.Kindling.Preferences.General.
 import io.github.inductiveautomation.kindling.core.ToolOpeningException
 import io.github.inductiveautomation.kindling.core.ToolPanel
 import io.github.inductiveautomation.kindling.utils.Action
-import io.github.inductiveautomation.kindling.utils.FileFilter
 import io.github.inductiveautomation.kindling.utils.FlatScrollPane
 import io.github.inductiveautomation.kindling.utils.transferTo
 import kotlinx.serialization.SerializationException
@@ -139,7 +138,6 @@ data object GatewayNetworkTool : ClipboardTool {
     override val description = "GAN Diagram (.json, .txt)"
     override val icon = FlatSVGIcon("icons/bx-sitemap.svg")
     override val extensions: Array<String> = arrayOf("json", "txt")
-    override val filter = FileFilter(description, *extensions)
     override val respectsEncoding = true
 
     override fun open(data: String) = GatewayNetworkViewer(

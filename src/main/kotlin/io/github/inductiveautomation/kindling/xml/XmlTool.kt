@@ -5,7 +5,6 @@ import com.formdev.flatlaf.extras.components.FlatTabbedPane
 import io.github.inductiveautomation.kindling.core.ClipboardTool
 import io.github.inductiveautomation.kindling.core.Kindling.Preferences.General.DefaultEncoding
 import io.github.inductiveautomation.kindling.core.ToolPanel
-import io.github.inductiveautomation.kindling.utils.FileFilter
 import io.github.inductiveautomation.kindling.utils.TabStrip
 import io.github.inductiveautomation.kindling.utils.getLogger
 import io.github.inductiveautomation.kindling.xml.logback.LogbackEditor
@@ -96,7 +95,6 @@ data object XmlTool : ClipboardTool {
     override val icon = FlatSVGIcon("icons/bx-code.svg")
     override val respectsEncoding = true
     override val extensions: Array<String> = arrayOf("xml")
-    override val filter = FileFilter(description, *extensions)
 
     internal val logger = getLogger<XmlTool>()
 

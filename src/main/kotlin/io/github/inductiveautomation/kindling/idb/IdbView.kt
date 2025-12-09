@@ -11,7 +11,6 @@ import io.github.inductiveautomation.kindling.log.LogFile
 import io.github.inductiveautomation.kindling.log.SystemLogPanel
 import io.github.inductiveautomation.kindling.log.SystemLogPanel.Companion.parseLogs
 import io.github.inductiveautomation.kindling.tagconfig.TagConfigView
-import io.github.inductiveautomation.kindling.utils.FileFilter
 import io.github.inductiveautomation.kindling.utils.SQLiteConnection
 import io.github.inductiveautomation.kindling.utils.TabStrip
 import io.github.inductiveautomation.kindling.utils.executeQuery
@@ -128,9 +127,8 @@ data object IdbViewer : MultiTool {
     override val serialKey = "idb-viewer"
     override val title = "SQLite Database"
     override val description = "SQLite Database (.idb)"
+    override val extensions: Array<String> = arrayOf("idb", "db", "sqlite")
     override val icon = FlatSVGIcon("icons/bx-hdd.svg")
-    override val extensions: Array<String> = arrayOf("idb", "db" ,"sqlite")
-    override val filter = FileFilter(description, "idb", "db", "sqlite")
 
     override fun open(path: Path): ToolPanel = IdbView(listOf(path))
 

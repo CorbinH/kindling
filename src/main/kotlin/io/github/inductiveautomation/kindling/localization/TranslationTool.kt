@@ -11,7 +11,6 @@ import io.github.inductiveautomation.kindling.localization.TranslationTool.expor
 import io.github.inductiveautomation.kindling.utils.Action
 import io.github.inductiveautomation.kindling.utils.Column
 import io.github.inductiveautomation.kindling.utils.ColumnList
-import io.github.inductiveautomation.kindling.utils.FileFilter
 import io.github.inductiveautomation.kindling.utils.FlatScrollPane
 import io.github.inductiveautomation.kindling.utils.ReifiedJXTable
 import io.github.inductiveautomation.kindling.utils.ReifiedTableModel
@@ -421,7 +420,6 @@ data object TranslationTool : MultiTool, ClipboardTool {
     override val description: String = "Translation Bundle Files (\$locale.properties, \$locale.xml)"
     override val icon: FlatSVGIcon = FlatSVGIcon("icons/bx-globe.svg")
     override val extensions: Array<String> = arrayOf("properties", "xml")
-    override val filter: FileFilter = FileFilter(description, *extensions)
     override val serialKey: String = "bundle-view"
 
     internal val exportZipFileChooser by lazy {

@@ -324,7 +324,7 @@ class SimulatorView(path: Path) : ToolPanel() {
     }
 }
 
-object SimulatorViewer : Tool {
+data object SimulatorViewer : Tool {
     override val serialKey: String = "device-sim"
     override val description = "Tag Export (json)"
     override val icon: FlatSVGIcon = FlatSVGIcon("icons/bx-tag.svg")
@@ -344,5 +344,3 @@ object SimulatorViewer : Tool {
 
     override fun open(path: Path): ToolPanel = SimulatorView(path)
 }
-
-class SimulatorViewerProxy : Tool by SimulatorViewer

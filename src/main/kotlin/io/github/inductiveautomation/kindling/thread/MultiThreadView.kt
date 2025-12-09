@@ -28,7 +28,6 @@ import io.github.inductiveautomation.kindling.utils.Action
 import io.github.inductiveautomation.kindling.utils.ColorHighlighter
 import io.github.inductiveautomation.kindling.utils.Column
 import io.github.inductiveautomation.kindling.utils.EDT_SCOPE
-import io.github.inductiveautomation.kindling.utils.FileFilter
 import io.github.inductiveautomation.kindling.utils.FileFilterSidebar
 import io.github.inductiveautomation.kindling.utils.FlatScrollPane
 import io.github.inductiveautomation.kindling.utils.HorizontalSplitPane
@@ -578,7 +577,6 @@ data object MultiThreadViewer : MultiTool, ClipboardTool, PreferenceCategory {
     override val description = "Thread Dump (.json, .txt)"
     override val icon = FlatSVGIcon("icons/bx-chip.svg")
     override val extensions: Array<String> = arrayOf("json", "txt")
-    override val filter = FileFilter(description, *extensions)
 
     override val respectsEncoding = true
     override fun open(path: Path) = open(listOf(path))

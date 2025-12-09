@@ -16,7 +16,6 @@ data object CacheViewer : Tool {
     override val description = "S&F Cache (.zip, 8.1: .data, .script, 8.3: .idb)"
     override val icon = FlatSVGIcon("icons/bx-data.svg")
     override val extensions = arrayOf("data", "script", "zip", "idb")
-    override val filter = FileFilter(description, *extensions)
 
     override fun open(path: Path): ToolPanel = when (path.extension) {
         "data",
