@@ -23,6 +23,10 @@ class DBMetaDataTree(treeModel: TreeModel) : FlatTree() {
                             append(value.name)
                             append(" ")
                             append("(${value.size.toFileSizeLabel()})")
+                            if (value.rowCount != null) {
+                                append(" ")
+                                append("[${value.rowCount} rows]")
+                            }
                         }
                         icon = FlatActionIcon("icons/bx-table.svg")
                     }

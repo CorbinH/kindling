@@ -67,7 +67,8 @@ object MachineLearningModel {
 
             folder.listDirectoryEntries().findLast { file ->
                 !file.isDirectory() && file.name.contains(PMML_FILE_PREFIX)
-            }!!.absolutePathString()        }
+            }!!.absolutePathString()
+        }
 
     private val oldPMMLVersion = pmmlFilePath.substringBeforeLast(".pmml").substringAfterLast("_")
 
@@ -146,16 +147,14 @@ object MachineLearningModel {
         }
     }
 
-    private fun pmmlPopup(title: String, message: String, options: Array<String>): Int {
-        return JOptionPane.showOptionDialog(
-            JFrame(),
-            message,
-            title,
-            JOptionPane.YES_NO_OPTION,
-            JOptionPane.QUESTION_MESSAGE,
-            ImageIcon(Kindling.frameIcons.first()),
-            options,
-            options[1],
-        )
-    }
+    private fun pmmlPopup(title: String, message: String, options: Array<String>): Int = JOptionPane.showOptionDialog(
+        JFrame(),
+        message,
+        title,
+        JOptionPane.YES_NO_OPTION,
+        JOptionPane.QUESTION_MESSAGE,
+        ImageIcon(Kindling.frameIcons.first()),
+        options,
+        options[1],
+    )
 }

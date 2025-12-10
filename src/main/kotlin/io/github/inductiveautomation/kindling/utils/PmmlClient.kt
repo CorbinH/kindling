@@ -66,8 +66,7 @@ suspend fun HttpClient.upload(model: TableModel, filename: String, username: Str
     return httpResponse.body<String>().toBoolean()
 }
 
-fun uploadBlocking(model: TableModel, filename: String, username: String): Boolean =
-    runBlocking(Dispatchers.IO) { uploadClient.upload(model, filename, username) }
+fun uploadBlocking(model: TableModel, filename: String, username: String): Boolean = runBlocking(Dispatchers.IO) { uploadClient.upload(model, filename, username) }
 
 fun TableModel.uploadToWeb(filename: String) {
     val username = User.currentValue.ifEmpty {

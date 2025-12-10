@@ -39,6 +39,14 @@ import io.github.inductiveautomation.kindling.utils.rowIndices
 import io.github.inductiveautomation.kindling.utils.selectedRowIndices
 import io.github.inductiveautomation.kindling.utils.toBodyLine
 import io.github.inductiveautomation.kindling.utils.uploadMultipleToWeb
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import net.miginfocom.swing.MigLayout
+import org.jdesktop.swingx.JXSearchField
+import org.jdesktop.swingx.table.ColumnControlButton.COLUMN_CONTROL_MARKER
+import org.jpmml.evaluator.ProbabilityDistribution
 import java.awt.Color
 import java.awt.Desktop
 import java.nio.file.Path
@@ -58,14 +66,6 @@ import kotlin.io.path.inputStream
 import kotlin.io.path.name
 import kotlin.io.path.nameWithoutExtension
 import kotlin.io.path.writeText
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import net.miginfocom.swing.MigLayout
-import org.jdesktop.swingx.JXSearchField
-import org.jdesktop.swingx.table.ColumnControlButton.COLUMN_CONTROL_MARKER
-import org.jpmml.evaluator.ProbabilityDistribution
 
 class MultiThreadView(
     val paths: List<Path>,
@@ -367,7 +367,7 @@ class MultiThreadView(
                     fileName to model
                 }
                 uploadMultipleToWeb(models)
-            }
+            },
         )
     }
 
@@ -494,7 +494,7 @@ class MultiThreadView(
                     val evaluation = evaluator.evaluate(
                         evaluator.inputFields.associate { field ->
                             field.name to field.prepare(thread.getPmmlProperty(field.name))
-                        }
+                        },
                     )
                     val result = (evaluation["marked"] as ProbabilityDistribution<*>).result as Int
                     if (result == 1) add(thread)

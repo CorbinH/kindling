@@ -103,6 +103,12 @@ class QuestDbView(path: Path) : ToolPanel() {
                 storageRec.get<Long>(0)
             }.singleOrNull() ?: 0L
 
+            val rowCount = engine.select(
+                "SELECT COUNT(*) FROM $name",
+            ) {
+                it.get<Long>(0)!!
+            }.single()
+
             val cols = engine.select("SHOW COLUMNS FROM \"$name\";") { rec ->
                 Column(
                     name = rec["column"]!!,
@@ -120,6 +126,7 @@ class QuestDbView(path: Path) : ToolPanel() {
                 columns = cols,
                 _parent = { sortableTree.root },
                 size = size,
+                rowCount = rowCount,
             )
         }
     }

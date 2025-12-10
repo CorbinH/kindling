@@ -170,6 +170,7 @@ runtime {
             "java.xml",
             "jdk.zipfs",
             "jdk.crypto.ec",
+            "jdk.unsupported",
         ),
     )
 
@@ -202,9 +203,11 @@ runtime {
 
         // add-exports is used to bypass Java modular restrictions
         jvmArgs = listOf(
-            "--add-exports", "java.desktop/com.sun.java.swing.plaf.windows=ALL-UNNAMED",
+            "--add-exports",
+            "java.desktop/com.sun.java.swing.plaf.windows=ALL-UNNAMED",
             "--add-exports=java.base/sun.security.action=ALL-UNNAMED",
-            "--add-opens", "java.base/sun.misc=ALL-UNNAMED MainPanel",
+            "--add-opens",
+            "java.base/sun.misc=ALL-UNNAMED MainPanel",
         )
 
         installerOptions = options.flatMap { (key, value) ->
