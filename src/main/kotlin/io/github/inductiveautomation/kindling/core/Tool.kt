@@ -59,11 +59,11 @@ interface Tool : KindlingSerializable {
     companion object {
         val tools: List<Tool> by lazy {
             listOf(
+                GatewayNetworkTool,
                 MultiThreadViewer,
                 LogViewer,
                 IdbViewer,
                 CacheViewer,
-                GatewayNetworkTool,
                 AlarmViewer,
                 SerialViewer,
                 TranslationTool,

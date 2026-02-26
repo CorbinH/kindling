@@ -6,13 +6,16 @@ import io.github.inductiveautomation.kindling.core.Kindling.Preferences.General.
 import io.github.inductiveautomation.kindling.core.ToolOpeningException
 import io.github.inductiveautomation.kindling.core.ToolPanel
 import io.github.inductiveautomation.kindling.utils.Action
+import io.github.inductiveautomation.kindling.utils.FileFilter
 import io.github.inductiveautomation.kindling.utils.FlatScrollPane
 import io.github.inductiveautomation.kindling.utils.transferTo
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.serializer
 import java.awt.Desktop
 import java.net.URI
+import java.nio.file.Files
 import java.nio.file.Path
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -135,9 +138,9 @@ class GatewayNetworkViewer(tabName: String, tooltip: String, json: String) : Too
 data object GatewayNetworkTool : ClipboardTool {
     override val serialKey = "gan-diagram"
     override val title = "Gateway Network Diagram"
-    override val description = "GAN Diagram (.json, .txt)"
+    override val description = "GAN Diagram (.json)"
     override val icon = FlatSVGIcon("icons/bx-sitemap.svg")
-    override val extensions: Array<String> = arrayOf("json", "txt")
+    override val extensions: Array<String> = arrayOf("json")
     override val respectsEncoding = true
 
     override fun open(data: String) = GatewayNetworkViewer(
@@ -156,5 +159,11 @@ data object GatewayNetworkTool : ClipboardTool {
             tooltip = path.toString(),
             json = diagram,
         )
+    }
+
+    override val filter = FileFilter(description) { file ->
+        val content = Files.readString(file)
+        val jsonElement = Json.parseToJsonElement(content)
+        file.name.endsWith("json") && jsonElement.jsonObject.containsKey("connections")
     }
 }
