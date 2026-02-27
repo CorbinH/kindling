@@ -162,8 +162,10 @@ data object GatewayNetworkTool : ClipboardTool {
     }
 
     override val filter = FileFilter(description) { file ->
-        val content = Files.readString(file)
-        val jsonElement = Json.parseToJsonElement(content)
-        file.name.endsWith("json") && jsonElement.jsonObject.containsKey("connections")
+        file.name.endsWith("json") && run {
+            val content = Files.readString(file)
+            val jsonElement = Json.parseToJsonElement(content)
+            jsonElement.jsonObject.containsKey("connections")
+        }
     }
 }
