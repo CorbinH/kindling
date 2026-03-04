@@ -7,6 +7,7 @@ import io.github.inductiveautomation.kindling.core.Kindling
 import io.github.inductiveautomation.kindling.core.Kindling.Preferences.General.HomeLocation
 import io.github.inductiveautomation.kindling.core.Tool
 import io.github.inductiveautomation.kindling.core.ToolPanel
+import io.github.inductiveautomation.kindling.gatewaynetwork.GatewayNetworkTool
 import io.github.inductiveautomation.kindling.sim.model.ProgramDataType
 import io.github.inductiveautomation.kindling.sim.model.SimulatorFunction
 import io.github.inductiveautomation.kindling.sim.model.SimulatorFunction.Companion.generateRandomParametersForFunction
@@ -22,6 +23,9 @@ import io.github.inductiveautomation.kindling.utils.getAll
 import io.github.inductiveautomation.kindling.utils.listCellRenderer
 import io.github.inductiveautomation.kindling.utils.tag
 import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.decodeFromStream
 import net.miginfocom.swing.MigLayout
 import java.awt.Color
@@ -40,6 +44,7 @@ import kotlin.io.path.absolutePathString
 import kotlin.io.path.bufferedReader
 import kotlin.io.path.extension
 import kotlin.io.path.inputStream
+import kotlin.io.path.name
 import kotlin.properties.Delegates
 import kotlin.reflect.KClass
 
@@ -330,17 +335,14 @@ data object SimulatorViewer : Tool {
     override val icon: FlatSVGIcon = FlatSVGIcon("icons/bx-tag.svg")
     override val title = "Tag Export (Device Sim)"
     override val extensions: Array<String> = arrayOf("json")
-    override val filter = FileFilter(
-        description = description,
-        predicate = { file ->
-            file.extension == "json" &&
-                "\"tagType\": \"Provider\"," in buildString {
-                    file.bufferedReader().use { br ->
-                        repeat(10) { append(br.readLine()) }
-                    }
-                }
-        },
-    )
+
+    @OptIn(ExperimentalSerializationApi::class)
+    override val filter: FileFilter = FileFilter(description) { path ->
+        path.name.endsWith("json")
+        runCatching {
+            (Json.decodeFromStream<JsonElement>(path.inputStream()) as? JsonObject)?.containsKey("tags") == true
+        }.getOrDefault(false)
+    }
 
     override fun open(path: Path): ToolPanel = SimulatorView(path)
 }
