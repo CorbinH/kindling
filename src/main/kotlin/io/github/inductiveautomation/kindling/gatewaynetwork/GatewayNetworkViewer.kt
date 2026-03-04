@@ -9,8 +9,12 @@ import io.github.inductiveautomation.kindling.utils.Action
 import io.github.inductiveautomation.kindling.utils.FileFilter
 import io.github.inductiveautomation.kindling.utils.FlatScrollPane
 import io.github.inductiveautomation.kindling.utils.transferTo
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.decodeFromStream
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.serializer
 import java.awt.Desktop
@@ -23,6 +27,7 @@ import javax.swing.JButton
 import javax.swing.JOptionPane
 import javax.swing.JTextArea
 import kotlin.io.path.createTempDirectory
+import kotlin.io.path.inputStream
 import kotlin.io.path.name
 import kotlin.io.path.outputStream
 import kotlin.io.path.useLines
@@ -161,11 +166,11 @@ data object GatewayNetworkTool : ClipboardTool {
         )
     }
 
-    override val filter = FileFilter(description) { file ->
-        file.name.endsWith("json") && run {
-            val content = Files.readString(file)
-            val jsonElement = Json.parseToJsonElement(content)
-            jsonElement.jsonObject.containsKey("connections")
-        }
+    @OptIn(ExperimentalSerializationApi::class)
+    override val filter: FileFilter = FileFilter(description) { path ->
+        (path.name.endsWith("json") || path.name.endsWith("txt")) &&
+            runCatching {
+                (Json.decodeFromStream<JsonElement>(path.inputStream()) as? JsonObject)?.containsKey("connections") == true
+            }.getOrDefault(false)
     }
 }
