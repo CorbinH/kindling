@@ -20,6 +20,7 @@ import io.github.inductiveautomation.kindling.core.Theme.Companion.theme
 import io.github.inductiveautomation.kindling.core.ToolPanel
 import io.github.inductiveautomation.kindling.docker.Canvas.Companion.NODE_LAYER
 import io.github.inductiveautomation.kindling.docker.DockerServiceToolTransferHandler.Companion.DOCKER_SERVICE_DATA_FLAVOR
+import io.github.inductiveautomation.kindling.docker.engine.ProcessComposeEngine
 import io.github.inductiveautomation.kindling.docker.networks.NetworksTab
 import io.github.inductiveautomation.kindling.docker.networks.model.DockerNetwork
 import io.github.inductiveautomation.kindling.docker.services.AbstractDockerServiceNode
@@ -40,11 +41,17 @@ import io.github.inductiveautomation.kindling.utils.VerticalSplitPane
 import io.github.inductiveautomation.kindling.utils.chooseFiles
 import io.github.inductiveautomation.kindling.utils.jFrame
 import io.github.inductiveautomation.kindling.utils.traverseChildren
+import kotlinx.serialization.encodeToString
+import net.miginfocom.swing.MigLayout
+import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
+import org.fife.ui.rsyntaxtextarea.SyntaxConstants.SYNTAX_STYLE_YAML
 import java.awt.Point
 import java.awt.event.ContainerEvent
 import java.awt.event.ContainerListener
+import java.math.BigInteger
 import java.nio.file.Files
 import java.nio.file.Path
+import java.security.MessageDigest
 import javax.swing.DefaultListModel
 import javax.swing.JButton
 import javax.swing.JFileChooser
@@ -60,10 +67,6 @@ import kotlin.io.path.inputStream
 import kotlin.io.path.name
 import kotlin.io.path.outputStream
 import kotlin.random.Random
-import kotlinx.serialization.encodeToString
-import net.miginfocom.swing.MigLayout
-import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
-import org.fife.ui.rsyntaxtextarea.SyntaxConstants.SYNTAX_STYLE_YAML
 
 class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3") {
     override val icon = DockerTool.icon
@@ -140,6 +143,16 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
     private val importButton = JButton("Import Compose File")
     private val exportButton = JButton("Export Compose File")
 
+    private val kindlingId = "kindling-${existingFile?.absolutePathString()?.hash() ?: "new-editor"}"
+
+    private val controlBar = DockerControlBar(
+        engine = ProcessComposeEngine(kindlingId) { out ->
+            YAML.encodeToStream(composeFile, out)
+        },
+        yamlPath = existingFile ?: Path.of("docker-compose.yaml"),
+        localHashProvider = { currentHash },
+    )
+
     private val sidebar = JPanel(MigLayout("fill, ins 0")).apply {
         add(importButton, "growx")
         add(exportButton, "growx, wrap")
@@ -182,11 +195,56 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
         )
     }
 
-    private val composeFile: DockerComposeFile
+    private val currentHash: String
         get() {
-            return DockerComposeFile(
+            val baseFile = DockerComposeFile(
                 null,
                 services.map { it.model.defaultModel }.sortedBy { it.containerName },
+                volumes,
+                networks,
+            )
+            return if (baseFile.isEmpty()) "" else YAML.encodeToString(baseFile).hash()
+        }
+
+    private val composeFile: DockerComposeFile
+        get() {
+            val hash = currentHash
+            return DockerComposeFile(
+                null,
+                services.map { node ->
+                    // We need a shallow copy to add the hash label for Docker
+                    val model = node.model.defaultModel
+                    DefaultDockerServiceModel(
+                        image = model.image,
+                        hostName = model.hostName,
+                        containerName = model.containerName,
+                        ports = model.ports.toMutableList(),
+                        environment = model.environment.toMutableMap(),
+                        commands = model.commands.toMutableList(),
+                        volumes = model.volumes.toMutableList(),
+                        networks = model.networks.toMutableMap(),
+                        labels = model.labels.toMutableMap().apply {
+                            put("io.github.kindling.yaml-hash", hash)
+                        },
+                        dependsOn = model.dependsOn.toMutableMap(),
+                        envFile = model.envFile.toMutableList(),
+                        attach = model.attach,
+                        build = model.build,
+                        deploy = model.deploy,
+                        entrypoint = model.entrypoint.toMutableList(),
+                        restart = model.restart,
+                        pullPolicy = model.pullPolicy,
+                        readOnly = model.readOnly,
+                        user = model.user,
+                        capAdd = model.capAdd.toMutableList(),
+                        capDrop = model.capDrop.toMutableList(),
+                        securityOpt = model.securityOpt.toMutableList(),
+                        cGroup = model.cGroup,
+                        pid = model.pid,
+                    ).apply {
+                        canvasLocation = model.canvasLocation
+                    }
+                }.sortedBy { it.containerName },
                 volumes,
                 networks,
             )
@@ -203,6 +261,7 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
             expandableSide = FlatSplitPane.ExpandableSide.left,
         )
 
+        add(controlBar, "growx, wrap")
         add(
             VerticalSplitPane(
                 top = innerSplitPane,
@@ -434,4 +493,10 @@ object DockerTool : EditorTool {
     }
 
     override val filter: FileFilter = FileFilter("YAML files", "yaml", "yml")
+}
+
+private fun String.hash(): String {
+    val md = MessageDigest.getInstance("MD5")
+    val digest = md.digest(toByteArray())
+    return BigInteger(1, digest).toString(16).padStart(32, '0').take(8)
 }
