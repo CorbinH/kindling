@@ -8,6 +8,7 @@ import io.github.inductiveautomation.kindling.gatewaynetwork.GatewayNetworkTool
 import io.github.inductiveautomation.kindling.idb.IdbViewer
 import io.github.inductiveautomation.kindling.localization.TranslationTool
 import io.github.inductiveautomation.kindling.log.LogViewer
+import io.github.inductiveautomation.kindling.quest.QuestDbViewer
 import io.github.inductiveautomation.kindling.serial.SerialViewer
 import io.github.inductiveautomation.kindling.thread.MultiThreadViewer
 import io.github.inductiveautomation.kindling.utils.FileFilter
@@ -50,20 +51,24 @@ interface Tool : KindlingSerializable {
     fun open(path: Path): ToolPanel
 
     val filter: FileFilter
+        get() = FileFilter(description, *extensions)
+
+    val extensions: Array<String>
 
     companion object {
         val tools: List<Tool> by lazy {
             listOf(
-                ZipViewer,
-                MultiThreadViewer,
-                LogViewer,
-                IdbViewer,
+                AlarmViewer,
                 CacheViewer,
                 GatewayNetworkTool,
-                AlarmViewer,
-                XmlTool,
+                IdbViewer,
+                LogViewer,
+                MultiThreadViewer,
+                QuestDbViewer,
                 SerialViewer,
                 TranslationTool,
+                XmlTool,
+                ZipViewer,
                 DockerTool,
             )
         }
@@ -74,6 +79,16 @@ interface Tool : KindlingSerializable {
 
         val byFilter: Map<FileFilter, Tool> by lazy {
             tools.associateBy(Tool::filter)
+        }
+
+        val byExtension: Map<String, List<Tool>> by lazy {
+            buildMap {
+                for (tool in tools) {
+                    for (ext in tool.extensions) {
+                        this[ext] = this[ext]?.plus(tool) ?: listOf(tool)
+                    }
+                }
+            }
         }
 
         fun find(path: Path): Tool? = tools.find { tool ->

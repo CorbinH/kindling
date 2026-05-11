@@ -53,9 +53,7 @@ class SerialViewPanel(private val path: Path) : ToolPanel() {
 
     override val icon: Icon = SerialViewer.icon
 
-    override fun getToolTipText(): String? {
-        return path.toString()
-    }
+    override fun getToolTipText(): String? = path.toString()
 }
 
 data object SerialViewer : Tool {
@@ -65,7 +63,8 @@ data object SerialViewer : Tool {
 
     override fun open(path: Path): ToolPanel = SerialViewPanel(path)
 
-    override val filter: FileFilter = FileFilter("Java Serialized File", "bin")
+    override val extensions: Array<String> = arrayOf("bin")
+    override val filter: FileFilter = FileFilter("Java Serialized File", *extensions)
     override val serialKey: String = "serial-viewer"
 
     override val isAdvanced: Boolean = true

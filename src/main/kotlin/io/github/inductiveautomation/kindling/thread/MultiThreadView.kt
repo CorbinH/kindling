@@ -383,6 +383,8 @@ class MultiThreadView(
             "push, grow, span, wmax 100%",
         )
 
+        comparison.threads = mainTable.model.threadData.first()
+
         sidebar.selectedIndex = 0
     }
 
@@ -459,13 +461,11 @@ data object MultiThreadViewer : MultiTool, ClipboardTool, PreferenceCategory {
     override val title = "Thread Dump"
     override val description = "Thread Dump (.json, .txt)"
     override val icon = FlatSVGIcon("icons/bx-chip.svg")
-    override val filter = FileFilter(description, "json", "txt")
+    override val extensions: Array<String> = arrayOf("json", "txt")
 
     override val respectsEncoding = true
     override fun open(path: Path) = open(listOf(path))
-    override fun open(paths: List<Path>): ToolPanel {
-        return MultiThreadView(paths.sortedWith(compareBy(AlphanumComparator(), Path::name)))
-    }
+    override fun open(paths: List<Path>): ToolPanel = MultiThreadView(paths.sortedWith(compareBy(AlphanumComparator(), Path::name)))
 
     override fun open(data: String): ToolPanel {
         val tempFile = createTempFile(prefix = "kindling", suffix = "cb")

@@ -1,12 +1,15 @@
 package io.github.inductiveautomation.kindling.utils
 
 import com.jidesoft.comparator.AlphanumComparator
+import com.jidesoft.swing.TreeSearchable
 import io.github.inductiveautomation.kindling.core.Tool
 import java.nio.file.FileSystem
 import java.nio.file.Path
 import javax.swing.JTree
 import javax.swing.tree.DefaultTreeModel
 import javax.swing.tree.TreeModel
+import javax.swing.tree.TreeNode
+import javax.swing.tree.TreePath
 import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.PathWalkOption.INCLUDE_DIRECTORIES
 import kotlin.io.path.div
@@ -16,18 +19,14 @@ import kotlin.io.path.name
 import kotlin.io.path.walk
 
 data class PathNode(override val userObject: Path) : TypedTreeNode<Path>() {
-    override fun toString(): String {
-        return userObject.name
-    }
+    override fun isLeaf(): Boolean = super.isLeaf() || !userObject.isDirectory()
 }
 
 @OptIn(ExperimentalPathApi::class)
 class RootNode(zipFile: FileSystem) : AbstractTreeNode() {
     init {
-        val pathComparator = compareBy<Path> { it.isDirectory() }.thenBy(AlphanumComparator()) { it.name }
         val zipFilePaths = zipFile.rootDirectories.asSequence()
             .flatMap { it.walk(INCLUDE_DIRECTORIES) }
-            .sortedWith(pathComparator)
 
         val seen = mutableMapOf<Path, PathNode>()
         for (path in zipFilePaths) {
@@ -43,6 +42,19 @@ class RootNode(zipFile: FileSystem) : AbstractTreeNode() {
                 lastSeen = next
             }
         }
+
+        sortWith(comparator, recursive = true)
+    }
+
+    companion object {
+        private val comparator = compareBy<TreeNode> { node ->
+            node as AbstractTreeNode
+            val isDir = node.children.isNotEmpty() || (node as? PathNode)?.userObject?.isDirectory() == true
+            !isDir
+        }.thenBy(AlphanumComparator(false)) { node ->
+            val path = (node as? PathNode)?.userObject
+            path?.name.orEmpty()
+        }
     }
 }
 
@@ -54,11 +66,11 @@ class ZipFileTree(fileSystem: FileSystem) : JTree(ZipFileModel(fileSystem)) {
         setShowsRootHandles(true)
 
         setCellRenderer(
-            treeCellRenderer { _, value, selected, _, _, _, _ ->
+            treeCellRenderer { _, value, _, _, _, _, _ ->
                 if (value is PathNode) {
                     val path = value.userObject
                     toolTipText = path.toString()
-                    text = path.last().toString()
+                    text = path.name
                     icon = if (path.isRegularFile()) {
                         Tool.find(path)?.icon?.derive(ACTION_ICON_SCALE_FACTOR) ?: icon
                     } else {
@@ -68,6 +80,18 @@ class ZipFileTree(fileSystem: FileSystem) : JTree(ZipFileModel(fileSystem)) {
                 this
             },
         )
+
+        object : TreeSearchable(this) {
+            init {
+                isRecursive = true
+                isRepeats = true
+            }
+
+            override fun convertElementToString(element: Any?): String = when (val node = (element as? TreePath)?.lastPathComponent) {
+                is PathNode -> node.userObject.name
+                else -> ""
+            }
+        }
     }
 
     override fun getModel(): ZipFileModel? = super.getModel() as ZipFileModel?

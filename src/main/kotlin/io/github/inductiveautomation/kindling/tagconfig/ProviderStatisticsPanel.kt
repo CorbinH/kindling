@@ -1,10 +1,10 @@
-package io.github.inductiveautomation.kindling.idb.tagconfig
+package io.github.inductiveautomation.kindling.tagconfig
 
 import com.formdev.flatlaf.extras.FlatSVGIcon
-import io.github.inductiveautomation.kindling.idb.tagconfig.model.ProviderStatistics
-import io.github.inductiveautomation.kindling.idb.tagconfig.model.ProviderStatistics.MappedStatistic
-import io.github.inductiveautomation.kindling.idb.tagconfig.model.ProviderStatistics.ProviderStatistic
-import io.github.inductiveautomation.kindling.idb.tagconfig.model.TagProviderRecord
+import io.github.inductiveautomation.kindling.tagconfig.model.AbstractTagProvider
+import io.github.inductiveautomation.kindling.tagconfig.model.ProviderStatistics
+import io.github.inductiveautomation.kindling.tagconfig.model.ProviderStatistics.MappedStatistic
+import io.github.inductiveautomation.kindling.tagconfig.model.ProviderStatistics.ProviderStatistic
 import io.github.inductiveautomation.kindling.utils.Column
 import io.github.inductiveautomation.kindling.utils.ColumnList
 import io.github.inductiveautomation.kindling.utils.EDT_SCOPE
@@ -13,11 +13,14 @@ import io.github.inductiveautomation.kindling.utils.PopupMenuCustomizer
 import io.github.inductiveautomation.kindling.utils.ReifiedJXTable
 import io.github.inductiveautomation.kindling.utils.ReifiedListTableModel
 import io.github.inductiveautomation.kindling.utils.ReifiedTableModel
+import io.github.inductiveautomation.kindling.utils.jFrame
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.miginfocom.swing.MigLayout
+import javax.swing.JButton
 import javax.swing.JLabel
+import javax.swing.JList
 import javax.swing.JPanel
 import javax.swing.JPopupMenu
 import javax.swing.table.AbstractTableModel
@@ -25,7 +28,7 @@ import javax.swing.table.AbstractTableModel
 class ProviderStatisticsPanel :
     JPanel(MigLayout("fillx, ins 3 0 0 0, gap 10, wrap 2, hidemode 3")),
     PopupMenuCustomizer {
-    var provider: TagProviderRecord? = null
+    var provider: AbstractTagProvider? = null
         set(newProvider) {
             field = newProvider
 
@@ -55,6 +58,11 @@ class ProviderStatisticsPanel :
                 }
 
                 loading = false
+
+                if (newProvider.providerStatistics.missingUdtDefinition.value.isEmpty()) {
+                    missingUdtsLabel.isVisible = false
+                    missingUdtsButton.isVisible = false
+                }
             }
         }
 
@@ -77,6 +85,12 @@ class ProviderStatisticsPanel :
         putClientProperty("FlatLaf.styleClass", "h3")
     }
 
+    private val missingUdtsLabel = JLabel("⚠ Some UDT Definitions are missing.").apply {
+        putClientProperty("FlatLaf.styleClass", "h3")
+    }
+
+    private val missingUdtsButton = JButton("Click to view")
+
     private var loading: Boolean = false
         set(value) {
             field = value
@@ -88,11 +102,21 @@ class ProviderStatisticsPanel :
                 it.isVisible = !value
             }
 
+            val showMissingUdts =
+                provider?.providerStatistics?.missingUdtDefinition?.value?.isNotEmpty() == true || !value
+
+            missingUdtsLabel.isVisible = showMissingUdts
+            missingUdtsButton.isVisible = showMissingUdts
+
             throbber.isVisible = value
         }
 
     init {
         add(throbber, "push, grow, span")
+
+        add(missingUdtsLabel)
+        add(missingUdtsButton, "wrap")
+
         add(generalStatsLabel, "growx, span")
         add(generalStatsScrollPane, "growx, span, h 250!")
 
@@ -103,6 +127,14 @@ class ProviderStatisticsPanel :
 
         // Show nothing on startup
         components.forEach { it.isVisible = false }
+
+        missingUdtsButton.addActionListener {
+            jFrame("Missing UDT Definitions", 300, 600) {
+                contentPane.add(
+                    FlatScrollPane(JList<String>(provider!!.providerStatistics.missingUdtDefinition.value.toTypedArray())),
+                )
+            }
+        }
     }
 
     override fun customizePopupMenu(menu: JPopupMenu) = menu.removeAll()
@@ -110,7 +142,7 @@ class ProviderStatisticsPanel :
 
 @Suppress("unused")
 object IndividualStatColumns : ColumnList<ProviderStatistic<Int>>() {
-    val stat by column("Stat") { it.name }
+    val stat by column("Stat") { it.humanReadableName }
 
     val value by column("Value") { it.value }
 }
@@ -125,7 +157,7 @@ class MappedStatModel(
             it.key
         }
 
-        val statValue by column("Value") {
+        val statValue by column("Count") {
             it.value
         }
     }
