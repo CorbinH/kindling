@@ -92,7 +92,7 @@ tasks {
     }
     processResources {
         duplicatesStrategy = DuplicatesStrategy.WARN
-        dependsOn()
+        dependsOn(download79, download80, download81)
     }
 }
 
