@@ -123,6 +123,8 @@ object IgnitionServiceTool : DockerServiceTool {
                     versions.sortedWith(IgnitionVersionComparator.reversed())
                 }
             }.getOrElse {
+                println("Error occured:")
+                it.printStackTrace()
                 fallbackVersionList
             }
         }

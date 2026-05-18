@@ -193,7 +193,6 @@ class MainPanel : JPanel(MigLayout("ins 6, fill, hidemode 3")) {
                     }
                 }
             }
-        }
     }
 
     private val landingScrollpane = FlatScrollPane(landingPanel) {
