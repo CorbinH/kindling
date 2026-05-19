@@ -11,18 +11,19 @@ import io.github.inductiveautomation.kindling.utils.ReifiedMapTableModel
 import io.github.inductiveautomation.kindling.utils.minSelectedIndex
 import io.github.inductiveautomation.kindling.utils.onChange
 import io.github.inductiveautomation.kindling.utils.text
+import net.miginfocom.swing.MigLayout
+import org.jdesktop.swingx.JXTextArea
 import javax.swing.JButton
 import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.JTextArea
 import javax.swing.ListSelectionModel
-import net.miginfocom.swing.MigLayout
-import org.jdesktop.swingx.JXTextArea
 
 @Suppress("unused")
 class NetworkEditor(
     data: DockerNetwork,
-) : ComposeObjectEditor<DockerNetwork>("Network", data), RootEditor {
+) : ComposeObjectEditor<DockerNetwork>("Network", data),
+    RootEditor {
     val networkName by text("Name", value = data.name) { data.name = it }
     val driver by text(value = data.driver) { data.driver = it }
     val attachable by checkbox(value = data.attachable) { data.attachable = it }
@@ -66,7 +67,7 @@ class NetworkEditor(
                             element.auxAddresses[hostEntry.text] = ipEntry.text
                             auxAddressTable.model.fireTableDataChanged()
                         }
-                    }
+                    },
                 )
 
                 val removeButton = JButton(
@@ -78,7 +79,7 @@ class NetworkEditor(
 
                         element.auxAddresses.remove(key)
                         auxAddressTable.model.fireTableDataChanged()
-                    }
+                    },
                 )
 
                 auxAddressTable.selectionModel.addListSelectionListener {
@@ -88,13 +89,13 @@ class NetworkEditor(
                 hostEntry.document.addDocumentListener(
                     DocumentAdapter {
                         addButton.isEnabled = it.document.text.isNotBlank() && ipEntry.text.isNotBlank()
-                    }
+                    },
                 )
 
                 ipEntry.document.addDocumentListener(
                     DocumentAdapter {
                         addButton.isEnabled = it.document.text.isNotBlank() && hostEntry.text.isNotBlank()
-                    }
+                    },
                 )
 
                 subnetEntry.document.onChange {
@@ -133,7 +134,7 @@ class NetworkEditor(
                 add(auxAddressLabel, "growx, wrap")
                 add(tableEntry, "growx, wrap")
                 add(FlatScrollPane(auxAddressTable), "push, grow")
-            }
+            },
         )
     }
 

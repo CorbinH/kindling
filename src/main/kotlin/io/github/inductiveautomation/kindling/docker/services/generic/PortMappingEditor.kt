@@ -11,6 +11,7 @@ import io.github.inductiveautomation.kindling.utils.ReifiedJXTable
 import io.github.inductiveautomation.kindling.utils.ReifiedListTableModel
 import io.github.inductiveautomation.kindling.utils.StyledLabel
 import io.github.inductiveautomation.kindling.utils.attachValidator
+import net.miginfocom.swing.MigLayout
 import java.awt.Component
 import java.awt.Font
 import javax.swing.JButton
@@ -25,7 +26,6 @@ import javax.swing.ListSelectionModel
 import javax.swing.SwingUtilities
 import javax.swing.table.DefaultTableCellRenderer
 import kotlin.properties.Delegates
-import net.miginfocom.swing.MigLayout
 
 class PortMappingEditor(
     val initialData: MutableList<PortMapping>,
@@ -135,7 +135,7 @@ class PortMappingEditor(
         }
     }
 
-    private inner class PortEditingPanel() : JPanel(MigLayout("fill, flowy")) {
+    private inner class PortEditingPanel : JPanel(MigLayout("fill, flowy")) {
         var portMapping: PortMapping? by Delegates.observable(null) { _, _, newValue ->
             if (newValue != null) {
                 targetEntry.text = newValue.target

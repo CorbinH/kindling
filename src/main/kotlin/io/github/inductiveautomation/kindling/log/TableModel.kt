@@ -2,6 +2,7 @@ package io.github.inductiveautomation.kindling.log
 
 import com.jidesoft.comparator.AlphanumComparator
 import io.github.inductiveautomation.kindling.core.Kindling.Preferences.General.ShowFullLoggerNames
+import io.github.inductiveautomation.kindling.core.Timezone
 import io.github.inductiveautomation.kindling.utils.Column
 import io.github.inductiveautomation.kindling.utils.ColumnList
 import io.github.inductiveautomation.kindling.utils.FlatActionIcon
@@ -17,9 +18,7 @@ class LogsModel<T : LogEvent>(
     override val columns: LogColumnList<T>,
 ) : ReifiedListTableModel<T>(data, columns) {
 
-    override fun isCellEditable(rowIndex: Int, columnIndex: Int): Boolean {
-        return columnIndex == markIndex
-    }
+    override fun isCellEditable(rowIndex: Int, columnIndex: Int): Boolean = columnIndex == markIndex
 
     val markIndex = columns[
         when (columns) {
@@ -37,12 +36,16 @@ class LogsModel<T : LogEvent>(
      * Update marks in the model, efficiently.
      * Return true to set marked, false to clear a mark, or null to bypass the row.
      */
-    fun markRows(predicate: (T) -> Boolean?) {
+    fun markRows(predicate: (event: T) -> Boolean?) {
+        markRows { _, event -> predicate(event) }
+    }
+
+    fun markRows(predicate: (i: Int, event: T) -> Boolean?) {
         var firstIndex = -1
         var lastIndex = -1
 
-        for ((rowIndex, event) in data.withIndex()) {
-            val shouldMark = predicate(event) ?: continue
+        data.forEachIndexed { rowIndex, event ->
+            val shouldMark = predicate(rowIndex, event) ?: return@forEachIndexed
             if (firstIndex == -1) {
                 firstIndex = rowIndex
             }
@@ -83,7 +86,7 @@ sealed class LogColumnList<T : LogEvent> : ColumnList<T>() {
             minWidth = 155
             maxWidth = 155
             cellRenderer = DefaultTableRenderer {
-                (it as? Instant)?.let(LogViewer::format)
+                (it as? Instant)?.let(Timezone.Default::format)
             }
         },
         getValue = LogEvent::timestamp,

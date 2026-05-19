@@ -13,6 +13,8 @@ import io.github.inductiveautomation.kindling.utils.TrivialListDataListener
 import io.github.inductiveautomation.kindling.utils.minSelectedIndex
 import io.github.inductiveautomation.kindling.utils.text
 import io.github.inductiveautomation.kindling.utils.traverseChildren
+import net.miginfocom.swing.MigLayout
+import org.jdesktop.swingx.JXTextArea
 import java.awt.Font
 import java.awt.event.ItemEvent
 import java.text.NumberFormat
@@ -41,8 +43,6 @@ import javax.swing.event.TableModelEvent
 import kotlin.enums.EnumEntries
 import kotlin.properties.PropertyDelegateProvider
 import kotlin.properties.ReadOnlyProperty
-import net.miginfocom.swing.MigLayout
-import org.jdesktop.swingx.JXTextArea
 
 sealed class ComposeEditor : AbstractTreeNode() {
     abstract val name: String
@@ -50,7 +50,7 @@ sealed class ComposeEditor : AbstractTreeNode() {
     val root: RootEditor?
         get() {
             var p: AbstractTreeNode? = this
-            while(p != null && p !is RootEditor) {
+            while (p != null && p !is RootEditor) {
                 p = p.parent
             }
             return p
@@ -174,9 +174,7 @@ sealed class ComposeObjectEditor<T>(
                     return true
                 }
 
-                override fun shouldYieldFocus(source: JComponent?, target: JComponent?): Boolean {
-                    return verify(source)
-                }
+                override fun shouldYieldFocus(source: JComponent?, target: JComponent?): Boolean = verify(source)
             }
 
             addPropertyChangeListener("value") {
@@ -272,7 +270,7 @@ sealed class ComposeObjectEditor<T>(
                     container.revalidate()
                     container.repaint()
                 }
-            }
+            },
         )
 
         panel.add(addButton, "alignx center")
@@ -442,7 +440,7 @@ class ListElementEditor<T : Any>(
         val removeButton = JButton(
             Action(description = "Delete item", icon = FlatSVGIcon("icons/bx-x.svg")) {
                 onDelete(element)
-            }
+            },
         )
 
         add(removeButton, "alignx right, span")

@@ -8,6 +8,7 @@ import io.github.inductiveautomation.kindling.core.Kindling.Preferences.Advanced
 import io.github.inductiveautomation.kindling.core.Kindling.Preferences.General.ShowFullLoggerNames
 import io.github.inductiveautomation.kindling.core.Kindling.Preferences.General.UseHyperlinks
 import io.github.inductiveautomation.kindling.core.LinkHandlingStrategy
+import io.github.inductiveautomation.kindling.core.Timezone
 import io.github.inductiveautomation.kindling.core.ToolOpeningException
 import io.github.inductiveautomation.kindling.core.ToolPanel
 import io.github.inductiveautomation.kindling.utils.Action
@@ -34,6 +35,8 @@ import net.miginfocom.swing.MigLayout
 import org.jdesktop.swingx.JXSearchField
 import org.jdesktop.swingx.table.ColumnControlButton.COLUMN_CONTROL_MARKER
 import java.awt.BorderLayout
+import java.awt.event.MouseAdapter
+import java.awt.event.MouseEvent
 import java.util.Vector
 import javax.swing.BorderFactory
 import javax.swing.Icon
@@ -167,7 +170,7 @@ sealed class LogPanel<T : LogEvent>(
     private val markHighlighter = ColorHighlighter(
         fgSupplier = { UIManager.getColor("Table.selectionForeground") },
         bgSupplier = { UIManager.getColor("Table.cellFocusColor") },
-        predicate = { renderer, adapter ->
+        predicate = { _, adapter ->
             header.highlightMarked.isSelected &&
                 !table.isRowSelected(adapter.row) &&
                 table.model[table.convertRowIndexToModel(adapter.row)].marked
@@ -194,6 +197,34 @@ sealed class LogPanel<T : LogEvent>(
         add(footer, "growx, spanx 2")
 
         table.apply {
+            var lastMarkedRow: Int? = null
+
+            // Handle shift clicks in the mark column as multi-select events
+            addMouseListener(object : MouseAdapter() {
+                override fun mouseClicked(e: MouseEvent) {
+                    val viewCol = columnAtPoint(e.point)
+                    val viewRow = rowAtPoint(e.point)
+                    if (viewRow == -1 || viewCol == -1) return
+
+                    val modelCol = convertColumnIndexToModel(viewCol)
+                    if (modelCol != model.markIndex) return
+
+                    val modelRow = convertRowIndexToModel(viewRow)
+
+                    if (e.isShiftDown && lastMarkedRow != null) {
+                        val anchor = lastMarkedRow!!
+                        val range = minOf(anchor, modelRow)..maxOf(anchor, modelRow)
+                        val newValue = model.data[modelRow].marked
+                        model.markRows { i, _ ->
+                            newValue.takeIf { i in range }
+                        }
+                        lastMarkedRow = null
+                    } else {
+                        lastMarkedRow = modelRow
+                    }
+                }
+            })
+
             selectionModel.addListSelectionListener { selectionEvent ->
                 if (!selectionEvent.valueIsAdjusting) {
                     selectionModel.updateDetails()
@@ -313,7 +344,7 @@ sealed class LogPanel<T : LogEvent>(
             table.selectionModel.updateDetails()
         }
 
-        LogViewer.SelectedTimeZone.addChangeListener {
+        Timezone.Default.addChangeListener {
             table.model.fireTableDataChanged()
         }
     }
@@ -332,8 +363,8 @@ sealed class LogPanel<T : LogEvent>(
                 .map { event ->
                     DetailEvent(
                         title = when (event) {
-                            is SystemLogEvent -> "${LogViewer.format(event.timestamp)} ${event.thread}"
-                            else -> LogViewer.format(event.timestamp)
+                            is SystemLogEvent -> "${Timezone.Default.format(event.timestamp)} ${event.thread}"
+                            else -> Timezone.Default.format(event.timestamp)
                         },
                         message = event.message,
                         body = event.stacktrace.map { element ->

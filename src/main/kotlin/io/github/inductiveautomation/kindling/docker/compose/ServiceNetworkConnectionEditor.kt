@@ -8,7 +8,8 @@ import javax.swing.event.EventListenerList
 @Suppress("unused")
 class ServiceNetworkConnectionEditor(
     data: ServiceNetworkConnection,
-) : ComposeObjectEditor<ServiceNetworkConnection>("Network Connection", data), RootEditor {
+) : ComposeObjectEditor<ServiceNetworkConnection>("Network Connection", data),
+    RootEditor {
     val ipv4Address by text("IPV4 Address", data.ipv4Address) { data.ipv4Address = it }
     val ipv6Address by text("IPV6 Address", data.ipv6Address) { data.ipv6Address = it }
     val linkLocalIps by list("Link Local IPs", data.linkLocalIPs)

@@ -1,12 +1,12 @@
 package io.github.inductiveautomation.kindling.docker.services.generic
 
-import io.github.inductiveautomation.kindling.docker.volumes.model.DockerVolume
 import io.github.inductiveautomation.kindling.docker.services.ConfigSection
 import io.github.inductiveautomation.kindling.docker.services.NodeConfigPanel
+import io.github.inductiveautomation.kindling.docker.volumes.model.DockerVolume
 import io.github.inductiveautomation.kindling.utils.RegexInputVerifier
+import org.jdesktop.swingx.JXFormattedTextField
 import javax.swing.JLabel
 import javax.swing.JTextField
-import org.jdesktop.swingx.JXFormattedTextField
 
 class GenericNodeConfigPanel(
     override val node: GenericDockerServiceNode,
@@ -16,7 +16,7 @@ class GenericNodeConfigPanel(
     /* General */
     private val imageLabel = JLabel("Image")
     private val imageEntry = JTextField(node.model.image).apply {
-        inputVerifier = RegexInputVerifier(GenericDockerServiceNode.Companion.IMAGE_NAME_REGEX)
+        inputVerifier = RegexInputVerifier(GenericDockerServiceNode.IMAGE_NAME_REGEX)
         addActionListener {
             if (inputVerifier.verify(this)) {
                 node.model.image = text

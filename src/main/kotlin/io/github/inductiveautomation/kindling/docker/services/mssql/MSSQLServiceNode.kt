@@ -1,13 +1,13 @@
 package io.github.inductiveautomation.kindling.docker.services.mssql
 
 import com.formdev.flatlaf.extras.FlatSVGIcon
-import io.github.inductiveautomation.kindling.docker.volumes.model.DockerVolume
-import io.github.inductiveautomation.kindling.docker.services.mssql.model.MSSQLServiceModel
 import io.github.inductiveautomation.kindling.docker.services.AbstractDockerServiceNode
+import io.github.inductiveautomation.kindling.docker.services.mssql.model.MSSQLServiceModel
+import io.github.inductiveautomation.kindling.docker.volumes.model.DockerVolume
+import net.miginfocom.swing.MigLayout
 import javax.swing.JButton
 import javax.swing.JOptionPane
 import javax.swing.JPanel
-import net.miginfocom.swing.MigLayout
 
 class MSSQLServiceNode(
     model: MSSQLServiceModel,

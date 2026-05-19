@@ -17,9 +17,7 @@ class KMutableListModel<T>(
         fireIntervalAdded(this, index, index)
     }
 
-    fun addAll(elements: Collection<T>): Boolean {
-        return addAll(data.size, elements)
-    }
+    fun addAll(elements: Collection<T>): Boolean = addAll(data.size, elements)
 
     fun addAll(index: Int, elements: Collection<T>): Boolean {
         val added = data.addAll(index, elements)

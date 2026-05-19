@@ -16,6 +16,8 @@ import io.github.inductiveautomation.kindling.utils.ReifiedMapTableModel
 import io.github.inductiveautomation.kindling.utils.ReifiedTableModel
 import io.github.inductiveautomation.kindling.utils.StringPairColumns
 import io.github.inductiveautomation.kindling.utils.configureCellRenderer
+import net.miginfocom.swing.MigLayout
+import org.jdesktop.swingx.JXTextArea
 import java.awt.Color
 import java.awt.Component
 import java.awt.event.MouseEvent
@@ -37,8 +39,6 @@ import javax.swing.table.AbstractTableModel
 import javax.swing.table.DefaultTableCellRenderer
 import javax.swing.table.TableCellEditor
 import kotlin.properties.Delegates
-import net.miginfocom.swing.MigLayout
-import org.jdesktop.swingx.JXTextArea
 
 class MSSQLEnvironmentVariablesEditor(
     private val data: MutableMap<String, String>,
@@ -209,7 +209,8 @@ class MSSQLEnvironmentVariablesEditor(
 class MSSQLEnvironmentVariableTableModel(
     private val dataSource: MutableMap<String, String>,
     version: String,
-) : AbstractTableModel(), ReifiedTableModel<Pair<MSSQLStaticDefinition, String>> {
+) : AbstractTableModel(),
+    ReifiedTableModel<Pair<MSSQLStaticDefinition, String>> {
     var version by Delegates.observable(version) { _, _, _ ->
         fireTableDataChanged()
     }
@@ -230,16 +231,12 @@ class MSSQLEnvironmentVariableTableModel(
         DockerEnvironmentVariableDefinition.variableDefinitionsByName.containsKey(it.key)
     }.map { MSSQLStaticDefinition.valueOf(it.key) to it.value }.toMutableList()
 
-    override fun isCellEditable(rowIndex: Int, columnIndex: Int): Boolean {
-        return columns[columnIndex] == Value || getUnusedOptions().isNotEmpty()
-    }
+    override fun isCellEditable(rowIndex: Int, columnIndex: Int): Boolean = columns[columnIndex] == Value || getUnusedOptions().isNotEmpty()
 
-    fun meetsMinimumVersion(rowIndex: Int): Boolean {
-        return IgnitionVersionComparator.compare(
-            staticVariableData[rowIndex].first.minimumVersion,
-            version,
-        ) <= 0
-    }
+    fun meetsMinimumVersion(rowIndex: Int): Boolean = IgnitionVersionComparator.compare(
+        staticVariableData[rowIndex].first.minimumVersion,
+        version,
+    ) <= 0
 
     fun getUnusedOptions(forRow: Int? = null): List<MSSQLStaticDefinition> {
         val currentKeys = staticVariableData.map { it.first }
@@ -287,9 +284,7 @@ class MSSQLEnvironmentVariableTableModel(
         }
     }
 
-    operator fun <T> get(rowIndex: Int, column: Column<Pair<MSSQLStaticDefinition, String>, T>): T {
-        return column.getValue(staticVariableData[rowIndex])
-    }
+    operator fun <T> get(rowIndex: Int, column: Column<Pair<MSSQLStaticDefinition, String>, T>): T = column.getValue(staticVariableData[rowIndex])
 
     override val columns = MSSQLEnvVariableColumns
 
@@ -334,7 +329,9 @@ class MSSQLEnvironmentVariableTableModel(
         )
     }
 
-    private class MSSQLEnvironmentVariableTableCellEditor : AbstractCellEditor(), TableCellEditor {
+    private class MSSQLEnvironmentVariableTableCellEditor :
+        AbstractCellEditor(),
+        TableCellEditor {
         private lateinit var tableRef: ReifiedJXTable<MSSQLEnvironmentVariableTableModel>
         private val comboBox = JComboBox<MSSQLStaticDefinition>().apply {
             configureCellRenderer { _, value, _, _, _ ->
@@ -361,13 +358,9 @@ class MSSQLEnvironmentVariableTableModel(
             }
         }
 
-        override fun isCellEditable(e: EventObject?): Boolean {
-            return e is MouseEvent && e.clickCount == 2
-        }
+        override fun isCellEditable(e: EventObject?): Boolean = e is MouseEvent && e.clickCount == 2
 
-        override fun getCellEditorValue(): MSSQLStaticDefinition {
-            return comboBox.selectedItem as MSSQLStaticDefinition
-        }
+        override fun getCellEditorValue(): MSSQLStaticDefinition = comboBox.selectedItem as MSSQLStaticDefinition
 
         override fun getTableCellEditorComponent(
             table: JTable?,
@@ -388,7 +381,9 @@ class MSSQLEnvironmentVariableTableModel(
         }
     }
 
-    private class MSSQLEnvVariableOptionCellEditor : AbstractCellEditor(), TableCellEditor {
+    private class MSSQLEnvVariableOptionCellEditor :
+        AbstractCellEditor(),
+        TableCellEditor {
         private val comboBox = JComboBox<String>()
         private val textField = JTextField()
 
@@ -398,13 +393,9 @@ class MSSQLEnvironmentVariableTableModel(
             }
         }
 
-        override fun getCellEditorValue(): Any? {
-            return comboBox.selectedItem ?: textField.text
-        }
+        override fun getCellEditorValue(): Any? = comboBox.selectedItem ?: textField.text
 
-        override fun isCellEditable(e: EventObject?): Boolean {
-            return e is MouseEvent && e.clickCount == 2
-        }
+        override fun isCellEditable(e: EventObject?): Boolean = e is MouseEvent && e.clickCount == 2
 
         override fun getTableCellEditorComponent(
             table: JTable?,

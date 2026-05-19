@@ -9,6 +9,7 @@ import io.github.inductiveautomation.kindling.utils.HorizontalSplitPane
 import io.github.inductiveautomation.kindling.utils.configureCellRenderer
 import io.github.inductiveautomation.kindling.utils.listCellRenderer
 import io.github.inductiveautomation.kindling.utils.minSelectedIndex
+import net.miginfocom.swing.MigLayout
 import javax.swing.DefaultComboBoxModel
 import javax.swing.DefaultListModel
 import javax.swing.JButton
@@ -17,7 +18,6 @@ import javax.swing.JList
 import javax.swing.JPanel
 import javax.swing.ListSelectionModel
 import javax.swing.SwingUtilities
-import net.miginfocom.swing.MigLayout
 
 class NetworkConnectionEditor(
     private val connections: MutableMap<String, ServiceNetworkConnection>,
@@ -29,7 +29,7 @@ class NetworkConnectionEditor(
             dropdown.model = DefaultComboBoxModel(
                 value.filter {
                     it !in connections.keys
-                }.toTypedArray()
+                }.toTypedArray(),
             )
             dropdown.selectedIndex = -1
         }
@@ -38,7 +38,7 @@ class NetworkConnectionEditor(
         model = DefaultComboBoxModel(
             networkOptions.filter {
                 it !in connections.keys
-            }.toTypedArray()
+            }.toTypedArray(),
         )
 
         configureCellRenderer { _, value, _, _, _ ->
@@ -75,7 +75,7 @@ class NetworkConnectionEditor(
             networkList.selectedIndex = connections.size - 1
 
             fireConfigChange()
-        }
+        },
     )
 
     private val removeButton = JButton(
@@ -89,12 +89,12 @@ class NetworkConnectionEditor(
             dropdown.model = DefaultComboBoxModel(
                 networkOptions.filter {
                     it !in connections.keys
-                }.toTypedArray()
+                }.toTypedArray(),
             )
             dropdown.selectedIndex = -1
 
             fireConfigChange()
-        }
+        },
     )
 
     private val editorArea = JPanel(MigLayout("fill, ins 4"))
@@ -113,7 +113,8 @@ class NetworkConnectionEditor(
                 left = sidebar,
                 right = FlatScrollPane(editorArea),
                 resizeWeight = 0.1,
-            ), "push, grow, span"
+            ),
+            "push, grow, span",
         )
 
         networkList.selectionModel.addListSelectionListener {

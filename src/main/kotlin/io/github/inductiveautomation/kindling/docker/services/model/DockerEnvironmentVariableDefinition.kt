@@ -14,31 +14,23 @@ interface DockerEnvironmentVariableDefinition {
         val variableDefinitionsByName = IgnitionStaticDefinition.entries.associateBy(Enum<*>::name)
         private val connectionVariableRegex = """GATEWAY_NETWORK_(?<i>\d+)""".toRegex()
 
-        fun EnvironmentVariable.isConnectionVariable(): Boolean {
-            return connectionVariableRegex.containsMatchIn(this.first)
-        }
+        fun EnvironmentVariable.isConnectionVariable(): Boolean = connectionVariableRegex.containsMatchIn(this.first)
 
         fun String.getConnectionVariableFromInstance(): String? {
             val num = connectionVariableRegex.find(this)?.groups?.get("i")?.value ?: return null
             return replace(num, "X")
         }
 
-        fun String.getConnectionVariableIndex(): Int? {
-            return connectionVariableRegex.find(this)?.groups?.get("i")?.value?.toInt()
+        fun String.getConnectionVariableIndex(): Int? = connectionVariableRegex.find(this)?.groups?.get("i")?.value?.toInt()
+
+        fun EnvironmentVariable.isDefaultOrEmpty(): Boolean = if (isConnectionVariable()) {
+            val name = first.getConnectionVariableFromInstance() ?: error("Invalid name: $first")
+            ConnectionDefinition.valueOf(name).default == second
+        } else {
+            variableDefinitionsByName[first]?.default?.equals(second) ?: true
         }
 
-        fun EnvironmentVariable.isDefaultOrEmpty(): Boolean {
-            return if (isConnectionVariable()) {
-                val name = first.getConnectionVariableFromInstance() ?: error("Invalid name: $first")
-                ConnectionDefinition.valueOf(name).default == second
-            } else {
-                variableDefinitionsByName[first]?.default?.equals(second) ?: true
-            }
-        }
-
-        fun EnvironmentVariable.toYamlString(): String {
-            return "$first=$second"
-        }
+        fun EnvironmentVariable.toYamlString(): String = "$first=$second"
 
         fun createConnectionVariable(variable: ConnectionDefinition, index: Int, value: String? = null): EnvironmentVariable {
             val name = variable.name.replaceFirst("X", "$index")
