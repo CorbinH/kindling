@@ -11,6 +11,7 @@ import io.github.inductiveautomation.kindling.utils.getAll
 import io.github.inductiveautomation.kindling.utils.jFrame
 import io.github.inductiveautomation.kindling.utils.remove
 import io.github.inductiveautomation.kindling.utils.tag
+import net.miginfocom.swing.MigLayout
 import java.awt.Color
 import java.awt.Font
 import java.awt.Frame
@@ -26,7 +27,6 @@ import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.SwingUtilities
 import kotlin.time.Duration.Companion.milliseconds
-import net.miginfocom.swing.MigLayout
 
 @Suppress("LeakingThis")
 abstract class AbstractDockerServiceNode<T : DockerServiceModel>(
@@ -157,7 +157,7 @@ fun interface NodeDeleteListener : EventListener {
     fun onNodeDelete()
 }
 
-abstract class NodeConfigPanel() : TabStrip() {
+abstract class NodeConfigPanel : TabStrip() {
     protected abstract val node: AbstractDockerServiceNode<out DockerServiceModel>
 
     protected abstract val generalSection: ConfigSection
@@ -183,7 +183,8 @@ abstract class NodeConfigPanel() : TabStrip() {
 abstract class ConfigSection(
     title: String,
     constraints: String = "fill, ins 0",
-) : JPanel(MigLayout(constraints)), FloatableComponent {
+) : JPanel(MigLayout(constraints)),
+    FloatableComponent {
     override val icon: Icon? = null
     override val tabTooltip: String? = null
     override val tabName: String = title

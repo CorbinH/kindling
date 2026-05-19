@@ -40,6 +40,10 @@ import io.github.inductiveautomation.kindling.utils.VerticalSplitPane
 import io.github.inductiveautomation.kindling.utils.chooseFiles
 import io.github.inductiveautomation.kindling.utils.jFrame
 import io.github.inductiveautomation.kindling.utils.traverseChildren
+import kotlinx.serialization.encodeToString
+import net.miginfocom.swing.MigLayout
+import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
+import org.fife.ui.rsyntaxtextarea.SyntaxConstants.SYNTAX_STYLE_YAML
 import java.awt.Point
 import java.awt.event.ContainerEvent
 import java.awt.event.ContainerListener
@@ -60,19 +64,13 @@ import kotlin.io.path.inputStream
 import kotlin.io.path.name
 import kotlin.io.path.outputStream
 import kotlin.random.Random
-import kotlinx.serialization.encodeToString
-import net.miginfocom.swing.MigLayout
-import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
-import org.fife.ui.rsyntaxtextarea.SyntaxConstants.SYNTAX_STYLE_YAML
 
 class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3") {
     override val icon = DockerTool.icon
 
     val canvas = Canvas("Docker Drafting").apply {
         transferHandler = object : TransferHandler() {
-            override fun canImport(support: TransferSupport?): Boolean {
-                return support?.isDataFlavorSupported(DOCKER_SERVICE_DATA_FLAVOR) == true
-            }
+            override fun canImport(support: TransferSupport?): Boolean = support?.isDataFlavorSupported(DOCKER_SERVICE_DATA_FLAVOR) == true
 
             override fun importData(support: TransferSupport?): Boolean {
                 if (!canImport(support)) return false
@@ -178,7 +176,7 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
         actions.add(
             Action(description = "Popout", icon = FlatSVGIcon("icons/bx-detail.svg")) {
                 popoutPreview.isVisible = true
-            }
+            },
         )
     }
 
@@ -355,8 +353,8 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
         detailPane.events = listOf(
             Detail(
                 "YAML Preview",
-                body = text.split("\n")
-            )
+                body = text.split("\n"),
+            ),
         )
         popoutPreviewTextArea.text = text
     }
@@ -409,7 +407,7 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
             val p = usedPorts.toMutableList()
             var newPort: UShort = 9088u
             repeat(numPorts) {
-                while(newPort in p) {
+                while (newPort in p) {
                     newPort++
                 }
                 p.add(newPort)
@@ -426,13 +424,9 @@ object DockerTool : EditorTool {
     override val icon: FlatSVGIcon = FlatSVGIcon("icons/bx-docker.svg")
     override val extensions: Array<String> = arrayOf("yaml", "yml")
 
-    override fun open(path: Path): ToolPanel {
-        return DockerDraftPanel(path)
-    }
+    override fun open(path: Path): ToolPanel = DockerDraftPanel(path)
 
-    override fun open(): ToolPanel {
-        return DockerDraftPanel(null)
-    }
+    override fun open(): ToolPanel = DockerDraftPanel(null)
 
     override val filter: FileFilter = FileFilter("YAML files", "yaml", "yml")
 }

@@ -11,6 +11,8 @@ import io.github.inductiveautomation.kindling.utils.ReifiedJXTable
 import io.github.inductiveautomation.kindling.utils.ReifiedMapTableModel
 import io.github.inductiveautomation.kindling.utils.jFrame
 import io.github.inductiveautomation.kindling.utils.treeCellRenderer
+import net.miginfocom.swing.MigLayout
+import org.jdesktop.swingx.JXTextArea
 import java.awt.Component
 import java.awt.Font
 import java.awt.event.MouseEvent
@@ -29,8 +31,6 @@ import javax.swing.table.AbstractTableModel
 import javax.swing.table.DefaultTableCellRenderer
 import javax.swing.table.TableCellEditor
 import javax.swing.tree.DefaultTreeModel
-import net.miginfocom.swing.MigLayout
-import org.jdesktop.swingx.JXTextArea
 
 class NetworksTab(
     private val networks: MutableMap<String, DockerNetwork>,
@@ -46,7 +46,7 @@ class NetworksTab(
                 networks[networkKeyEntry.text] = DockerNetwork()
                 table.model.fireTableDataChanged()
             }
-        }
+        },
     )
     private val removeButton = JButton(
         Action("-", "Delete selected network") {
@@ -59,7 +59,7 @@ class NetworksTab(
             if (networks.remove(key) != null) {
                 table.model.fireTableDataChanged()
             }
-        }
+        },
     )
 
     val table = ReifiedJXTable(ReifiedMapTableModel(networks, NetworksColumns)).apply {
@@ -151,7 +151,7 @@ object NetworksColumns : ColumnList<Map.Entry<String, DockerNetwork>>() {
                     isSelected: Boolean,
                     hasFocus: Boolean,
                     row: Int,
-                    column: Int
+                    column: Int,
                 ): Component {
                     super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column)
                     text = "Edit"
@@ -161,10 +161,12 @@ object NetworksColumns : ColumnList<Map.Entry<String, DockerNetwork>>() {
 
             cellEditor = DockerNetworkCellEditor()
         },
-        value = { it.value }
+        value = { it.value },
     )
 
-    class DockerNetworkCellEditor : AbstractCellEditor(), TableCellEditor {
+    class DockerNetworkCellEditor :
+        AbstractCellEditor(),
+        TableCellEditor {
         private lateinit var editorPanel: NetworkEditorPanel
 
         private val label = JLabel("Editing...")
@@ -178,7 +180,7 @@ object NetworksColumns : ColumnList<Map.Entry<String, DockerNetwork>>() {
                             super.windowClosed(e)
                             fireEditingStopped()
                         }
-                    }
+                    },
                 )
             }
         }
@@ -207,8 +209,6 @@ object NetworksColumns : ColumnList<Map.Entry<String, DockerNetwork>>() {
             return label
         }
 
-        override fun isCellEditable(e: EventObject?): Boolean {
-            return (e is MouseEvent && e.clickCount == 2)
-        }
+        override fun isCellEditable(e: EventObject?): Boolean = (e is MouseEvent && e.clickCount == 2)
     }
 }

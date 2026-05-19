@@ -4,9 +4,7 @@ typealias CliArgument = String
 
 internal val CLI_REGEX = """(?:-\S )?\S+""".toRegex()
 
-fun CliArgument.isValid(): Boolean {
-    return CLI_REGEX.matches(this)
-}
+fun CliArgument.isValid(): Boolean = CLI_REGEX.matches(this)
 
 @Suppress("unused")
 enum class IgnitionCommandLineArgument {

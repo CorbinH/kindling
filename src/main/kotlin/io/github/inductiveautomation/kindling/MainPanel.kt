@@ -171,28 +171,28 @@ class MainPanel : JPanel(MigLayout("ins 6, fill, hidemode 3")) {
             }
         }
 
-            transferHandler = FileTransferHandler(
-                predicate = { tool.filter.accept(it) },
-                callback = { openFiles(it, tool) },
-            )
+        transferHandler = FileTransferHandler(
+            predicate = { tool.filter.accept(it) },
+            callback = { openFiles(it, tool) },
+        )
 
-            if (tool is EditorTool) {
-                this@apply.toolTipText = "Right-click for more options"
-                this@apply.attachPopupMenu {
-                    JPopupMenu().also { menu ->
-                        menu.add(
-                            Action("New Editor") {
-                                openOrError(tool.title, tool.description, tool::open)
-                            },
-                        )
-                        menu.add(
-                            Action("Open Existing") {
-                                this@apply.doClick()
-                            },
-                        )
-                    }
+        if (tool is EditorTool) {
+            this@apply.toolTipText = "Right-click for more options"
+            this@apply.attachPopupMenu {
+                JPopupMenu().also { menu ->
+                    menu.add(
+                        Action("New Editor") {
+                            openOrError(tool.title, tool.description, tool::open)
+                        },
+                    )
+                    menu.add(
+                        Action("Open Existing") {
+                            this@apply.doClick()
+                        },
+                    )
                 }
             }
+        }
     }
 
     private val landingScrollpane = FlatScrollPane(landingPanel) {

@@ -5,13 +5,13 @@ import io.github.inductiveautomation.kindling.docker.services.ignition.model.CLI
 import io.github.inductiveautomation.kindling.docker.services.ignition.model.CliArgument
 import io.github.inductiveautomation.kindling.utils.KMutableListModel
 import io.github.inductiveautomation.kindling.utils.TrivialListDataListener
+import net.miginfocom.swing.MigLayout
+import org.jdesktop.swingx.JXTextField
 import javax.swing.JButton
 import javax.swing.JLabel
 import javax.swing.JList
 import javax.swing.JPanel
 import javax.swing.ListSelectionModel
-import net.miginfocom.swing.MigLayout
-import org.jdesktop.swingx.JXTextField
 
 class CliArgumentsEditor(
     initialCliArguments: MutableList<CliArgument>,

@@ -16,6 +16,8 @@ import io.github.inductiveautomation.kindling.utils.ReifiedMapTableModel
 import io.github.inductiveautomation.kindling.utils.ReifiedTableModel
 import io.github.inductiveautomation.kindling.utils.StringPairColumns
 import io.github.inductiveautomation.kindling.utils.configureCellRenderer
+import net.miginfocom.swing.MigLayout
+import org.jdesktop.swingx.JXTextArea
 import java.awt.Color
 import java.awt.Component
 import java.awt.event.MouseEvent
@@ -37,8 +39,6 @@ import javax.swing.table.AbstractTableModel
 import javax.swing.table.DefaultTableCellRenderer
 import javax.swing.table.TableCellEditor
 import kotlin.properties.Delegates
-import net.miginfocom.swing.MigLayout
-import org.jdesktop.swingx.JXTextArea
 
 class IgnitionEnvironmentVariablesEditor(
     private val data: MutableMap<String, String>,
@@ -211,7 +211,8 @@ class IgnitionEnvironmentVariablesEditor(
 class GatewayEnvironmentVariableTableModel(
     private val dataSource: MutableMap<String, String>,
     version: String,
-) : AbstractTableModel(), ReifiedTableModel<Pair<IgnitionStaticDefinition, String>> {
+) : AbstractTableModel(),
+    ReifiedTableModel<Pair<IgnitionStaticDefinition, String>> {
     var version by Delegates.observable(version) { _, _, _ ->
         fireTableDataChanged()
     }
@@ -232,16 +233,12 @@ class GatewayEnvironmentVariableTableModel(
         DockerEnvironmentVariableDefinition.variableDefinitionsByName.containsKey(it.key)
     }.map { IgnitionStaticDefinition.valueOf(it.key) to it.value }.toMutableList()
 
-    override fun isCellEditable(rowIndex: Int, columnIndex: Int): Boolean {
-        return columns[columnIndex] == Value || getUnusedOptions().isNotEmpty()
-    }
+    override fun isCellEditable(rowIndex: Int, columnIndex: Int): Boolean = columns[columnIndex] == Value || getUnusedOptions().isNotEmpty()
 
-    fun meetsMinimumVersion(rowIndex: Int): Boolean {
-        return IgnitionVersionComparator.compare(
-            staticVariableData[rowIndex].first.minimumVersion,
-            version,
-        ) <= 0
-    }
+    fun meetsMinimumVersion(rowIndex: Int): Boolean = IgnitionVersionComparator.compare(
+        staticVariableData[rowIndex].first.minimumVersion,
+        version,
+    ) <= 0
 
     fun getUnusedOptions(forRow: Int? = null): List<IgnitionStaticDefinition> {
         val currentKeys = staticVariableData.map { it.first }
@@ -289,9 +286,7 @@ class GatewayEnvironmentVariableTableModel(
         }
     }
 
-    operator fun <T> get(rowIndex: Int, column: Column<Pair<IgnitionStaticDefinition, String>, T>): T {
-        return column.getValue(staticVariableData[rowIndex])
-    }
+    operator fun <T> get(rowIndex: Int, column: Column<Pair<IgnitionStaticDefinition, String>, T>): T = column.getValue(staticVariableData[rowIndex])
 
     override val columns = GatewayEnvVariableColumns
 
@@ -336,7 +331,9 @@ class GatewayEnvironmentVariableTableModel(
         )
     }
 
-    private class GatewayEnvironmentVariableTableCellEditor : AbstractCellEditor(), TableCellEditor {
+    private class GatewayEnvironmentVariableTableCellEditor :
+        AbstractCellEditor(),
+        TableCellEditor {
         private lateinit var tableRef: ReifiedJXTable<GatewayEnvironmentVariableTableModel>
         private val comboBox = JComboBox<IgnitionStaticDefinition>().apply {
             configureCellRenderer { _, value, _, _, _ ->
@@ -363,13 +360,9 @@ class GatewayEnvironmentVariableTableModel(
             }
         }
 
-        override fun isCellEditable(e: EventObject?): Boolean {
-            return e is MouseEvent && e.clickCount == 2
-        }
+        override fun isCellEditable(e: EventObject?): Boolean = e is MouseEvent && e.clickCount == 2
 
-        override fun getCellEditorValue(): IgnitionStaticDefinition {
-            return comboBox.selectedItem as IgnitionStaticDefinition
-        }
+        override fun getCellEditorValue(): IgnitionStaticDefinition = comboBox.selectedItem as IgnitionStaticDefinition
 
         override fun getTableCellEditorComponent(
             table: JTable?,
@@ -390,7 +383,9 @@ class GatewayEnvironmentVariableTableModel(
         }
     }
 
-    private class GatewayEnvVariableOptionCellEditor : AbstractCellEditor(), TableCellEditor {
+    private class GatewayEnvVariableOptionCellEditor :
+        AbstractCellEditor(),
+        TableCellEditor {
         private val comboBox = JComboBox<String>()
         private val textField = JTextField()
 
@@ -400,13 +395,9 @@ class GatewayEnvironmentVariableTableModel(
             }
         }
 
-        override fun getCellEditorValue(): Any? {
-            return comboBox.selectedItem ?: textField.text
-        }
+        override fun getCellEditorValue(): Any? = comboBox.selectedItem ?: textField.text
 
-        override fun isCellEditable(e: EventObject?): Boolean {
-            return e is MouseEvent && e.clickCount == 2
-        }
+        override fun isCellEditable(e: EventObject?): Boolean = e is MouseEvent && e.clickCount == 2
 
         override fun getTableCellEditorComponent(
             table: JTable?,

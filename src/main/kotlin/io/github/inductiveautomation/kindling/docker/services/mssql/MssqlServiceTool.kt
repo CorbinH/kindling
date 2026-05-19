@@ -7,11 +7,6 @@ import io.github.inductiveautomation.kindling.docker.services.model.DefaultDocke
 import io.github.inductiveautomation.kindling.docker.services.model.DockerServiceModel
 import io.github.inductiveautomation.kindling.docker.services.mssql.model.MSSQLServiceModel
 import io.github.inductiveautomation.kindling.docker.services.mssql.model.MSSQLServiceModel.Companion.DEFAULT_MSSQL_IMAGE
-import java.net.URI
-import java.net.http.HttpClient
-import java.net.http.HttpRequest
-import java.net.http.HttpResponse
-import javax.swing.Icon
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
@@ -23,6 +18,11 @@ import kotlinx.serialization.json.decodeFromStream
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import java.net.URI
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
+import javax.swing.Icon
 
 object MssqlServiceTool : DockerServiceTool {
     override val icon: Icon = FlatSVGIcon("icons/microsoft-sql-server.svg")
@@ -33,14 +33,12 @@ object MssqlServiceTool : DockerServiceTool {
         "https://hub.docker.com/v2/repositories/kcollins/mssql/tags?page_size=1000&page=1&ordering=last_updated"
 
     context(panel: DockerDraftPanel)
-    override fun createModel(): MSSQLServiceModel {
-        return modelFromDefault(
-            DefaultDockerServiceModel(
-                image = DEFAULT_MSSQL_IMAGE,
-                containerName = "MSSQL-${panel.nodeIdManager.generateID()}",
-            )
-        )
-    }
+    override fun createModel(): MSSQLServiceModel = modelFromDefault(
+        DefaultDockerServiceModel(
+            image = DEFAULT_MSSQL_IMAGE,
+            containerName = "MSSQL-${panel.nodeIdManager.generateID()}",
+        ),
+    )
 
     context(panel: DockerDraftPanel)
     override fun createNode(model: DockerServiceModel): MSSQLServiceNode {
@@ -50,9 +48,7 @@ object MssqlServiceTool : DockerServiceTool {
         return MSSQLServiceNode(model, panel.volumes, panel.networks.keys.toList())
     }
 
-    override fun isValidCandidate(model: DefaultDockerServiceModel): Boolean {
-        return model.image.startsWith("kcollins/mssql")
-    }
+    override fun isValidCandidate(model: DefaultDockerServiceModel): Boolean = model.image.startsWith("kcollins/mssql")
 
     override fun modelFromDefault(model: DefaultDockerServiceModel) = MSSQLServiceModel(model)
 
@@ -70,7 +66,6 @@ object MssqlServiceTool : DockerServiceTool {
                     val versions = l.mapNotNull {
                         it.jsonObject["name"]?.jsonPrimitive?.content
                     }.toList()
-
 
                     versions
                 }

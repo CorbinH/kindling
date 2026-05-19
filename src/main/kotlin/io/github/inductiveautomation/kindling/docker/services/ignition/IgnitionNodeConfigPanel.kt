@@ -1,26 +1,26 @@
 package io.github.inductiveautomation.kindling.docker.services.ignition
 
-import io.github.inductiveautomation.kindling.docker.volumes.model.DockerVolume
 import io.github.inductiveautomation.kindling.docker.services.ConfigSection
 import io.github.inductiveautomation.kindling.docker.services.NodeConfigPanel
-import io.github.inductiveautomation.kindling.docker.services.generic.GenericDockerServiceNode
 import io.github.inductiveautomation.kindling.docker.services.generic.ComposeEditor
+import io.github.inductiveautomation.kindling.docker.services.generic.GenericDockerServiceNode
 import io.github.inductiveautomation.kindling.docker.services.generic.NetworkConnectionEditor
 import io.github.inductiveautomation.kindling.docker.services.generic.PortMappingEditor
 import io.github.inductiveautomation.kindling.docker.services.generic.VolumeEditor
 import io.github.inductiveautomation.kindling.docker.services.ignition.IgnitionServiceTool.ignitionImageVersions
+import io.github.inductiveautomation.kindling.docker.volumes.model.DockerVolume
 import io.github.inductiveautomation.kindling.utils.EDT_SCOPE
 import io.github.inductiveautomation.kindling.utils.RegexInputVerifier
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.jdesktop.swingx.JXFormattedTextField
 import java.awt.event.FocusAdapter
 import java.awt.event.FocusEvent
 import javax.swing.DefaultComboBoxModel
 import javax.swing.JComboBox
 import javax.swing.JLabel
 import javax.swing.JTextField
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import org.jdesktop.swingx.JXFormattedTextField
 
 class IgnitionNodeConfigPanel(
     override val node: IgnitionServiceNode,

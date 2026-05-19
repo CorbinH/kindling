@@ -149,7 +149,6 @@ class Canvas(
 
                 c.setLocation(newComponentX, newComponentY)
 
-                @Suppress("AssignedValueIsNeverRead")
                 cPoint = newEventPoint
             }
         }
@@ -165,7 +164,6 @@ class Canvas(
 
         addMouseListener {
             mouseClicked {
-
             }
         }
     }

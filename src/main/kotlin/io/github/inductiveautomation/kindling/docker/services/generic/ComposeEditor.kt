@@ -7,10 +7,10 @@ import io.github.inductiveautomation.kindling.docker.services.model.DockerServic
 import io.github.inductiveautomation.kindling.utils.FlatScrollPane
 import io.github.inductiveautomation.kindling.utils.HorizontalSplitPane
 import io.github.inductiveautomation.kindling.utils.treeCellRenderer
+import net.miginfocom.swing.MigLayout
 import javax.swing.JPanel
 import javax.swing.JTree
 import javax.swing.SwingUtilities
-import net.miginfocom.swing.MigLayout
 
 class ComposeEditor(model: DockerServiceModel) : ConfigSection("Generic Compose Properties") {
     private val rootNode = ServiceEditor(model).apply {

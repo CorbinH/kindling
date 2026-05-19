@@ -175,7 +175,7 @@ fun Document.onChange(block: (String) -> Unit) {
     addDocumentListener(
         DocumentAdapter {
             block(text)
-        }
+        },
     )
 }
 
@@ -225,12 +225,8 @@ fun Color.toHexString(alpha: Boolean = false): String {
 
 inline fun <reified T : JComponent> InputVerifier(
     crossinline verify: (T) -> Boolean,
-): InputVerifier {
-    return object : InputVerifier() {
-        override fun verify(input: JComponent?): Boolean {
-            return input is T && verify(input)
-        }
-    }
+): InputVerifier = object : InputVerifier() {
+    override fun verify(input: JComponent?): Boolean = input is T && verify(input)
 }
 
 class RegexInputVerifier(
@@ -319,9 +315,7 @@ object PointHelpers {
     operator fun Point.component1() = x
     operator fun Point.component2() = y
 
-    fun Point.convert(from: Component?, to: Component?): Point {
-        return SwingUtilities.convertPoint(from, this, to)
-    }
+    fun Point.convert(from: Component?, to: Component?): Point = SwingUtilities.convertPoint(from, this, to)
 }
 
 val ListSelectionModel.minSelectedIndex: Int?
@@ -333,9 +327,7 @@ val ListSelectionModel.maxSelectedIndex: Int?
 fun FlatTextField.attachValidator(validator: (s: String?) -> Boolean) {
     inputVerifier = object : InputVerifier() {
         override fun shouldYieldFocus(source: JComponent?, target: JComponent?) = true
-        override fun verify(input: JComponent?): Boolean {
-            return validator((input as? JTextField)?.text)
-        }
+        override fun verify(input: JComponent?): Boolean = validator((input as? JTextField)?.text)
     }
     document.addDocumentListener(object : DocumentListener {
         private fun validate() {

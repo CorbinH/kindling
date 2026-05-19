@@ -1,12 +1,13 @@
 package io.github.inductiveautomation.kindling.docker.compose
 
-import io.github.inductiveautomation.kindling.docker.services.model.DockerServiceModel
 import io.github.inductiveautomation.kindling.docker.compose.model.DependsOn
 import io.github.inductiveautomation.kindling.docker.compose.model.Restart
+import io.github.inductiveautomation.kindling.docker.services.model.DockerServiceModel
 import io.github.inductiveautomation.kindling.utils.ColumnList
 import io.github.inductiveautomation.kindling.utils.FlatScrollPane
 import io.github.inductiveautomation.kindling.utils.ReifiedJXTable
 import io.github.inductiveautomation.kindling.utils.ReifiedMapTableModel
+import net.miginfocom.swing.MigLayout
 import javax.swing.JButton
 import javax.swing.JCheckBox
 import javax.swing.JComboBox
@@ -14,12 +15,12 @@ import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.JTextField
 import javax.swing.ListSelectionModel
-import net.miginfocom.swing.MigLayout
 
 @Suppress("unused")
 class ServiceEditor(
     data: DockerServiceModel,
-) : ComposeObjectEditor<DockerServiceModel>("root", data), RootEditor {
+) : ComposeObjectEditor<DockerServiceModel>("root", data),
+    RootEditor {
     val deploy by composeObject(DeployEditor(data.deploy))
     val build by composeObject(BuildEditor(data.build))
     val attach by checkbox(value = data.attach) {
