@@ -3,12 +3,21 @@ package io.github.inductiveautomation.kindling.docker.services.ignition
 import com.formdev.flatlaf.extras.FlatSVGIcon
 import io.github.inductiveautomation.kindling.docker.DockerDraftPanel
 import io.github.inductiveautomation.kindling.docker.services.DockerServiceTool
+import io.github.inductiveautomation.kindling.docker.services.ignition.model.IgnitionCommandLineArgument
 import io.github.inductiveautomation.kindling.docker.services.ignition.model.IgnitionServiceModel
 import io.github.inductiveautomation.kindling.docker.services.ignition.model.IgnitionVersionComparator
 import io.github.inductiveautomation.kindling.docker.services.model.DefaultDockerServiceModel
 import io.github.inductiveautomation.kindling.docker.services.model.DockerEnvironmentVariableDefinition.Companion.getConnectionVariableIndex
 import io.github.inductiveautomation.kindling.docker.services.model.DockerServiceModel
 import io.github.inductiveautomation.kindling.docker.services.model.PortMapping
+import io.github.inductiveautomation.kindling.docker.volumes.model.BindMount
+import io.github.inductiveautomation.kindling.statistics.GatewayBackup
+import java.net.URI
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
+import java.nio.file.Path
+import kotlin.io.path.absolutePathString
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
@@ -20,10 +29,6 @@ import kotlinx.serialization.json.decodeFromStream
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import java.net.URI
-import java.net.http.HttpClient
-import java.net.http.HttpRequest
-import java.net.http.HttpResponse
 import kotlin.collections.find
 
 object IgnitionServiceTool : DockerServiceTool {
@@ -75,6 +80,38 @@ object IgnitionServiceTool : DockerServiceTool {
     override fun isValidCandidate(model: DefaultDockerServiceModel): Boolean = model.image.startsWith("inductiveautomation/ignition")
 
     override fun modelFromDefault(model: DefaultDockerServiceModel) = IgnitionServiceModel(model)
+
+    context(panel: DockerDraftPanel)
+    fun createModelFromGwbk(path: Path): IgnitionServiceModel {
+        val backup = GatewayBackup(path)
+        val httpPort = backup.gatewaySettings.getProperty("gateway.port", "8088")
+        val version = backup.info.getElementsByTagName("version").item(0)?.textContent
+            ?.split(".")?.take(3)?.joinToString(".")
+            ?.takeIf { it.isNotBlank() } ?: "latest"
+
+        val containerName = "Ignition-${panel.nodeIdManager.generateID()}"
+        val restorePath = "/restore-$containerName.gwbk"
+
+        return modelFromDefault(
+            DefaultDockerServiceModel(
+                image = "inductiveautomation/ignition:$version",
+                containerName = containerName,
+                ports = mutableListOf(
+                    PortMapping(
+                        panel.defaultPortManager.requestPorts(1).single().toString(),
+                        httpPort,
+                    )
+                ),
+                volumes = mutableListOf(
+                    BindMount(
+                        bindPath = path.absolutePathString(),
+                        containerPath = restorePath,
+                    )
+                ),
+                commands = mutableListOf("${IgnitionCommandLineArgument.GWBK_RESTORE_PATH.flag} $restorePath"),
+            )
+        )
+    }
 
     fun DockerDraftPanel.resolveConnections(nodes: List<IgnitionServiceNode>): List<IgnitionNodeConnector> {
         val connections = mutableListOf<IgnitionNodeConnector>()

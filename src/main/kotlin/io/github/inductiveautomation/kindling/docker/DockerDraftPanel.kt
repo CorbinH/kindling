@@ -21,6 +21,7 @@ import io.github.inductiveautomation.kindling.core.ToolPanel
 import io.github.inductiveautomation.kindling.docker.Canvas.Companion.NODE_LAYER
 import io.github.inductiveautomation.kindling.docker.DockerServiceToolTransferHandler.Companion.DOCKER_SERVICE_DATA_FLAVOR
 import io.github.inductiveautomation.kindling.docker.networks.NetworksTab
+import io.github.inductiveautomation.kindling.docker.services.ignition.IgnitionServiceTool
 import io.github.inductiveautomation.kindling.docker.networks.model.DockerNetwork
 import io.github.inductiveautomation.kindling.docker.services.AbstractDockerServiceNode
 import io.github.inductiveautomation.kindling.docker.services.DockerServiceTool
@@ -45,7 +46,9 @@ import net.miginfocom.swing.MigLayout
 import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants.SYNTAX_STYLE_YAML
 import java.awt.Point
+import java.awt.datatransfer.DataFlavor
 import java.awt.event.ContainerEvent
+import java.io.File
 import java.awt.event.ContainerListener
 import java.nio.file.Files
 import java.nio.file.Path
@@ -70,25 +73,53 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
 
     val canvas = Canvas("Docker Drafting").apply {
         transferHandler = object : TransferHandler() {
-            override fun canImport(support: TransferSupport?): Boolean = support?.isDataFlavorSupported(DOCKER_SERVICE_DATA_FLAVOR) == true
+            override fun canImport(support: TransferSupport?): Boolean {
+                if (support == null) return false
+                return support.isDataFlavorSupported(DOCKER_SERVICE_DATA_FLAVOR) ||
+                    support.isDataFlavorSupported(DataFlavor.javaFileListFlavor)
+            }
 
+            @Suppress("UNCHECKED_CAST")
             override fun importData(support: TransferSupport?): Boolean {
+                support ?: return false
                 if (!canImport(support)) return false
 
-                val tool = support?.transferable?.getTransferData(DOCKER_SERVICE_DATA_FLAVOR)
+                val canvas = support.component as? Canvas ?: return false
+                val dropPoint = support.dropLocation.dropPoint
 
-                if (tool is DockerServiceTool) {
-                    val canvas = support.component as? Canvas ?: return false
-                    val node = tool.createNode(tool.createModel()).apply {
-                        bindYamlPreview()
-                    }
-
-                    val dropLocation = support.dropLocation.dropPoint.let {
-                        Point(it.x - node.preferredSize.width / 2, it.y - node.preferredSize.height / 2)
-                    }
-
-                    canvas.add(node, dropLocation)
+                if (support.isDataFlavorSupported(DOCKER_SERVICE_DATA_FLAVOR)) {
+                    val tool = support.transferable.getTransferData(DOCKER_SERVICE_DATA_FLAVOR) as? DockerServiceTool ?: return false
+                    val node = tool.createNode(tool.createModel()).apply { bindYamlPreview() }
+                    val loc = Point(dropPoint.x - node.preferredSize.width / 2, dropPoint.y - node.preferredSize.height / 2)
+                    canvas.add(node, loc)
                     canvas.setLayer(node, NODE_LAYER)
+                    return true
+                }
+
+                if (support.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) {
+                    val files = support.transferable.getTransferData(DataFlavor.javaFileListFlavor) as List<*>
+                    val gwbkFiles = files.filterIsInstance<File>().filter { it.extension.equals("gwbk", ignoreCase = true) }
+                    if (gwbkFiles.isEmpty()) return false
+
+                    var offset = 0
+                    for (file in gwbkFiles) {
+                        val model = try {
+                            IgnitionServiceTool.createModelFromGwbk(file.toPath())
+                        } catch (e: Exception) {
+                            JOptionPane.showMessageDialog(
+                                null,
+                                "Couldn't read GWBK file ${file.name}:\n${e.message}",
+                                "Import Error",
+                                JOptionPane.ERROR_MESSAGE,
+                            )
+                            continue
+                        }
+                        val node = IgnitionServiceTool.createNode(model).apply { bindYamlPreview() }
+                        val loc = Point(dropPoint.x - node.preferredSize.width / 2 + offset, dropPoint.y - node.preferredSize.height / 2 + offset)
+                        canvas.add(node, loc)
+                        canvas.setLayer(node, NODE_LAYER)
+                        offset += 20
+                    }
                     return true
                 }
 
@@ -107,7 +138,7 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
 
     /* Sidebar */
     var volumes: List<DockerVolume> = emptyList()
-        private set(value) {
+        set(value) {
             field = value
             services.forEach {
                 it.volumeOptions = value
@@ -278,7 +309,8 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
 
     private fun export() {
         yamlFileChooser.selectedFile = yamlFileChooser.currentDirectory.resolve("docker-compose.yaml")
-        val outputFile = yamlFileChooser.chooseFiles(null)?.firstOrNull()?.toPath() ?: return
+        if (yamlFileChooser.showSaveDialog(null) != JFileChooser.APPROVE_OPTION) return
+        val outputFile = yamlFileChooser.selectedFile.toPath()
 
         if (!Files.exists(outputFile)) {
             Files.createFile(outputFile)
