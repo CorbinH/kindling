@@ -26,8 +26,10 @@ import io.github.inductiveautomation.kindling.docker.networks.model.DockerNetwor
 import io.github.inductiveautomation.kindling.docker.services.AbstractDockerServiceNode
 import io.github.inductiveautomation.kindling.docker.services.DockerServiceTool
 import io.github.inductiveautomation.kindling.docker.services.ignition.IgnitionNodeConnector.Companion.midPoint
+import io.github.inductiveautomation.kindling.docker.services.ignition.model.IgnitionCommandLineArgument
 import io.github.inductiveautomation.kindling.docker.services.model.DefaultDockerServiceModel
 import io.github.inductiveautomation.kindling.docker.volumes.VolumesTab
+import io.github.inductiveautomation.kindling.docker.volumes.model.BindMount
 import io.github.inductiveautomation.kindling.docker.volumes.model.DockerVolume
 import io.github.inductiveautomation.kindling.utils.Action
 import io.github.inductiveautomation.kindling.utils.FileFilter
@@ -52,6 +54,7 @@ import java.io.File
 import java.awt.event.ContainerListener
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardCopyOption
 import javax.swing.DefaultListModel
 import javax.swing.JButton
 import javax.swing.JFileChooser
@@ -63,6 +66,7 @@ import javax.swing.SwingUtilities
 import javax.swing.TransferHandler
 import javax.swing.filechooser.FileNameExtensionFilter
 import kotlin.io.path.absolutePathString
+import kotlin.io.path.div
 import kotlin.io.path.inputStream
 import kotlin.io.path.name
 import kotlin.io.path.outputStream
@@ -167,7 +171,7 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
     private val servicesList = CanvasNodeList(DockerServiceTool.tools)
 
     private val importButton = JButton("Import Compose File")
-    private val exportButton = JButton("Export Compose File")
+    private val exportButton = JButton("Export as...")
 
     private val sidebar = JPanel(MigLayout("fill, ins 0")).apply {
         add(importButton, "growx")
@@ -274,8 +278,14 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
         }
 
         exportButton.addActionListener {
-            yamlFileChooser.approveButtonText = "Export"
-            export()
+            val mode = showExportDialog(this) ?: return@addActionListener
+            when (mode) {
+                is ExportMode.Standalone -> {
+                    yamlFileChooser.approveButtonText = "Export"
+                    export()
+                }
+                is ExportMode.Bundle -> exportBundle(mode.placement)
+            }
         }
 
         SwingUtilities.invokeLater {
@@ -318,6 +328,54 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
 
         outputFile.outputStream().use {
             YAML.encodeToStream(composeFile, it)
+        }
+    }
+
+    // Replace any absolute path GWBKs with relate path for the bundle.
+    private fun exportBundle(placement: GwbkPlacement) {
+        val folderChooser = JFileChooser().apply {
+            fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
+            isAcceptAllFileFilterUsed = false
+            approveButtonText = "Export"
+            dialogTitle = "Choose Bundle Folder"
+        }
+        if (folderChooser.showSaveDialog(null) != JFileChooser.APPROVE_OPTION) return
+        val folder = folderChooser.selectedFile.toPath()
+        Files.createDirectories(folder)
+
+        val restoreFlag = IgnitionCommandLineArgument.GWBK_RESTORE_PATH.flag
+        val restoreMounts = services.mapNotNull { node ->
+            val model = node.model.defaultModel
+            val restoreArg = model.commands.firstOrNull { it.startsWith("$restoreFlag ") } ?: return@mapNotNull null
+            val restoreContainerPath = restoreArg.substringAfter("$restoreFlag ").trim()
+            model.volumes.firstOrNull { it.containerPath == restoreContainerPath }
+        }
+
+        val originalPaths = mutableMapOf<BindMount, String>()
+        try {
+            for (mount in restoreMounts) {
+                val source = Path.of(mount.bindPath)
+                if (!Files.exists(source)) continue
+                val target = folder / source.fileName
+                when (placement) {
+                    GwbkPlacement.COPY -> Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
+                    GwbkPlacement.MOVE -> Files.move(source, target, StandardCopyOption.REPLACE_EXISTING)
+                }
+                originalPaths[mount] = mount.bindPath
+                mount.bindPath = "./${source.fileName}"
+            }
+
+            val yamlPath = folder.resolve("docker-compose.yaml")
+            yamlPath.outputStream().use {
+                YAML.encodeToStream(composeFile, it)
+            }
+        } finally {
+            if (placement == GwbkPlacement.COPY) {
+                for ((mount, original) in originalPaths) {
+                    mount.bindPath = original
+                }
+            }
+            updatePreview()
         }
     }
 
