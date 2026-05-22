@@ -5,6 +5,7 @@ import io.github.inductiveautomation.kindling.docker.DockerDraftPanel
 import io.github.inductiveautomation.kindling.docker.services.DockerServiceTool
 import io.github.inductiveautomation.kindling.docker.services.ignition.model.IgnitionCommandLineArgument
 import io.github.inductiveautomation.kindling.docker.services.ignition.model.IgnitionServiceModel
+import io.github.inductiveautomation.kindling.docker.services.ignition.model.IgnitionStaticDefinition
 import io.github.inductiveautomation.kindling.docker.services.ignition.model.IgnitionVersionComparator
 import io.github.inductiveautomation.kindling.docker.services.model.DefaultDockerServiceModel
 import io.github.inductiveautomation.kindling.docker.services.model.DockerEnvironmentVariableDefinition.Companion.getConnectionVariableIndex
@@ -84,24 +85,40 @@ object IgnitionServiceTool : DockerServiceTool {
     context(panel: DockerDraftPanel)
     fun createModelFromGwbk(path: Path): IgnitionServiceModel {
         val backup = GatewayBackup(path)
-        val httpPort = backup.gatewaySettings.getProperty("gateway.port", "8088")
+        val gwbkHttpPort = backup.gatewaySettings.getProperty("gateway.port", "8088")
+        val gwbkHttpsPort = backup.gatewaySettings.getProperty("gateway.sslport", "8043")
+        val forceSecureRedirect = backup.gatewaySettings.getProperty("gateway.forceSecureRedirect", "false").toBoolean()
+
         val version = backup.info.getElementsByTagName("version").item(0)?.textContent
             ?.split(".")?.take(3)?.joinToString(".")
             ?.takeIf { it.isNotBlank() } ?: "latest"
 
+        val hasConflict = gwbkHttpPort != "8088" || gwbkHttpsPort != "8043" || forceSecureRedirect
+        val strategy = if (hasConflict) {
+            showPortConflictDialog(panel, gwbkHttpPort, gwbkHttpsPort, forceSecureRedirect) ?: PortStrategy.KEEP
+        } else {
+            PortStrategy.KEEP
+        }
+
+        val httpTarget = if (strategy == PortStrategy.RESET) "8088" else gwbkHttpPort
+        val httpsTarget = if (strategy == PortStrategy.RESET) "8043" else gwbkHttpsPort
+
+        val requestedPorts = panel.defaultPortManager.requestPorts(if (forceSecureRedirect) 2 else 1)
+        val portMappings = mutableListOf(
+            PortMapping(requestedPorts[0].toString(), httpTarget),
+        )
+        if (forceSecureRedirect) {
+            portMappings.add(PortMapping(requestedPorts[1].toString(), httpsTarget))
+        }
+
         val containerName = "Ignition-${panel.nodeIdManager.generateID()}"
         val restorePath = "/restore-$containerName.gwbk"
 
-        return modelFromDefault(
+        val model = modelFromDefault(
             DefaultDockerServiceModel(
                 image = "inductiveautomation/ignition:$version",
                 containerName = containerName,
-                ports = mutableListOf(
-                    PortMapping(
-                        panel.defaultPortManager.requestPorts(1).single().toString(),
-                        httpPort,
-                    )
-                ),
+                ports = portMappings,
                 volumes = mutableListOf(
                     BindMount(
                         bindPath = path.absolutePathString(),
@@ -111,6 +128,13 @@ object IgnitionServiceTool : DockerServiceTool {
                 commands = mutableListOf("${IgnitionCommandLineArgument.GWBK_RESTORE_PATH.flag} $restorePath"),
             )
         )
+
+        if (strategy == PortStrategy.RESET) {
+            model.environment[IgnitionStaticDefinition.GATEWAY_HTTP_PORT.name] = "8088"
+            model.environment[IgnitionStaticDefinition.GATEWAY_HTTPS_PORT.name] = "8043"
+        }
+
+        return model
     }
 
     fun DockerDraftPanel.resolveConnections(nodes: List<IgnitionServiceNode>): List<IgnitionNodeConnector> {
