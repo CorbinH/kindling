@@ -20,7 +20,7 @@ coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-
 coroutines-swing = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-swing", version.ref = "coroutines" }
 serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version = "1.9.0" }
 xerial-jdbc = { group = "org.xerial", name = "sqlite-jdbc", version = "3.51.1.0" }
-logback = { group = "ch.qos.logback", name = "logback-classic", version = "1.5.19" }
+logback = { group = "ch.qos.logback", name = "logback-classic", version = "1.5.33" }
 hsql = { group = "org.hsqldb", name = "hsqldb", version = "2.7.4" }
 poi = { group = "org.apache.poi", name = "poi-ooxml", version = "5.5.1" }
 excelkt = { group = "io.github.evanrupert", name = "excelkt", version = "1.0.2" }
@@ -44,6 +44,7 @@ jide-common = { group = "com.formdev", name = "jide-oss", version = "3.7.15" }
 swingx = { group = "org.swinglabs.swingx", name = "swingx-all", version = "1.6.5-1" }
 rsyntaxtextarea = { group = "com.fifesoft", name = "rsyntaxtextarea", version = "3.6.0" }
 jfreechart = { group = "org.jfree", name = "jfreechart", version = "1.5.6" }
+
 
 # Ignition
 ignition-common = { group = "com.inductiveautomation.ignition", name = "common", version.ref = "ignition" }
