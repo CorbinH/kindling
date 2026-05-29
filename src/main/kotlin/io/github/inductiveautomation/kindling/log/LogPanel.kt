@@ -317,12 +317,7 @@ abstract class LogPanel<T : LogEvent>(
             }
         }
 
-        if (searchString(message) || searchString(logger) || searchString(level?.name) || searchString(
-                Timezone.Default.format(
-                    timestamp,
-                ),
-            )
-        ) return true
+        if (searchString(message) || searchString(logger) || searchString(level?.name)) return true
         if (stacktrace.any(::searchString)) return true
         if (this is SystemLogEvent) {
             if (searchString(thread) || mdc.any { (k, v) -> searchString(k) || searchString(v) }) return true
@@ -379,6 +374,7 @@ abstract class LogPanel<T : LogEvent>(
                     add(
                         Action("Mark all with same message") {
                             model.markRows { row -> if (row.marked) null else row.message == event.message }
+                            updateData()
                         },
                     )
                 }
@@ -387,6 +383,7 @@ abstract class LogPanel<T : LogEvent>(
                     add(
                         Action("Mark all with same stacktrace") {
                             model.markRows { row -> (row.stacktrace == event.stacktrace).takeIf { it } }
+                            updateData()
                         },
                     )
                 }
@@ -395,6 +392,7 @@ abstract class LogPanel<T : LogEvent>(
                     add(
                         Action("Mark all ${event.thread} events") {
                             model.markRows { row -> ((row as SystemLogEvent).thread == event.thread).takeIf { it } }
+                            updateData()
                         },
                     )
                 }
