@@ -1,17 +1,17 @@
 package io.github.inductiveautomation.kindling.docker.services.ignition
 
 import com.formdev.flatlaf.extras.FlatSVGIcon
-import io.github.inductiveautomation.kindling.docker.volumes.model.DockerVolume
-import io.github.inductiveautomation.kindling.docker.services.ignition.model.IgnitionServiceModel
 import io.github.inductiveautomation.kindling.docker.services.AbstractDockerServiceNode
+import io.github.inductiveautomation.kindling.docker.services.ignition.model.IgnitionServiceModel
 import io.github.inductiveautomation.kindling.docker.services.ignition.model.IgnitionVersionComparator
+import io.github.inductiveautomation.kindling.docker.volumes.model.DockerVolume
 import io.github.inductiveautomation.kindling.utils.add
 import io.github.inductiveautomation.kindling.utils.getAll
+import net.miginfocom.swing.MigLayout
 import java.util.EventListener
 import javax.swing.JButton
 import javax.swing.JOptionPane
 import javax.swing.JPanel
-import net.miginfocom.swing.MigLayout
 
 class IgnitionServiceNode(
     model: IgnitionServiceModel,

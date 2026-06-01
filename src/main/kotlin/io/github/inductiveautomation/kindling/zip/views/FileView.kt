@@ -4,20 +4,14 @@ import com.formdev.flatlaf.extras.FlatSVGIcon
 import io.github.inductiveautomation.kindling.core.Kindling.Preferences.UI.Theme
 import io.github.inductiveautomation.kindling.core.Theme.Companion.theme
 import io.github.inductiveautomation.kindling.utils.FlatActionIcon
+import io.github.inductiveautomation.kindling.utils.RSyntaxTextArea
 import io.github.inductiveautomation.kindling.utils.configureCellRenderer
 import io.github.inductiveautomation.kindling.utils.toHumanReadableBinary
-import io.github.inductiveautomation.kindling.zip.views.FileView.SyntaxStyle.CSS
-import io.github.inductiveautomation.kindling.zip.views.FileView.SyntaxStyle.INI
-import io.github.inductiveautomation.kindling.zip.views.FileView.SyntaxStyle.JSON
-import io.github.inductiveautomation.kindling.zip.views.FileView.SyntaxStyle.Markdown
-import io.github.inductiveautomation.kindling.zip.views.FileView.SyntaxStyle.Plaintext
-import io.github.inductiveautomation.kindling.zip.views.FileView.SyntaxStyle.Properties
-import io.github.inductiveautomation.kindling.zip.views.FileView.SyntaxStyle.Python
-import io.github.inductiveautomation.kindling.zip.views.FileView.SyntaxStyle.XML
+import io.github.inductiveautomation.kindling.zip.views.FileView.Companion.SyntaxStyle.JSON
+import io.github.inductiveautomation.kindling.zip.views.FileView.Companion.SyntaxStyle.Plaintext
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
-import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants.SYNTAX_STYLE_CSS
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants.SYNTAX_STYLE_CSV
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants.SYNTAX_STYLE_DOCKERFILE
@@ -68,28 +62,6 @@ class FileView(override val provider: FileSystemProvider, override val path: Pat
         }
     }
 
-    private enum class SyntaxStyle(val style: String) {
-        Plaintext(SYNTAX_STYLE_NONE),
-        CSS(SYNTAX_STYLE_CSS),
-        CSV(SYNTAX_STYLE_CSV),
-        Dockerfile(SYNTAX_STYLE_DOCKERFILE),
-        HTML(SYNTAX_STYLE_HTML),
-        INI(SYNTAX_STYLE_INI),
-        Java(SYNTAX_STYLE_JAVA),
-        Javascript(SYNTAX_STYLE_JAVASCRIPT),
-        JSON(SYNTAX_STYLE_JSON),
-        Kotlin(SYNTAX_STYLE_KOTLIN),
-        Markdown(SYNTAX_STYLE_MARKDOWN),
-        Properties(SYNTAX_STYLE_PROPERTIES_FILE),
-        Python(SYNTAX_STYLE_PYTHON),
-        SQL(SYNTAX_STYLE_SQL),
-        Typescript(SYNTAX_STYLE_TYPESCRIPT),
-        Shell(SYNTAX_STYLE_UNIX_SHELL),
-        Batch(SYNTAX_STYLE_WINDOWS_BATCH),
-        XML(SYNTAX_STYLE_XML),
-        YAML(SYNTAX_STYLE_YAML),
-    }
-
     private val syntaxCombo = JComboBox(SyntaxStyle.entries.toTypedArray()).apply {
         selectedItem = guessSyntaxScheme()
 
@@ -98,11 +70,9 @@ class FileView(override val provider: FileSystemProvider, override val path: Pat
         }
     }
 
-    private val textArea = RSyntaxTextArea().apply {
+    private val textArea = RSyntaxTextArea {
         isEditable = false
         syntaxEditingStyle = (syntaxCombo.selectedItem as SyntaxStyle).style
-
-        theme = Theme.currentValue
     }
 
     override val icon: FlatSVGIcon = FlatActionIcon("icons/bx-file.svg")
@@ -167,20 +137,35 @@ class FileView(override val provider: FileSystemProvider, override val path: Pat
             prettyPrintIndent = "  "
         }
 
-        private val KNOWN_EXTENSIONS: Map<String, SyntaxStyle> = mapOf(
-            "conf" to Properties,
-            "properties" to Properties,
-            "py" to Python,
-            "json" to JSON,
-            "svg" to XML,
-            "xml" to XML,
-            "css" to CSS,
-            "txt" to Plaintext,
-            "md" to Markdown,
-            "p7b" to Plaintext,
-            "log" to Plaintext,
-            "ini" to INI,
-        )
+        private enum class SyntaxStyle(val style: String, vararg val extensions: String) {
+            Plaintext(SYNTAX_STYLE_NONE, "txt", "p7b", "log", "pem"),
+            CSS(SYNTAX_STYLE_CSS, "css"),
+            CSV(SYNTAX_STYLE_CSV, "csv"),
+            Dockerfile(SYNTAX_STYLE_DOCKERFILE),
+            HTML(SYNTAX_STYLE_HTML, "html", "htm", "shtml"),
+            INI(SYNTAX_STYLE_INI, "ini"),
+            Java(SYNTAX_STYLE_JAVA, "java"),
+            Javascript(SYNTAX_STYLE_JAVASCRIPT, "js"),
+            JSON(SYNTAX_STYLE_JSON, "json"),
+            Kotlin(SYNTAX_STYLE_KOTLIN, "kt", "kts"),
+            Markdown(SYNTAX_STYLE_MARKDOWN, "md"),
+            Properties(SYNTAX_STYLE_PROPERTIES_FILE, "properties", "conf"),
+            Python(SYNTAX_STYLE_PYTHON, "py"),
+            SQL(SYNTAX_STYLE_SQL, "sql"),
+            Typescript(SYNTAX_STYLE_TYPESCRIPT, "ts"),
+            Shell(SYNTAX_STYLE_UNIX_SHELL, "sh", "bash"),
+            Batch(SYNTAX_STYLE_WINDOWS_BATCH, "bat"),
+            XML(SYNTAX_STYLE_XML, "xml", "svg"),
+            YAML(SYNTAX_STYLE_YAML, "yaml"),
+        }
+
+        private val KNOWN_EXTENSIONS: Map<String, SyntaxStyle> = buildMap {
+            for (style in SyntaxStyle.entries) {
+                for (string in style.extensions) {
+                    put(string, style)
+                }
+            }
+        }
 
         private val KNOWN_FILENAMES = setOf(
             "readme",

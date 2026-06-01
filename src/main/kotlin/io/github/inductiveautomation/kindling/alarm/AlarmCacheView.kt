@@ -75,14 +75,12 @@ class AlarmCacheView(path: Path) : ToolPanel() {
 
     private val detailsPane = DetailsPane()
 
-    private fun EventData.asBodyLine(name: String): Sequence<Detail.BodyLine> {
-        return sequence {
-            yield(Detail.BodyLine("***$name***"))
-            values.forEach { pv ->
-                yield(Detail.BodyLine("${pv.property.name}: ${pv.value}"))
-            }
-            yield(Detail.EMPTY_LINE)
+    private fun EventData.asBodyLine(name: String): Sequence<Detail.BodyLine> = sequence {
+        yield(Detail.BodyLine("***$name***"))
+        values.forEach { pv ->
+            yield(Detail.BodyLine("${pv.property.name}: ${pv.value}"))
         }
+        yield(Detail.EMPTY_LINE)
     }
 
     private fun AlarmEvent.toDetail(): Detail = Detail(
@@ -165,6 +163,7 @@ data object AlarmViewer : Tool {
     override val description = "Persistent Alarms Cache (.alarms_[TIMESTAMP])"
     override val icon = FlatSVGIcon("icons/bx-bell.svg")
     override val requiresHiddenFiles = true
+    override val extensions: Array<String> = emptyArray()
 
     override fun open(path: Path): ToolPanel = AlarmCacheView(path)
 

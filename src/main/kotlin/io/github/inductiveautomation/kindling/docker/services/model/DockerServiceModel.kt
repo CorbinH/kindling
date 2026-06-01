@@ -4,21 +4,21 @@ import io.github.inductiveautomation.kindling.docker.compose.model.Build
 import io.github.inductiveautomation.kindling.docker.compose.model.DependsOn
 import io.github.inductiveautomation.kindling.docker.compose.model.Deploy
 import io.github.inductiveautomation.kindling.docker.compose.model.Restart
-import io.github.inductiveautomation.kindling.docker.volumes.model.BindMount
 import io.github.inductiveautomation.kindling.docker.serializers.CommandLineArgumentListSerializer
 import io.github.inductiveautomation.kindling.docker.serializers.DependsOnConfigSerializer
 import io.github.inductiveautomation.kindling.docker.serializers.MapOrListSerializer
 import io.github.inductiveautomation.kindling.docker.serializers.PointAsStringSerializer
 import io.github.inductiveautomation.kindling.docker.services.ignition.model.CliArgument
+import io.github.inductiveautomation.kindling.docker.volumes.model.BindMount
 import io.github.inductiveautomation.kindling.utils.add
 import io.github.inductiveautomation.kindling.utils.getAll
 import io.github.inductiveautomation.kindling.utils.remove
-import java.awt.Point
-import java.util.EventListener
-import javax.swing.event.EventListenerList
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
+import java.awt.Point
+import java.util.EventListener
+import javax.swing.event.EventListenerList
 
 interface DockerServiceModel {
     var image: String

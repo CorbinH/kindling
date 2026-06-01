@@ -5,15 +5,11 @@ import com.jidesoft.comparator.AlphanumComparator
 import io.github.inductiveautomation.kindling.core.ClipboardTool
 import io.github.inductiveautomation.kindling.core.Kindling.Preferences.General.DefaultEncoding
 import io.github.inductiveautomation.kindling.core.MultiTool
-import io.github.inductiveautomation.kindling.core.Preference.Companion.preference
-import io.github.inductiveautomation.kindling.core.PreferenceCategory
 import io.github.inductiveautomation.kindling.core.ToolPanel
-import io.github.inductiveautomation.kindling.log.LogViewer.SelectedTimeZone
 import io.github.inductiveautomation.kindling.log.WrapperLogEvent.Companion.STDOUT
 import io.github.inductiveautomation.kindling.utils.FileFilter
 import io.github.inductiveautomation.kindling.utils.FileFilterSidebar
 import io.github.inductiveautomation.kindling.utils.TabStrip
-import io.github.inductiveautomation.kindling.utils.ZoneIdSerializer
 import io.github.inductiveautomation.kindling.utils.getValue
 import io.github.inductiveautomation.kindling.utils.transferTo
 import kotlinx.coroutines.Dispatchers
@@ -26,10 +22,6 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
-import java.time.temporal.TemporalAccessor
-import java.time.zone.ZoneRulesProvider
-import java.util.Vector
-import javax.swing.JComboBox
 import javax.swing.SwingUtilities
 import kotlin.io.path.absolutePathString
 import kotlin.io.path.name
@@ -114,7 +106,7 @@ class WrapperLogPanel(
         private val DEFAULT_WRAPPER_LOG_TIME_FORMAT = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss")
             .withZone(ZoneId.systemDefault())
         private val DEFAULT_WRAPPER_MESSAGE_FORMAT =
-            "^[^|]+\\|(?<prefix>[^|]+)\\|(?<timestamp>[^|]+)\\|(?: (?<level>[TDIWE]) \\[(?<logger>[^]]++)] \\[(?<time>[^]]++)]: (?<message>.*)| (?<stack>.*))$".toRegex()
+            "(?:^[^|]+\\|)?(?<prefix>[^|]+)\\|(?<timestamp>[^|]+)\\|(?: (?<level>[TDIWE]) \\[(?<logger>[^]]++)] \\[(?<time>[^]]++)]: (?<message>.*)| (?<stack>.*))$".toRegex()
 
         fun parseLogs(lines: Sequence<String>): List<WrapperLogEvent> {
             val events = mutableListOf<WrapperLogEvent>()
@@ -191,12 +183,13 @@ class WrapperLogPanel(
     }
 }
 
-data object LogViewer : MultiTool, ClipboardTool, PreferenceCategory {
+data object LogViewer : MultiTool, ClipboardTool {
     override val serialKey = "logview"
     override val title = "Wrapper Log"
     override val description = "Wrapper Log(s) (wrapper.log, wrapper.log.1, wrapper.log...)"
     override val icon = FlatSVGIcon("icons/bx-file.svg")
     override val respectsEncoding = true
+    override val extensions: Array<String> = arrayOf("log")
 
     override val filter = FileFilter(description) { file ->
         file.name.endsWith("log") || file.name.substringAfterLast('.').toIntOrNull() != null
@@ -228,39 +221,4 @@ data object LogViewer : MultiTool, ClipboardTool, PreferenceCategory {
         )
         return WrapperLogPanel(listOf(tempFile), listOf(fileData))
     }
-
-    val SelectedTimeZone = preference(
-        name = "Timezone",
-        description = "Timezone to use when displaying logs",
-        default = ZoneId.systemDefault(),
-        serializer = ZoneIdSerializer,
-        editor = {
-            JComboBox(Vector(ZoneRulesProvider.getAvailableZoneIds().sorted())).apply {
-                selectedItem = currentValue.id
-                addActionListener {
-                    currentValue = ZoneId.of(selectedItem as String)
-                }
-            }
-        },
-    )
-
-    private var formatter = createFormatter(SelectedTimeZone.currentValue)
-
-    init {
-        SelectedTimeZone.addChangeListener { newValue ->
-            formatter = createFormatter(newValue)
-        }
-    }
-
-    private fun createFormatter(id: ZoneId): DateTimeFormatter = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss:SSS")
-        .withZone(id)
-
-    /**
-     * Format [time] using an internal [DateTimeFormatter] that is in [SelectedTimeZone] automatically.
-     */
-    fun format(time: TemporalAccessor): String = formatter.format(time)
-
-    override val displayName = "Log View"
-
-    override val preferences = listOf(SelectedTimeZone)
 }

@@ -9,11 +9,6 @@ import io.github.inductiveautomation.kindling.docker.services.model.DefaultDocke
 import io.github.inductiveautomation.kindling.docker.services.model.DockerEnvironmentVariableDefinition.Companion.getConnectionVariableIndex
 import io.github.inductiveautomation.kindling.docker.services.model.DockerServiceModel
 import io.github.inductiveautomation.kindling.docker.services.model.PortMapping
-import java.net.URI
-import java.net.http.HttpClient
-import java.net.http.HttpRequest
-import java.net.http.HttpResponse
-import kotlin.collections.find
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
@@ -25,6 +20,11 @@ import kotlinx.serialization.json.decodeFromStream
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import java.net.URI
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
+import kotlin.collections.find
 
 object IgnitionServiceTool : DockerServiceTool {
     override val icon = FlatSVGIcon("icons/Logo-Ignition-Check.svg")
@@ -35,15 +35,13 @@ object IgnitionServiceTool : DockerServiceTool {
         "https://hub.docker.com/v2/repositories/inductiveautomation/ignition/tags?page_size=1000&page=1&ordering=last_updated"
 
     context(panel: DockerDraftPanel)
-    override fun createModel(): IgnitionServiceModel {
-        return modelFromDefault(
-            DefaultDockerServiceModel(
-                image = defaultImage,
-                containerName = "Ignition-${panel.nodeIdManager.generateID()}",
-                ports = mutableListOf(PortMapping(panel.defaultPortManager.requestPorts(1).single().toString(), "8088")),
-            )
-        )
-    }
+    override fun createModel(): IgnitionServiceModel = modelFromDefault(
+        DefaultDockerServiceModel(
+            image = defaultImage,
+            containerName = "Ignition-${panel.nodeIdManager.generateID()}",
+            ports = mutableListOf(PortMapping(panel.defaultPortManager.requestPorts(1).single().toString(), "8088")),
+        ),
+    )
 
     context(panel: DockerDraftPanel)
     override fun createNode(model: DockerServiceModel): IgnitionServiceNode {
@@ -74,9 +72,7 @@ object IgnitionServiceTool : DockerServiceTool {
         }
     }
 
-    override fun isValidCandidate(model: DefaultDockerServiceModel): Boolean {
-        return model.image.startsWith("inductiveautomation/ignition")
-    }
+    override fun isValidCandidate(model: DefaultDockerServiceModel): Boolean = model.image.startsWith("inductiveautomation/ignition")
 
     override fun modelFromDefault(model: DefaultDockerServiceModel) = IgnitionServiceModel(model)
 
@@ -123,6 +119,8 @@ object IgnitionServiceTool : DockerServiceTool {
                     versions.sortedWith(IgnitionVersionComparator.reversed())
                 }
             }.getOrElse {
+                println("Error occured:")
+                it.printStackTrace()
                 fallbackVersionList
             }
         }

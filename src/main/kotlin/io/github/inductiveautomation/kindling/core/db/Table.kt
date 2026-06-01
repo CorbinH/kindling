@@ -1,4 +1,4 @@
-package io.github.inductiveautomation.kindling.idb.generic
+package io.github.inductiveautomation.kindling.core.db
 
 import java.util.Collections
 import java.util.Enumeration
@@ -9,6 +9,7 @@ data class Table(
     val columns: List<Column>,
     val _parent: () -> TreeNode,
     val size: Long,
+    val rowCount: Long,
 ) : TreeNode {
     override fun getChildAt(childIndex: Int): TreeNode = columns[childIndex]
     override fun getChildCount(): Int = columns.size
@@ -18,7 +19,5 @@ data class Table(
     override fun isLeaf(): Boolean = false
     override fun children(): Enumeration<out TreeNode> = Collections.enumeration(columns)
 
-    override fun toString(): String {
-        return this.name
-    }
+    override fun toString(): String = this.name
 }
