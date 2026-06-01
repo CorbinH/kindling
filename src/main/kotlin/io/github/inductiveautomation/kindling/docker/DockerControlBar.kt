@@ -68,7 +68,7 @@ class DockerControlBar(
 
     val startButton = JButton(startAction)
     val stopButton = JButton(stopAction).apply {
-        isVisible = false;
+        isVisible = false
     }
     val restartButton = JButton(restartAction)
     val deleteButton = JButton(deleteAction)
@@ -119,12 +119,11 @@ class DockerControlBar(
 
     private fun setButtonVisibility(status: ComposeStatus) {
         if (status is ComposeStatus.Running || status is ComposeStatus.Partial) {
-            startButton.isVisible = false;
-            stopButton.isVisible = true;
-        }
-        else {
-            startButton.isVisible = true;
-            stopButton.isVisible = false;
+            startButton.isVisible = false
+            stopButton.isVisible = true
+        } else {
+            startButton.isVisible = true
+            stopButton.isVisible = false
         }
     }
 

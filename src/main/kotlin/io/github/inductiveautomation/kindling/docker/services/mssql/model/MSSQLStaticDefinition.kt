@@ -25,7 +25,7 @@ enum class MSSQLStaticDefinition : DockerEnvironmentVariableDefinition {
     },
     MSSQL_SA_PASSWORD {
         override val default = "password"
-        override val options = null;
+        override val options = null
         override val minimumVersion = "2017"
-    }
+    },
 }
