@@ -5,7 +5,6 @@ coroutines = "1.10.2"
 flatlaf = "3.6.1"
 kotest = "5.9.1"
 ignition = "8.1.20"
-jackson = "2.19.2"
 docker-java = "3.4.1"
 jackson = "2.20.1"
 
