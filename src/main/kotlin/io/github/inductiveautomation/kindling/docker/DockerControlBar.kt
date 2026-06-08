@@ -26,32 +26,40 @@ class DockerControlBar(
 ) : JPanel(MigLayout("ins 3, fillx, hidemode 3")) {
 
     // Actions are inlined into their buttons since each is only used in one place
-    val startButton = JButton(Action(name = "Start", icon = FlatSVGIcon("icons/bx-play.svg")) {
-        runCommand("start") { it.start() }
-    })
+    val startButton = JButton(
+        Action(name = "Start", icon = FlatSVGIcon("icons/bx-play.svg")) {
+            runCommand("start") { it.start() }
+        },
+    )
 
-    val stopButton = JButton(Action(name = "Stop", icon = FlatSVGIcon("icons/bx-stop.svg")) {
-        runCommand("stop") { it.stop() }
-    }).apply {
+    val stopButton = JButton(
+        Action(name = "Stop", icon = FlatSVGIcon("icons/bx-stop.svg")) {
+            runCommand("stop") { it.stop() }
+        },
+    ).apply {
         isVisible = false
     }
 
-    val restartButton = JButton(Action(name = "Restart", icon = FlatSVGIcon("icons/bx-refresh.svg")) {
-        runCommand("restart") { it.restart() }
-    })
+    val restartButton = JButton(
+        Action(name = "Restart", icon = FlatSVGIcon("icons/bx-refresh.svg")) {
+            runCommand("restart") { it.restart() }
+        },
+    )
 
-    val deleteButton = JButton(Action(name = "Delete", icon = FlatSVGIcon("icons/bx-trash.svg")) {
-        val confirm = JOptionPane.showConfirmDialog(
-            this@DockerControlBar,
-            "This will stop and remove all containers in this compose stack. Proceed?",
-            "Confirm Delete",
-            JOptionPane.YES_NO_OPTION,
-            JOptionPane.WARNING_MESSAGE,
-        )
-        if (confirm == JOptionPane.YES_OPTION) {
-            runCommand("delete") { it.delete() }
-        }
-    })
+    val deleteButton = JButton(
+        Action(name = "Delete", icon = FlatSVGIcon("icons/bx-trash.svg")) {
+            val confirm = JOptionPane.showConfirmDialog(
+                this@DockerControlBar,
+                "This will stop and remove all containers in this compose stack. Proceed?",
+                "Confirm Delete",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE,
+            )
+            if (confirm == JOptionPane.YES_OPTION) {
+                runCommand("delete") { it.delete() }
+            }
+        },
+    )
 
     private val connectedIndicator = JLabel("•").apply {
         font = font.deriveFont(24f)
