@@ -221,6 +221,7 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
                         commands = model.commands.toMutableList(),
                         volumes = model.volumes.toMutableList(),
                         networks = model.networks.toMutableMap(),
+                        // Hash injected here (not on the model) to avoid a circular dependency: currentHash is computed from the label-free model
                         labels = model.labels.toMutableMap().apply {
                             put("io.github.kindling.yaml-hash", hash)
                         },
@@ -437,6 +438,12 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
             fileFilter = FileNameExtensionFilter("YAML Files", "yaml", "yml")
             approveButtonText = "Export"
         }
+
+        fun String.hash(): String {
+            val md = MessageDigest.getInstance("MD5")
+            val digest = md.digest(toByteArray())
+            return BigInteger(1, digest).toString(16).padStart(32, '0').take(8)
+        }
     }
 
     inner class NodeIdManager {
@@ -488,10 +495,4 @@ object DockerTool : EditorTool {
     override fun open(): ToolPanel = DockerDraftPanel(null)
 
     override val filter: FileFilter = FileFilter("YAML files", "yaml", "yml")
-}
-
-private fun String.hash(): String {
-    val md = MessageDigest.getInstance("MD5")
-    val digest = md.digest(toByteArray())
-    return BigInteger(1, digest).toString(16).padStart(32, '0').take(8)
 }

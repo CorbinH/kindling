@@ -61,11 +61,17 @@ class ProcessComposeEngine(
         if (names.isEmpty()) return
 
         for (name in names) {
-            val containers = docker.listContainersCmd()
-                .withNameFilter(listOf(name))
-                .withShowAll(true)
-                .exec()
-                .filter { it.names.any { n -> n == "/$name" } }
+            // Returns empty list rather than hanging/throwing if Docker is unavailable
+            val containers = runCatching {
+                docker.listContainersCmd()
+                    .withNameFilter(listOf(name))
+                    .withShowAll(true)
+                    .exec()
+                    .filter { it.names.any { n -> n == "/$name" } }
+            }.getOrElse {
+                LOGGER.warn("Could not check for conflicting container '$name': ${it.message}")
+                return
+            }
 
             containers.forEach { container ->
                 LOGGER.info("Removing conflicting container: $name")
@@ -77,10 +83,16 @@ class ProcessComposeEngine(
     }
 
     override fun start(): ComposeResult {
-        val existing = docker.listContainersCmd()
-            .withLabelFilter(mapOf("com.docker.compose.project" to projectName))
-            .withShowAll(true)
-            .exec()
+        // Returns Failure rather than hanging if Docker engine is off or paused
+        val existing = runCatching {
+            docker.listContainersCmd()
+                .withLabelFilter(mapOf("com.docker.compose.project" to projectName))
+                .withShowAll(true)
+                .exec()
+        }.getOrElse {
+            LOGGER.error("Docker engine unavailable: ${it.message}")
+            return ComposeResult.Failure(-1, "Docker engine is not running: ${it.message}")
+        }
 
         if (existing.isNotEmpty()) {
             existing.filter { it.state != "running" }.forEach { container ->
@@ -103,10 +115,16 @@ class ProcessComposeEngine(
     override fun delete() = composeByProject("down", "--remove-orphans")
 
     override fun getStatus(): ComposeStatus {
-        val containers = docker.listContainersCmd()
-            .withLabelFilter(mapOf("com.docker.compose.project" to projectName))
-            .withShowAll(true)
-            .exec()
+        // Returns Unknown rather than hanging if Docker engine is off or paused
+        val containers = runCatching {
+            docker.listContainersCmd()
+                .withLabelFilter(mapOf("com.docker.compose.project" to projectName))
+                .withShowAll(true)
+                .exec()
+        }.getOrElse {
+            LOGGER.warn("Docker engine unavailable: ${it.message}")
+            return ComposeStatus.Unknown
+        }
 
         val total = containers.size
         if (total == 0) return ComposeStatus.Stopped
@@ -120,10 +138,16 @@ class ProcessComposeEngine(
     }
 
     override fun getRemoteHash(): String? {
-        val containers = docker.listContainersCmd()
-            .withLabelFilter(mapOf("com.docker.compose.project" to projectName))
-            .withShowAll(true)
-            .exec()
+        // Returns null rather than hanging if Docker engine is off or paused
+        val containers = runCatching {
+            docker.listContainersCmd()
+                .withLabelFilter(mapOf("com.docker.compose.project" to projectName))
+                .withShowAll(true)
+                .exec()
+        }.getOrElse {
+            LOGGER.warn("Docker engine unavailable: ${it.message}")
+            return null
+        }
 
         return containers.firstNotNullOfOrNull { it.labels["io.github.kindling.yaml-hash"] }
     }

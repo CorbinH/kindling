@@ -24,31 +24,23 @@ class DockerControlBar(
     val yamlPath: Path,
     val localHashProvider: () -> String,
 ) : JPanel(MigLayout("ins 3, fillx, hidemode 3")) {
-    private val startAction = Action(
-        name = "Start",
-        icon = FlatSVGIcon("icons/bx-play.svg"),
-    ) {
+
+    // Actions are inlined into their buttons since each is only used in one place
+    val startButton = JButton(Action(name = "Start", icon = FlatSVGIcon("icons/bx-play.svg")) {
         runCommand("start") { it.start() }
-    }
+    })
 
-    private val stopAction = Action(
-        name = "Stop",
-        icon = FlatSVGIcon("icons/bx-stop.svg"),
-    ) {
+    val stopButton = JButton(Action(name = "Stop", icon = FlatSVGIcon("icons/bx-stop.svg")) {
         runCommand("stop") { it.stop() }
+    }).apply {
+        isVisible = false
     }
 
-    private val restartAction = Action(
-        name = "Restart",
-        icon = FlatSVGIcon("icons/bx-refresh.svg"),
-    ) {
+    val restartButton = JButton(Action(name = "Restart", icon = FlatSVGIcon("icons/bx-refresh.svg")) {
         runCommand("restart") { it.restart() }
-    }
+    })
 
-    private val deleteAction = Action(
-        name = "Delete",
-        icon = FlatSVGIcon("icons/bx-trash.svg"),
-    ) {
+    val deleteButton = JButton(Action(name = "Delete", icon = FlatSVGIcon("icons/bx-trash.svg")) {
         val confirm = JOptionPane.showConfirmDialog(
             this@DockerControlBar,
             "This will stop and remove all containers in this compose stack. Proceed?",
@@ -59,26 +51,20 @@ class DockerControlBar(
         if (confirm == JOptionPane.YES_OPTION) {
             runCommand("delete") { it.delete() }
         }
-    }
+    })
 
     private val connectedIndicator = JLabel("•").apply {
         font = font.deriveFont(24f)
         foreground = Color.GRAY
     }
 
-    val startButton = JButton(startAction)
-    val stopButton = JButton(stopAction).apply {
-        isVisible = false
-    }
-    val restartButton = JButton(restartAction)
-    val deleteButton = JButton(deleteAction)
-
     private val buttons = listOf(startButton, stopButton, restartButton, deleteButton)
 
     init {
         buttons.forEach { add(it) }
         add(connectedIndicator, "push, align right")
-        refreshStatus()
+        // Runs status check off the EDT so startup doesn't block the UI
+        EDT_SCOPE.launch { refreshStatus() }
     }
 
     private fun runCommand(label: String, action: (DockerComposeEngine) -> ComposeResult) {
@@ -94,8 +80,9 @@ class DockerControlBar(
         }
     }
 
-    fun refreshStatus() {
-        val status = engine.getStatus()
+    // Suspend so the blocking Docker status check runs off the EDT
+    private suspend fun refreshStatus() {
+        val status = withContext(Dispatchers.IO) { engine.getStatus() }
         when (status) {
             ComposeStatus.Running -> connectedIndicator.foreground = Color.GREEN
             ComposeStatus.Stopped -> connectedIndicator.foreground = Color.RED
@@ -105,14 +92,12 @@ class DockerControlBar(
         setButtonVisibility(status)
 
         if (status is ComposeStatus.Running || status is ComposeStatus.Partial) {
-            EDT_SCOPE.launch {
-                val remoteHash = withContext(Dispatchers.IO) { engine.getRemoteHash() }
-                val localHash = localHashProvider()
-                if (remoteHash != localHash) {
-                    connectedIndicator.toolTipText = "YAML has changed since containers were started"
-                } else {
-                    connectedIndicator.toolTipText = "Status: ${status.displayText}"
-                }
+            val remoteHash = withContext(Dispatchers.IO) { engine.getRemoteHash() }
+            val localHash = localHashProvider()
+            connectedIndicator.toolTipText = if (remoteHash != localHash) {
+                "YAML has changed since containers were started"
+            } else {
+                "Status: ${status.displayText}"
             }
         }
     }
