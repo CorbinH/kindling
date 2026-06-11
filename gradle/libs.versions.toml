@@ -5,6 +5,7 @@ coroutines = "1.10.2"
 flatlaf = "3.6.1"
 kotest = "5.9.1"
 ignition = "8.1.20"
+docker-java = "3.4.1"
 jackson = "2.20.1"
 
 [plugins]
@@ -28,6 +29,10 @@ excelkt = { group = "io.github.evanrupert", name = "excelkt", version = "1.0.2" 
 jsvg = { group = "com.github.weisj", name = "jsvg", version = "2.0.0" }
 jackson-kotlin = { group = "com.fasterxml.jackson.module", name = "jackson-module-kotlin", version.ref = "jackson" }
 jackson-xml = { group = "com.fasterxml.jackson.dataformat", name = "jackson-dataformat-xml", version.ref = "jackson" }
+
+# docker
+docker-java-core = { group = "com.github.docker-java", name = "docker-java-core", version.ref = "docker-java" }
+docker-java-transport = { group = "com.github.docker-java", name = "docker-java-transport-zerodep", version.ref = "docker-java" }
 
 # build
 jsoup = { group = "org.jsoup", name = "jsoup", version = "1.21.2" }

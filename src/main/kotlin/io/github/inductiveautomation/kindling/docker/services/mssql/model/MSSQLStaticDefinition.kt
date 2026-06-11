@@ -6,7 +6,7 @@ enum class MSSQLStaticDefinition : DockerEnvironmentVariableDefinition {
     ACCEPT_EULA {
         override val minimumVersion = "2017"
         override val options = listOf("Y", "N")
-        override val default = "N"
+        override val default = "Y"
     },
     MSSQL_DATABASE {
         override val default = ""
@@ -21,6 +21,11 @@ enum class MSSQLStaticDefinition : DockerEnvironmentVariableDefinition {
     MSSQL_PID {
         override val default = "Developer"
         override val options = listOf("Developer", "Express", "Standard")
+        override val minimumVersion = "2017"
+    },
+    MSSQL_SA_PASSWORD {
+        override val default = "password"
+        override val options = null
         override val minimumVersion = "2017"
     },
 }
