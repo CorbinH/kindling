@@ -4,16 +4,16 @@ import com.formdev.flatlaf.extras.FlatSVGIcon
 import io.github.inductiveautomation.kindling.utils.FlatScrollPane
 import io.github.inductiveautomation.kindling.utils.listCellRenderer
 import io.github.inductiveautomation.kindling.utils.tag
+import net.miginfocom.swing.MigLayout
 import java.awt.Color
 import java.awt.Font
+import java.awt.event.MouseAdapter
+import java.awt.event.MouseEvent
 import javax.swing.DefaultListModel
 import javax.swing.JLabel
 import javax.swing.JList
 import javax.swing.JPanel
 import javax.swing.UIManager
-import net.miginfocom.swing.MigLayout
-import java.awt.event.MouseAdapter
-import java.awt.event.MouseEvent
 
 class ErrorsTab(registry: ErrorRegistry) : JPanel(MigLayout("fill, ins 4")) {
     private val titleLabel = JLabel("Errors").apply {

@@ -13,17 +13,6 @@ import io.github.inductiveautomation.kindling.docker.services.model.DockerServic
 import io.github.inductiveautomation.kindling.docker.services.model.PortMapping
 import io.github.inductiveautomation.kindling.docker.volumes.model.BindMount
 import io.github.inductiveautomation.kindling.statistics.GatewayBackup
-import java.net.URI
-import java.net.http.HttpClient
-import java.net.http.HttpRequest
-import java.net.http.HttpResponse
-import java.nio.file.Path
-import kotlin.io.path.Path
-import kotlin.io.path.absolutePathString
-import kotlin.io.path.createDirectories
-import kotlin.io.path.exists
-import kotlin.io.path.readText
-import kotlin.io.path.writeText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
@@ -36,7 +25,18 @@ import kotlinx.serialization.json.decodeFromStream
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import java.net.URI
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
+import java.nio.file.Path
 import kotlin.collections.find
+import kotlin.io.path.Path
+import kotlin.io.path.absolutePathString
+import kotlin.io.path.createDirectories
+import kotlin.io.path.exists
+import kotlin.io.path.readText
+import kotlin.io.path.writeText
 
 object IgnitionServiceTool : DockerServiceTool {
     override val icon = FlatSVGIcon("icons/Logo-Ignition-Check.svg")
@@ -131,10 +131,10 @@ object IgnitionServiceTool : DockerServiceTool {
                     BindMount(
                         bindPath = path.absolutePathString(),
                         containerPath = restorePath,
-                    )
+                    ),
                 ),
                 commands = mutableListOf("${IgnitionCommandLineArgument.GWBK_RESTORE_PATH.flag} $restorePath"),
-            )
+            ),
         )
 
         if (strategy == PortStrategy.KEEP) {
@@ -179,7 +179,10 @@ object IgnitionServiceTool : DockerServiceTool {
     )
 
     private val cacheFile: Path = Path(System.getProperty("user.home"), ".kindling", "ignition-versions.json")
-    private val cacheJson = Json { ignoreUnknownKeys = true; prettyPrint = true }
+    private val cacheJson = Json {
+        ignoreUnknownKeys = true
+        prettyPrint = true
+    }
 
     private fun loadVersionsCache(): IgnitionVersionsCache? = runCatching {
         if (!cacheFile.exists()) null else cacheJson.decodeFromString<IgnitionVersionsCache>(cacheFile.readText())

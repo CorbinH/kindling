@@ -1,6 +1,7 @@
 package io.github.inductiveautomation.kindling.docker.services.ignition
 
 import io.github.inductiveautomation.kindling.utils.tag
+import net.miginfocom.swing.MigLayout
 import java.awt.Component
 import javax.swing.ButtonGroup
 import javax.swing.JButton
@@ -9,11 +10,8 @@ import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.JRadioButton
 import javax.swing.SwingUtilities
-import net.miginfocom.swing.MigLayout
 
-enum class PortStrategy { KEEP, RESET }
-
-private class PortConflictDialog(
+class PortConflictDialog(
     parent: Component?,
     httpPort: String,
     httpsPort: String,
@@ -106,6 +104,8 @@ private class PortConflictDialog(
         defaultCloseOperation = DISPOSE_ON_CLOSE
     }
 }
+
+enum class PortStrategy { KEEP, RESET }
 
 fun showPortConflictDialog(
     parent: Component?,

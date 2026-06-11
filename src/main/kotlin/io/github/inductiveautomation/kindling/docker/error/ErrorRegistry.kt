@@ -4,9 +4,6 @@ import io.github.inductiveautomation.kindling.docker.services.AbstractDockerServ
 import io.github.inductiveautomation.kindling.utils.add
 import io.github.inductiveautomation.kindling.utils.getAll
 import io.github.inductiveautomation.kindling.utils.remove
-import java.nio.file.Path
-import java.util.EventListener
-import javax.swing.event.EventListenerList
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -16,6 +13,9 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.swing.Swing
 import kotlinx.coroutines.withContext
+import java.nio.file.Path
+import java.util.EventListener
+import javax.swing.event.EventListenerList
 
 class ErrorRegistry(
     private val nodesProvider: () -> List<AbstractDockerServiceNode<*>>,

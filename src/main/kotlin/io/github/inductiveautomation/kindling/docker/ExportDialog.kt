@@ -1,6 +1,7 @@
 package io.github.inductiveautomation.kindling.docker
 
 import io.github.inductiveautomation.kindling.utils.tag
+import net.miginfocom.swing.MigLayout
 import java.awt.Component
 import javax.swing.ButtonGroup
 import javax.swing.JButton
@@ -8,7 +9,6 @@ import javax.swing.JDialog
 import javax.swing.JPanel
 import javax.swing.JRadioButton
 import javax.swing.SwingUtilities
-import net.miginfocom.swing.MigLayout
 
 sealed interface ExportMode {
     data object Standalone : ExportMode
@@ -17,11 +17,12 @@ sealed interface ExportMode {
 
 enum class GwbkPlacement { COPY, MOVE }
 
-private class ExportDialog(parent: Component?) : JDialog(
-    SwingUtilities.getWindowAncestor(parent),
-    "Export as...",
-    ModalityType.APPLICATION_MODAL,
-) {
+private class ExportDialog(parent: Component?) :
+    JDialog(
+        SwingUtilities.getWindowAncestor(parent),
+        "Export as...",
+        ModalityType.APPLICATION_MODAL,
+    ) {
     var result: ExportMode? = null
         private set
 
