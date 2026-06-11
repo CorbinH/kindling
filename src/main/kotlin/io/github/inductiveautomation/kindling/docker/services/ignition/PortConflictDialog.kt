@@ -27,13 +27,16 @@ private class PortConflictDialog(
         private set
 
     private val keepRadio = JRadioButton(
-        strategyLabel("Keep", "Bind the gateway's existing HTTP port."),
+        strategyLabel(
+            "Keep",
+            "Run the gateway on the ports it was using when backed up. Adds GATEWAY_HTTP_PORT and GATEWAY_HTTPS_PORT env vars so the Ignition image preserves the GWBK's port settings instead of forcing defaults.",
+        ),
         true,
     )
     private val resetRadio = JRadioButton(
         strategyLabel(
             "Reset",
-            "Add GATEWAY_HTTP_PORT and GATEWAY_HTTPS_PORT env vars to reset the gateway to defaults (8088/8043). HTTP will be bound to 8088.",
+            "Run the gateway on default ports (8088/8043). No env vars are added — the Ignition image overrides the GWBK's port settings back to defaults automatically.",
         ),
     )
 

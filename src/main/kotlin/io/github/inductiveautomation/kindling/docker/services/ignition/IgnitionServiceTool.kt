@@ -18,12 +18,18 @@ import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.nio.file.Path
+import kotlin.io.path.Path
 import kotlin.io.path.absolutePathString
+import kotlin.io.path.createDirectories
+import kotlin.io.path.exists
+import kotlin.io.path.readText
+import kotlin.io.path.writeText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.decodeFromStream
@@ -37,8 +43,10 @@ object IgnitionServiceTool : DockerServiceTool {
     override val name = "Ignition Gateway Node"
     override val defaultImage = "inductiveautomation/ignition:latest"
 
-    private const val DOCKER_URL =
-        "https://hub.docker.com/v2/repositories/inductiveautomation/ignition/tags?page_size=1000&page=1&ordering=last_updated"
+    private const val DOCKER_BASE =
+        "https://hub.docker.com/v2/repositories/inductiveautomation/ignition/tags?ordering=last_updated&page=1"
+    private const val PEEK_URL = "$DOCKER_BASE&page_size=1"
+    private const val FULL_URL = "$DOCKER_BASE&page_size=1000"
 
     context(panel: DockerDraftPanel)
     override fun createModel(): IgnitionServiceModel = modelFromDefault(
@@ -129,9 +137,12 @@ object IgnitionServiceTool : DockerServiceTool {
             )
         )
 
-        if (strategy == PortStrategy.RESET) {
-            model.environment[IgnitionStaticDefinition.GATEWAY_HTTP_PORT.name] = "8088"
-            model.environment[IgnitionStaticDefinition.GATEWAY_HTTPS_PORT.name] = "8043"
+        if (strategy == PortStrategy.KEEP) {
+            // Without these env vars, the Ignition image forces the gateway to default ports (8088/8043)
+            // on startup, overriding whatever was in the restored GWBK. Setting them explicitly preserves
+            // the GWBK's port configuration.
+            model.environment[IgnitionStaticDefinition.GATEWAY_HTTP_PORT.name] = gwbkHttpPort
+            model.environment[IgnitionStaticDefinition.GATEWAY_HTTPS_PORT.name] = gwbkHttpsPort
         }
 
         return model
@@ -160,29 +171,76 @@ object IgnitionServiceTool : DockerServiceTool {
         return connections
     }
 
+    @Serializable
+    private data class IgnitionVersionsCache(
+        val topTagName: String,
+        val topTagLastUpdated: String,
+        val versions: List<String>,
+    )
+
+    private val cacheFile: Path = Path(System.getProperty("user.home"), ".kindling", "ignition-versions.json")
+    private val cacheJson = Json { ignoreUnknownKeys = true; prettyPrint = true }
+
+    private fun loadVersionsCache(): IgnitionVersionsCache? = runCatching {
+        if (!cacheFile.exists()) null else cacheJson.decodeFromString<IgnitionVersionsCache>(cacheFile.readText())
+    }.getOrNull()
+
+    private fun saveVersionsCache(cache: IgnitionVersionsCache) {
+        runCatching {
+            cacheFile.parent.createDirectories()
+            cacheFile.writeText(cacheJson.encodeToString(cache))
+        }
+    }
+
     @OptIn(ExperimentalSerializationApi::class)
+    private fun parseTopTag(body: ByteArray): Pair<String, String>? {
+        val results = Json.decodeFromStream<JsonObject>(body.inputStream())["results"]!!.jsonArray
+        val first = results.firstOrNull()?.jsonObject ?: return null
+        val name = first["name"]?.jsonPrimitive?.content ?: return null
+        val lastUpdated = first["last_updated"]?.jsonPrimitive?.content ?: return null
+        return name to lastUpdated
+    }
+
+    @OptIn(ExperimentalSerializationApi::class)
+    private fun parseAllVersions(body: ByteArray): List<String> {
+        val results = Json.decodeFromStream<JsonObject>(body.inputStream())["results"]!!.jsonArray
+        return results
+            .mapNotNull { it.jsonObject["name"]?.jsonPrimitive?.content }
+            .filterNot { it.length <= 4 }
+            .sortedWith(IgnitionVersionComparator.reversed())
+    }
+
     val ignitionImageVersions: Deferred<List<String>> by lazy {
         CoroutineScope(Dispatchers.IO).async {
+            val cached = loadVersionsCache()
             runCatching {
                 HttpClient.newHttpClient().use { client ->
-                    val req = HttpRequest.newBuilder().GET().uri(URI.create(DOCKER_URL)).build()
-                    val response = client.send(req, HttpResponse.BodyHandlers.ofInputStream())
-                    val jsonData = Json.decodeFromStream<JsonObject>(response.body())
+                    val peekResp = client.send(
+                        HttpRequest.newBuilder().GET().uri(URI.create(PEEK_URL)).build(),
+                        HttpResponse.BodyHandlers.ofByteArray(),
+                    )
+                    val topTag = parseTopTag(peekResp.body())
 
-                    val l = jsonData["results"]!!.jsonArray
+                    if (cached != null && topTag != null &&
+                        topTag.first == cached.topTagName &&
+                        topTag.second == cached.topTagLastUpdated
+                    ) {
+                        return@use cached.versions
+                    }
 
-                    val versions = l.mapNotNull {
-                        it.jsonObject["name"]?.jsonPrimitive?.content
-                    }.toMutableList()
-
-                    versions.removeAll { it.length <= 4 }
-
-                    versions.sortedWith(IgnitionVersionComparator.reversed())
+                    val fullResp = client.send(
+                        HttpRequest.newBuilder().GET().uri(URI.create(FULL_URL)).build(),
+                        HttpResponse.BodyHandlers.ofByteArray(),
+                    )
+                    val versions = parseAllVersions(fullResp.body())
+                    if (topTag != null) {
+                        saveVersionsCache(IgnitionVersionsCache(topTag.first, topTag.second, versions))
+                    }
+                    versions
                 }
             }.getOrElse {
-                println("Error occured:")
                 it.printStackTrace()
-                fallbackVersionList
+                cached?.versions ?: fallbackVersionList
             }
         }
     }

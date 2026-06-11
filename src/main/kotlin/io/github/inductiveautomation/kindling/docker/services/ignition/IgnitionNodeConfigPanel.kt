@@ -8,6 +8,7 @@ import io.github.inductiveautomation.kindling.docker.services.generic.NetworkCon
 import io.github.inductiveautomation.kindling.docker.services.generic.PortMappingEditor
 import io.github.inductiveautomation.kindling.docker.services.generic.VolumeEditor
 import io.github.inductiveautomation.kindling.docker.services.ignition.IgnitionServiceTool.ignitionImageVersions
+import io.github.inductiveautomation.kindling.docker.services.ignition.model.IgnitionCommandLineArgument
 import io.github.inductiveautomation.kindling.docker.volumes.model.DockerVolume
 import io.github.inductiveautomation.kindling.utils.EDT_SCOPE
 import io.github.inductiveautomation.kindling.utils.RegexInputVerifier
@@ -104,7 +105,13 @@ class IgnitionNodeConfigPanel(
 
         node.model.addServiceModelChangeListener {
             envSection.updateData()
+            setEnabledAt(indexOfComponent(gwbkSection), hasGwbk())
         }
+    }
+
+    private fun hasGwbk(): Boolean {
+        val restoreFlag = IgnitionCommandLineArgument.GWBK_RESTORE_PATH.flag
+        return node.model.commands.any { it.startsWith("$restoreFlag ") }
     }
 
     override val generalSection = object : ConfigSection("General", "fillx, ins 0, aligny top") {
@@ -127,6 +134,7 @@ class IgnitionNodeConfigPanel(
     override val cliSection = IgnitionCliArgEditor(node.model.commands).bind()
     override val volumesSection = VolumeEditor(node.model.volumes, volumeOptions).bind()
     override val networksSection = NetworkConnectionEditor(node.model.networks, networkOptions).bind()
+    private val gwbkSection = GatewayBackupEditor(node.model).bind()
     override val genericSection by lazy {
         ComposeEditor(node.model).bind()
     }
@@ -141,6 +149,8 @@ class IgnitionNodeConfigPanel(
         addTab(envSection, select = false)
         addTab(portsSection, select = false)
         addTab(networksSection, select = false)
+        addTab(gwbkSection, select = false)
+        setEnabledAt(indexOfComponent(gwbkSection), hasGwbk())
         addLazyTab("Other Compose Properties") { genericSection }
     }
 

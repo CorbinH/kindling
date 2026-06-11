@@ -1,48 +1,31 @@
 package io.github.inductiveautomation.kindling.docker
 
-import com.charleskorn.kaml.MultiLineStringStyle
-import com.charleskorn.kaml.SequenceStyle
-import com.charleskorn.kaml.SingleLineStringStyle
-import com.charleskorn.kaml.Yaml
-import com.charleskorn.kaml.YamlConfiguration
-import com.charleskorn.kaml.decodeFromStream
-import com.charleskorn.kaml.encodeToStream
+import com.charleskorn.kaml.*
 import com.formdev.flatlaf.extras.FlatSVGIcon
 import com.formdev.flatlaf.extras.components.FlatSplitPane
 import com.formdev.flatlaf.extras.components.FlatTabbedPane
 import com.formdev.flatlaf.extras.components.FlatTabbedPane.TabType
-import io.github.inductiveautomation.kindling.core.CustomIconView
-import io.github.inductiveautomation.kindling.core.Detail
-import io.github.inductiveautomation.kindling.core.DetailsPane
-import io.github.inductiveautomation.kindling.core.EditorTool
-import io.github.inductiveautomation.kindling.core.Kindling
+import io.github.inductiveautomation.kindling.core.*
 import io.github.inductiveautomation.kindling.core.Theme.Companion.theme
-import io.github.inductiveautomation.kindling.core.ToolPanel
 import io.github.inductiveautomation.kindling.docker.Canvas.Companion.NODE_LAYER
 import io.github.inductiveautomation.kindling.docker.DockerServiceToolTransferHandler.Companion.DOCKER_SERVICE_DATA_FLAVOR
+import io.github.inductiveautomation.kindling.docker.error.ErrorRegistry
+import io.github.inductiveautomation.kindling.docker.error.ErrorsTab
 import io.github.inductiveautomation.kindling.docker.networks.NetworksTab
-import io.github.inductiveautomation.kindling.docker.services.ignition.IgnitionServiceTool
 import io.github.inductiveautomation.kindling.docker.networks.model.DockerNetwork
 import io.github.inductiveautomation.kindling.docker.services.AbstractDockerServiceNode
 import io.github.inductiveautomation.kindling.docker.services.DockerServiceTool
 import io.github.inductiveautomation.kindling.docker.services.ignition.IgnitionNodeConnector.Companion.midPoint
+import io.github.inductiveautomation.kindling.docker.services.ignition.IgnitionServiceTool
 import io.github.inductiveautomation.kindling.docker.services.ignition.model.IgnitionCommandLineArgument
 import io.github.inductiveautomation.kindling.docker.services.model.DefaultDockerServiceModel
 import io.github.inductiveautomation.kindling.docker.volumes.VolumesTab
 import io.github.inductiveautomation.kindling.docker.volumes.model.BindMount
 import io.github.inductiveautomation.kindling.docker.volumes.model.DockerVolume
+import io.github.inductiveautomation.kindling.utils.*
 import io.github.inductiveautomation.kindling.utils.Action
-import io.github.inductiveautomation.kindling.utils.FileFilter
-import io.github.inductiveautomation.kindling.utils.FlatScrollPane
-import io.github.inductiveautomation.kindling.utils.HorizontalSplitPane
 import io.github.inductiveautomation.kindling.utils.PointHelpers.component1
 import io.github.inductiveautomation.kindling.utils.PointHelpers.component2
-import io.github.inductiveautomation.kindling.utils.TabStrip
-import io.github.inductiveautomation.kindling.utils.TrivialListDataListener
-import io.github.inductiveautomation.kindling.utils.VerticalSplitPane
-import io.github.inductiveautomation.kindling.utils.chooseFiles
-import io.github.inductiveautomation.kindling.utils.jFrame
-import io.github.inductiveautomation.kindling.utils.traverseChildren
 import kotlinx.serialization.encodeToString
 import net.miginfocom.swing.MigLayout
 import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
@@ -50,26 +33,14 @@ import org.fife.ui.rsyntaxtextarea.SyntaxConstants.SYNTAX_STYLE_YAML
 import java.awt.Point
 import java.awt.datatransfer.DataFlavor
 import java.awt.event.ContainerEvent
-import java.io.File
 import java.awt.event.ContainerListener
+import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
-import javax.swing.DefaultListModel
-import javax.swing.JButton
-import javax.swing.JFileChooser
-import javax.swing.JFrame
-import javax.swing.JOptionPane
-import javax.swing.JPanel
-import javax.swing.SwingConstants
-import javax.swing.SwingUtilities
-import javax.swing.TransferHandler
+import javax.swing.*
 import javax.swing.filechooser.FileNameExtensionFilter
-import kotlin.io.path.absolutePathString
-import kotlin.io.path.div
-import kotlin.io.path.inputStream
-import kotlin.io.path.name
-import kotlin.io.path.outputStream
+import kotlin.io.path.*
 import kotlin.random.Random
 
 class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3") {
@@ -140,6 +111,13 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
     val nodeIdManager = NodeIdManager()
     val defaultPortManager = DefaultPortManager()
 
+    private var currentFile: Path? = existingFile
+
+    val errorRegistry = ErrorRegistry(
+        nodesProvider = { services },
+        baseDirProvider = { currentFile?.toAbsolutePath()?.parent },
+    )
+
     /* Sidebar */
     var volumes: List<DockerVolume> = emptyList()
         set(value) {
@@ -155,6 +133,7 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
                     volumesList.model.getElementAt(it)
                 }
                 updatePreview()
+                errorRegistry.refresh()
             },
         )
     }
@@ -166,30 +145,33 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
             it.networkOptions = networks.keys.toList()
         }
         updatePreview()
+        errorRegistry.refresh()
     }
 
     private val servicesList = CanvasNodeList(DockerServiceTool.tools)
 
-    private val importButton = JButton("Import Compose File")
-    private val exportButton = JButton("Export as...")
+    private val importButton = JButton("Import")
+    private val exportButton = JButton("Export")
+
+    private val errorsTab = ErrorsTab(errorRegistry)
+
+    private val sidebarTabStrip = TabStrip().apply {
+        isTabsClosable = false
+        tabType = TabType.card
+        tabHeight = 16
+        tabPlacement = SwingConstants.RIGHT
+        tabRotation = FlatTabbedPane.TabRotation.auto
+
+        addTab("Nodes", servicesList)
+        addTab("Volumes", volumesTab)
+        addTab("Networks", networksTab)
+        addTab("Errors", errorsTab)
+    }
 
     private val sidebar = JPanel(MigLayout("fill, ins 0")).apply {
-        add(importButton, "growx")
-        add(exportButton, "growx, wrap")
-        add(
-            TabStrip().apply {
-                isTabsClosable = false
-                tabType = TabType.card
-                tabHeight = 16
-                tabPlacement = SwingConstants.RIGHT
-                tabRotation = FlatTabbedPane.TabRotation.auto
-
-                addTab("Nodes", servicesList)
-                addTab("Volumes", volumesTab)
-                addTab("Networks", networksTab)
-            },
-            "push, grow, span",
-        )
+        add(importButton, "growx, pushx, sg")
+        add(exportButton, "growx, pushx, wrap")
+        add(sidebarTabStrip, "push, grow, span")
     }
 
     /* YAML Preview */
@@ -229,6 +211,12 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
         name = existingFile?.name ?: "New Editor"
         toolTipText = existingFile?.absolutePathString() ?: ""
 
+        errorRegistry.addErrorsChangedListener { errors ->
+            val index = sidebarTabStrip.indexOfComponent(errorsTab)
+            if (index < 0) return@addErrorsChangedListener
+            sidebarTabStrip.setTitleAt(index, if (errors.isEmpty()) "Errors" else "Errors (${errors.size})")
+        }
+
         val innerSplitPane = HorizontalSplitPane(
             left = canvas,
             right = sidebar,
@@ -249,10 +237,12 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
             object : ContainerListener {
                 override fun componentAdded(e: ContainerEvent?) {
                     updatePreview()
+                    errorRegistry.refresh()
                 }
 
                 override fun componentRemoved(e: ContainerEvent?) {
                     updatePreview()
+                    errorRegistry.refresh()
                 }
             },
         )
@@ -278,6 +268,15 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
         }
 
         exportButton.addActionListener {
+            val restoreFlag = IgnitionCommandLineArgument.GWBK_RESTORE_PATH.flag
+            val hasGwbk = services.any { node ->
+                node.model.defaultModel.commands.any { it.startsWith("$restoreFlag ") }
+            }
+            if (!hasGwbk) {
+                yamlFileChooser.approveButtonText = "Export"
+                export()
+                return@addActionListener
+            }
             val mode = showExportDialog(this) ?: return@addActionListener
             when (mode) {
                 is ExportMode.Standalone -> {
@@ -314,6 +313,7 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
     private fun AbstractDockerServiceNode<*>.bindYamlPreview() {
         model.addServiceModelChangeListener {
             updatePreview()
+            errorRegistry.refresh()
         }
     }
 
@@ -424,8 +424,10 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
 
         (volumesTab.volumesList.model as DefaultListModel<DockerVolume>).addAll(composeFile.volumes)
 
+        currentFile = importFile
         val nodes = createNodes(composeFile.services)
         layoutComponents(nodes)
+        errorRegistry.refresh()
     }
 
     private fun clear() {
