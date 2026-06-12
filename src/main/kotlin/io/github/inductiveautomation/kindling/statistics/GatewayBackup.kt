@@ -51,11 +51,16 @@ class GatewayBackup(path: Path) {
         Properties(root.resolve(REDUNDANCY).inputStream(), Properties::loadFromXML)
     }
 
+    val gatewaySettings: Properties by lazy {
+        Properties(root.resolve(GATEWAY_XML).inputStream(), Properties::loadFromXML)
+    }
+
     companion object {
         private const val IDB = "db_backup_sqlite.idb"
         private const val BACKUP_INFO = "backupinfo.xml"
         private const val REDUNDANCY = "redundancy.xml"
         private const val IGNITION_CONF = "ignition.conf"
+        private const val GATEWAY_XML = "gateway.xml"
         private const val PROJECTS = "projects"
         private const val CONFIG = "config"
     }
