@@ -53,13 +53,13 @@ import org.fife.ui.rsyntaxtextarea.SyntaxConstants.SYNTAX_STYLE_YAML
 import java.awt.Point
 import java.awt.datatransfer.DataFlavor
 import java.awt.event.ContainerEvent
-import java.awt.event.ContainerListen
+import java.awt.event.ContainerListener
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.math.BigInteger
-import java.security.MessageDigest=
+import java.security.MessageDigest
 import javax.swing.DefaultListModel
 import javax.swing.JButton
 import javax.swing.JFileChooser
