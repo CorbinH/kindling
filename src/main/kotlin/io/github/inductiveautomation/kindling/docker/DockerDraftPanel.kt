@@ -20,13 +20,19 @@ import io.github.inductiveautomation.kindling.core.Theme.Companion.theme
 import io.github.inductiveautomation.kindling.core.ToolPanel
 import io.github.inductiveautomation.kindling.docker.Canvas.Companion.NODE_LAYER
 import io.github.inductiveautomation.kindling.docker.DockerServiceToolTransferHandler.Companion.DOCKER_SERVICE_DATA_FLAVOR
+import io.github.inductiveautomation.kindling.docker.error.ErrorRegistry
+import io.github.inductiveautomation.kindling.docker.error.ErrorsTab
+import io.github.inductiveautomation.kindling.docker.engine.ProcessComposeEngine
 import io.github.inductiveautomation.kindling.docker.networks.NetworksTab
 import io.github.inductiveautomation.kindling.docker.networks.model.DockerNetwork
 import io.github.inductiveautomation.kindling.docker.services.AbstractDockerServiceNode
 import io.github.inductiveautomation.kindling.docker.services.DockerServiceTool
 import io.github.inductiveautomation.kindling.docker.services.ignition.IgnitionNodeConnector.Companion.midPoint
+import io.github.inductiveautomation.kindling.docker.services.ignition.IgnitionServiceTool
+import io.github.inductiveautomation.kindling.docker.services.ignition.model.IgnitionCommandLineArgument
 import io.github.inductiveautomation.kindling.docker.services.model.DefaultDockerServiceModel
 import io.github.inductiveautomation.kindling.docker.volumes.VolumesTab
+import io.github.inductiveautomation.kindling.docker.volumes.model.BindMount
 import io.github.inductiveautomation.kindling.docker.volumes.model.DockerVolume
 import io.github.inductiveautomation.kindling.utils.Action
 import io.github.inductiveautomation.kindling.utils.FileFilter
@@ -45,10 +51,15 @@ import net.miginfocom.swing.MigLayout
 import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants.SYNTAX_STYLE_YAML
 import java.awt.Point
+import java.awt.datatransfer.DataFlavor
 import java.awt.event.ContainerEvent
 import java.awt.event.ContainerListener
+import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardCopyOption
+import java.math.BigInteger
+import java.security.MessageDigest
 import javax.swing.DefaultListModel
 import javax.swing.JButton
 import javax.swing.JFileChooser
@@ -60,6 +71,7 @@ import javax.swing.SwingUtilities
 import javax.swing.TransferHandler
 import javax.swing.filechooser.FileNameExtensionFilter
 import kotlin.io.path.absolutePathString
+import kotlin.io.path.div
 import kotlin.io.path.inputStream
 import kotlin.io.path.name
 import kotlin.io.path.outputStream
@@ -70,25 +82,53 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
 
     val canvas = Canvas("Docker Drafting").apply {
         transferHandler = object : TransferHandler() {
-            override fun canImport(support: TransferSupport?): Boolean = support?.isDataFlavorSupported(DOCKER_SERVICE_DATA_FLAVOR) == true
+            override fun canImport(support: TransferSupport?): Boolean {
+                if (support == null) return false
+                return support.isDataFlavorSupported(DOCKER_SERVICE_DATA_FLAVOR) ||
+                    support.isDataFlavorSupported(DataFlavor.javaFileListFlavor)
+            }
 
+            @Suppress("UNCHECKED_CAST")
             override fun importData(support: TransferSupport?): Boolean {
+                support ?: return false
                 if (!canImport(support)) return false
 
-                val tool = support?.transferable?.getTransferData(DOCKER_SERVICE_DATA_FLAVOR)
+                val canvas = support.component as? Canvas ?: return false
+                val dropPoint = support.dropLocation.dropPoint
 
-                if (tool is DockerServiceTool) {
-                    val canvas = support.component as? Canvas ?: return false
-                    val node = tool.createNode(tool.createModel()).apply {
-                        bindYamlPreview()
-                    }
-
-                    val dropLocation = support.dropLocation.dropPoint.let {
-                        Point(it.x - node.preferredSize.width / 2, it.y - node.preferredSize.height / 2)
-                    }
-
-                    canvas.add(node, dropLocation)
+                if (support.isDataFlavorSupported(DOCKER_SERVICE_DATA_FLAVOR)) {
+                    val tool = support.transferable.getTransferData(DOCKER_SERVICE_DATA_FLAVOR) as? DockerServiceTool ?: return false
+                    val node = tool.createNode(tool.createModel()).apply { bindYamlPreview() }
+                    val loc = Point(dropPoint.x - node.preferredSize.width / 2, dropPoint.y - node.preferredSize.height / 2)
+                    canvas.add(node, loc)
                     canvas.setLayer(node, NODE_LAYER)
+                    return true
+                }
+
+                if (support.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) {
+                    val files = support.transferable.getTransferData(DataFlavor.javaFileListFlavor) as List<*>
+                    val gwbkFiles = files.filterIsInstance<File>().filter { it.extension.equals("gwbk", ignoreCase = true) }
+                    if (gwbkFiles.isEmpty()) return false
+
+                    var offset = 0
+                    for (file in gwbkFiles) {
+                        val model = try {
+                            IgnitionServiceTool.createModelFromGwbk(file.toPath())
+                        } catch (e: Exception) {
+                            JOptionPane.showMessageDialog(
+                                null,
+                                "Couldn't read GWBK file ${file.name}:\n${e.message}",
+                                "Import Error",
+                                JOptionPane.ERROR_MESSAGE,
+                            )
+                            continue
+                        }
+                        val node = IgnitionServiceTool.createNode(model).apply { bindYamlPreview() }
+                        val loc = Point(dropPoint.x - node.preferredSize.width / 2 + offset, dropPoint.y - node.preferredSize.height / 2 + offset)
+                        canvas.add(node, loc)
+                        canvas.setLayer(node, NODE_LAYER)
+                        offset += 20
+                    }
                     return true
                 }
 
@@ -105,9 +145,16 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
     val nodeIdManager = NodeIdManager()
     val defaultPortManager = DefaultPortManager()
 
+    private var currentFile: Path? = existingFile
+
+    val errorRegistry = ErrorRegistry(
+        nodesProvider = { services },
+        baseDirProvider = { currentFile?.toAbsolutePath()?.parent },
+    )
+
     /* Sidebar */
     var volumes: List<DockerVolume> = emptyList()
-        private set(value) {
+        set(value) {
             field = value
             services.forEach {
                 it.volumeOptions = value
@@ -120,6 +167,7 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
                     volumesList.model.getElementAt(it)
                 }
                 updatePreview()
+                errorRegistry.refresh()
             },
         )
     }
@@ -131,30 +179,43 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
             it.networkOptions = networks.keys.toList()
         }
         updatePreview()
+        errorRegistry.refresh()
     }
 
     private val servicesList = CanvasNodeList(DockerServiceTool.tools)
 
-    private val importButton = JButton("Import Compose File")
-    private val exportButton = JButton("Export Compose File")
+    private val importButton = JButton("Import")
+    private val exportButton = JButton("Export")
+
+    private val errorsTab = ErrorsTab(errorRegistry)
+
+    private val sidebarTabStrip = TabStrip().apply {
+        isTabsClosable = false
+        tabType = TabType.card
+        tabHeight = 16
+        tabPlacement = SwingConstants.RIGHT
+        tabRotation = FlatTabbedPane.TabRotation.auto
+
+        addTab("Nodes", servicesList)
+        addTab("Volumes", volumesTab)
+        addTab("Networks", networksTab)
+        addTab("Errors", errorsTab)
+    }
+
+    private val kindlingId = "kindling-${existingFile?.absolutePathString()?.hash() ?: "new-editor"}"
+
+    private val controlBar = DockerControlBar(
+        engine = ProcessComposeEngine(kindlingId) { out ->
+            YAML.encodeToStream(composeFile, out)
+        },
+        yamlPath = existingFile ?: Path.of("docker-compose.yaml"),
+        localHashProvider = { currentHash },
+    )
 
     private val sidebar = JPanel(MigLayout("fill, ins 0")).apply {
-        add(importButton, "growx")
-        add(exportButton, "growx, wrap")
-        add(
-            TabStrip().apply {
-                isTabsClosable = false
-                tabType = TabType.card
-                tabHeight = 16
-                tabPlacement = SwingConstants.RIGHT
-                tabRotation = FlatTabbedPane.TabRotation.auto
-
-                addTab("Nodes", servicesList)
-                addTab("Volumes", volumesTab)
-                addTab("Networks", networksTab)
-            },
-            "push, grow, span",
-        )
+        add(importButton, "growx, pushx, sg")
+        add(exportButton, "growx, pushx, wrap")
+        add(sidebarTabStrip, "push, grow, span")
     }
 
     /* YAML Preview */
@@ -180,11 +241,57 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
         )
     }
 
-    private val composeFile: DockerComposeFile
+    private val currentHash: String
         get() {
-            return DockerComposeFile(
+            val baseFile = DockerComposeFile(
                 null,
                 services.map { it.model.defaultModel }.sortedBy { it.containerName },
+                volumes,
+                networks,
+            )
+            return if (baseFile.isEmpty()) "" else YAML.encodeToString(baseFile).hash()
+        }
+
+    private val composeFile: DockerComposeFile
+        get() {
+            val hash = currentHash
+            return DockerComposeFile(
+                null,
+                services.map { node ->
+                    // We need a shallow copy to add the hash label for Docker
+                    val model = node.model.defaultModel
+                    DefaultDockerServiceModel(
+                        image = model.image,
+                        hostName = model.hostName,
+                        containerName = model.containerName,
+                        ports = model.ports.toMutableList(),
+                        environment = model.environment.toMutableMap(),
+                        commands = model.commands.toMutableList(),
+                        volumes = model.volumes.toMutableList(),
+                        networks = model.networks.toMutableMap(),
+                        // Hash injected here (not on the model) to avoid a circular dependency: currentHash is computed from the label-free model
+                        labels = model.labels.toMutableMap().apply {
+                            put("io.github.kindling.yaml-hash", hash)
+                        },
+                        dependsOn = model.dependsOn.toMutableMap(),
+                        envFile = model.envFile.toMutableList(),
+                        attach = model.attach,
+                        build = model.build,
+                        deploy = model.deploy,
+                        entrypoint = model.entrypoint.toMutableList(),
+                        restart = model.restart,
+                        pullPolicy = model.pullPolicy,
+                        readOnly = model.readOnly,
+                        user = model.user,
+                        capAdd = model.capAdd.toMutableList(),
+                        capDrop = model.capDrop.toMutableList(),
+                        securityOpt = model.securityOpt.toMutableList(),
+                        cGroup = model.cGroup,
+                        pid = model.pid,
+                    ).apply {
+                        canvasLocation = model.canvasLocation
+                    }
+                }.sortedBy { it.containerName },
                 volumes,
                 networks,
             )
@@ -194,6 +301,12 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
         name = existingFile?.name ?: "New Editor"
         toolTipText = existingFile?.absolutePathString() ?: ""
 
+        errorRegistry.addErrorsChangedListener { errors ->
+            val index = sidebarTabStrip.indexOfComponent(errorsTab)
+            if (index < 0) return@addErrorsChangedListener
+            sidebarTabStrip.setTitleAt(index, if (errors.isEmpty()) "Errors" else "Errors (${errors.size})")
+        }
+
         val innerSplitPane = HorizontalSplitPane(
             left = canvas,
             right = sidebar,
@@ -201,6 +314,7 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
             expandableSide = FlatSplitPane.ExpandableSide.left,
         )
 
+        add(controlBar, "growx, wrap")
         add(
             VerticalSplitPane(
                 top = innerSplitPane,
@@ -214,10 +328,12 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
             object : ContainerListener {
                 override fun componentAdded(e: ContainerEvent?) {
                     updatePreview()
+                    errorRegistry.refresh()
                 }
 
                 override fun componentRemoved(e: ContainerEvent?) {
                     updatePreview()
+                    errorRegistry.refresh()
                 }
             },
         )
@@ -243,8 +359,23 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
         }
 
         exportButton.addActionListener {
-            yamlFileChooser.approveButtonText = "Export"
-            export()
+            val restoreFlag = IgnitionCommandLineArgument.GWBK_RESTORE_PATH.flag
+            val hasGwbk = services.any { node ->
+                node.model.defaultModel.commands.any { it.startsWith("$restoreFlag ") }
+            }
+            if (!hasGwbk) {
+                yamlFileChooser.approveButtonText = "Export"
+                export()
+                return@addActionListener
+            }
+            val mode = showExportDialog(this) ?: return@addActionListener
+            when (mode) {
+                is ExportMode.Standalone -> {
+                    yamlFileChooser.approveButtonText = "Export"
+                    export()
+                }
+                is ExportMode.Bundle -> exportBundle(mode.placement)
+            }
         }
 
         SwingUtilities.invokeLater {
@@ -273,12 +404,14 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
     private fun AbstractDockerServiceNode<*>.bindYamlPreview() {
         model.addServiceModelChangeListener {
             updatePreview()
+            errorRegistry.refresh()
         }
     }
 
     private fun export() {
         yamlFileChooser.selectedFile = yamlFileChooser.currentDirectory.resolve("docker-compose.yaml")
-        val outputFile = yamlFileChooser.chooseFiles(null)?.firstOrNull()?.toPath() ?: return
+        if (yamlFileChooser.showSaveDialog(null) != JFileChooser.APPROVE_OPTION) return
+        val outputFile = yamlFileChooser.selectedFile.toPath()
 
         if (!Files.exists(outputFile)) {
             Files.createFile(outputFile)
@@ -286,6 +419,54 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
 
         outputFile.outputStream().use {
             YAML.encodeToStream(composeFile, it)
+        }
+    }
+
+    // Replace any absolute path GWBKs with relate path for the bundle.
+    private fun exportBundle(placement: GwbkPlacement) {
+        val folderChooser = JFileChooser().apply {
+            fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
+            isAcceptAllFileFilterUsed = false
+            approveButtonText = "Export"
+            dialogTitle = "Choose Bundle Folder"
+        }
+        if (folderChooser.showSaveDialog(null) != JFileChooser.APPROVE_OPTION) return
+        val folder = folderChooser.selectedFile.toPath()
+        Files.createDirectories(folder)
+
+        val restoreFlag = IgnitionCommandLineArgument.GWBK_RESTORE_PATH.flag
+        val restoreMounts = services.mapNotNull { node ->
+            val model = node.model.defaultModel
+            val restoreArg = model.commands.firstOrNull { it.startsWith("$restoreFlag ") } ?: return@mapNotNull null
+            val restoreContainerPath = restoreArg.substringAfter("$restoreFlag ").trim()
+            model.volumes.firstOrNull { it.containerPath == restoreContainerPath }
+        }
+
+        val originalPaths = mutableMapOf<BindMount, String>()
+        try {
+            for (mount in restoreMounts) {
+                val source = Path.of(mount.bindPath)
+                if (!Files.exists(source)) continue
+                val target = folder / source.fileName
+                when (placement) {
+                    GwbkPlacement.COPY -> Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
+                    GwbkPlacement.MOVE -> Files.move(source, target, StandardCopyOption.REPLACE_EXISTING)
+                }
+                originalPaths[mount] = mount.bindPath
+                mount.bindPath = "./${source.fileName}"
+            }
+
+            val yamlPath = folder.resolve("docker-compose.yaml")
+            yamlPath.outputStream().use {
+                YAML.encodeToStream(composeFile, it)
+            }
+        } finally {
+            if (placement == GwbkPlacement.COPY) {
+                for ((mount, original) in originalPaths) {
+                    mount.bindPath = original
+                }
+            }
+            updatePreview()
         }
     }
 
@@ -334,8 +515,10 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
 
         (volumesTab.volumesList.model as DefaultListModel<DockerVolume>).addAll(composeFile.volumes)
 
+        currentFile = importFile
         val nodes = createNodes(composeFile.services)
         layoutComponents(nodes)
+        errorRegistry.refresh()
     }
 
     private fun clear() {
@@ -377,6 +560,12 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
             fileView = CustomIconView()
             fileFilter = FileNameExtensionFilter("YAML Files", "yaml", "yml")
             approveButtonText = "Export"
+        }
+
+        fun String.hash(): String {
+            val md = MessageDigest.getInstance("MD5")
+            val digest = md.digest(toByteArray())
+            return BigInteger(1, digest).toString(16).padStart(32, '0').take(8)
         }
     }
 

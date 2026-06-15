@@ -84,10 +84,7 @@ abstract class AbstractDockerServiceNode<T : DockerServiceModel>(
 
     protected val configureButton = JButton("Configure").apply {
         addActionListener {
-            if (configWindow.state == Frame.ICONIFIED) {
-                configWindow.state = Frame.NORMAL
-            }
-            configWindow.isVisible = true
+            openConfigWindow()
         }
     }
 
@@ -126,6 +123,13 @@ abstract class AbstractDockerServiceNode<T : DockerServiceModel>(
                 }
             }
         }
+    }
+
+    fun openConfigWindow() {
+        if (configWindow.state == Frame.ICONIFIED) {
+            configWindow.state = Frame.NORMAL
+        }
+        configWindow.isVisible = true
     }
 
     protected fun updateHostNameText() {

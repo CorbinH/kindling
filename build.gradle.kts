@@ -35,6 +35,8 @@ dependencies {
     api(libs.questdb)
     api(libs.rsyntaxtextarea)
     api(libs.bundles.jackson)
+    api(libs.docker.java.core)
+    api(libs.docker.java.transport)
     runtimeOnly(libs.bundles.ia.transitive)
     testImplementation(libs.bundles.kotest)
 
