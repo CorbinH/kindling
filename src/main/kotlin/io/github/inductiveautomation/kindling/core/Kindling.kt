@@ -367,7 +367,7 @@ data object Kindling {
         }
     }
 
-    const val BETA_VERSION = "1.6.1"
+    const val BETA_VERSION = "1.6.2"
 }
 
 context(pref: Preference<Map<String, Tool>>)

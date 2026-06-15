@@ -1,0 +1,50 @@
+name: Publish Kindling Beta
+
+on:
+  push:
+    tags:
+      - '*'
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pages: write
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Check if tag is on a beta branch
+        id: beta_check
+        run: |
+          git fetch --all
+          if git branch -r --contains "${{ github.sha }}" | grep -q 'origin/beta-'; then
+            echo "result=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "result=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-java@v4
+        if: steps.beta_check.outputs.result == 'true'
+        with:
+          distribution: corretto
+          java-version: 21
+          cache: gradle
+
+      - name: Build JAR and generate Conveyor config
+        if: steps.beta_check.outputs.result == 'true'
+        run: ./gradlew writeConveyorConfig jar
+
+      - uses: hydraulic-software/conveyor/actions/build@v22.0
+        if: steps.beta_check.outputs.result == 'true'
+        with:
+          signing_key: ${{ secrets.SIGNING_KEY }}
+          agree_to_license: "1"
+          command: make copied-site
+          extra_flags: -f ci-conveyor-beta.conf
+        env:
+          OAUTH_TOKEN: ${{ secrets.OAUTH_TOKEN }}

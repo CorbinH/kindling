@@ -106,7 +106,6 @@ ia-transitive = [
     "google-guava",
     "ia-gson",
     "ia-jython",
-    "slf4j",
 ]
 ktor = [
     "client-serialization-kotlinx-json",

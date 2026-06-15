@@ -1,5 +1,3 @@
-import java.time.LocalDate
-
 plugins {
     alias(libs.plugins.kotlin)
     alias(libs.plugins.serialization)
@@ -7,10 +5,6 @@ plugins {
     alias(libs.plugins.conveyor)
     alias(libs.plugins.dokka)
     application
-
-    // Beta
-    alias(libs.plugins.shadow)
-    alias(libs.plugins.runtime)
 }
 
 repositories {
@@ -72,7 +66,7 @@ tasks {
     val download79 by registering(DownloadJavadocs::class) {
         version = "7.9"
         urls = listOf(
-            "https://files.inductiveautomation.com/sdk/javadoc/ignition79/7921/allclasses-noframe.html",
+            "https://sdk.inductiveautomation.com/javadoc/ignition79/7921/allclasses-noframe.html",
             "https://docs.oracle.com/javase/8/docs/api/allclasses-noframe.html",
             "https://www.javadoc.io/static/org.python/jython-standalone/2.5.3/allclasses-noframe.html",
         )
@@ -81,7 +75,7 @@ tasks {
     val download80 by registering(DownloadJavadocs::class) {
         version = "8.0"
         urls = listOf(
-            "https://files.inductiveautomation.com/sdk/javadoc/ignition80/8.0.14/allclasses.html",
+            "https://sdk.inductiveautomation.com/javadoc/ignition80/8.0.14/allclasses.html",
             "https://docs.oracle.com/en/java/javase/11/docs/api/allclasses.html",
             "https://www.javadoc.io/static/org.python/jython-standalone/2.7.1/allclasses-noframe.html",
         )
@@ -90,7 +84,7 @@ tasks {
     val download81 by registering(DownloadJavadocs::class) {
         version = "8.1"
         urls = listOf(
-            "https://files.inductiveautomation.com/sdk/javadoc/ignition81/8.1.48/allclasses-index.html",
+            "https://sdk.inductiveautomation.com/javadoc/ignition81/8.1.48/allclasses-index.html",
             "https://docs.oracle.com/en/java/javase/17/docs/api/allclasses-index.html",
             "https://www.javadoc.io/static/org.python/jython-standalone/2.7.3/allclasses-noframe.html",
         )
@@ -99,25 +93,22 @@ tasks {
     val download83 by registering(DownloadJavadocs::class) {
         version = "8.3"
         urls = listOf(
-            "https://files.inductiveautomation.com/sdk/javadoc/ignition83/8.3.0/allclasses-index.html",
+            "https://sdk.inductiveautomation.com/javadoc/ignition83/8.3.0/allclasses-index.html",
             "https://docs.oracle.com/en/java/javase/17/docs/api/allclasses-index.html",
             "https://www.javadoc.io/static/org.python/jython-standalone/2.7.3/allclasses-noframe.html",
         )
         baseOutputDirectory = javadocDirectory
     }
+    jar {
+        archiveBaseName.set("kindling-beta")
+    }
     processResources {
         duplicatesStrategy = DuplicatesStrategy.WARN
         dependsOn(download79, download80, download81, download83)
     }
-    shadowJar {
-        manifest {
-            attributes["Main-Class"] = "io.github.inductiveautomation.kindling.MainPanel"
-        }
-        archiveBaseName.set("kindling-beta")
-        archiveClassifier.set("")
-        archiveVersion.set("1.6.1")
-        mergeServiceFiles()
-        isZip64 = true
+    register("buildBeta", Exec::class) {
+        dependsOn("writeConveyorConfig", jar)
+        commandLine("conveyor", "--agree-to-license=1", "-f", "conveyor-beta.conf", "make", "site")
     }
 }
 
@@ -158,64 +149,3 @@ spotless {
     }
 }
 
-runtime {
-    options.set(listOf("--strip-debug", "--compress", "2", "--no-header-files", "--no-man-pages"))
-
-    modules.set(
-        listOf(
-            "java.desktop",
-            "java.sql",
-            "java.logging",
-            "java.naming",
-            "java.xml",
-            "jdk.zipfs",
-            "jdk.crypto.ec",
-            "jdk.unsupported",
-        ),
-    )
-
-    jpackage {
-        val currentOs = org.gradle.internal.os.OperatingSystem.current()
-        val imgType = if (currentOs.isWindows) "ico" else "png"
-        appVersion = project.version.toString()
-        imageOptions = listOf("--icon", "src/main/resources/beta-logo.$imgType")
-        val options: Map<String, String?> = buildMap {
-            put("resource-dir", "src/main/resources")
-            put("vendor", "IA Support Applications")
-            put("copyright", LocalDate.now().year.toString())
-            put("description", "A collection of useful tools for troubleshooting Ignition")
-
-            when {
-                currentOs.isWindows -> {
-                    put("win-per-user-install", null)
-                    put("win-dir-chooser", null)
-                    put("win-menu", null)
-                    put("win-shortcut", null)
-                    // random (consistent) UUID makes upgrades smoother
-                    put("win-upgrade-uuid", "8e7428c8-bbc6-460a-9995-db6d8b04a690")
-                }
-
-                currentOs.isLinux -> {
-                    put("linux-shortcut", null)
-                }
-            }
-        }
-
-        // add-exports is used to bypass Java modular restrictions
-        jvmArgs = listOf(
-            "--add-exports",
-            "java.desktop/com.sun.java.swing.plaf.windows=ALL-UNNAMED",
-            "--add-exports=java.base/sun.security.action=ALL-UNNAMED",
-            "--add-opens",
-            "java.base/sun.misc=ALL-UNNAMED MainPanel",
-        )
-
-        installerOptions = options.flatMap { (key, value) ->
-            listOfNotNull("--$key", value)
-        }
-
-        imageName = "Kindling Beta"
-        installerName = "Kindling Beta"
-        mainJar = "kindling-beta-1.6.1.jar"
-    }
-}
