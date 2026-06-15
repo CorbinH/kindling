@@ -127,8 +127,8 @@ data object IdbViewer : MultiTool {
     override val serialKey = "idb-viewer"
     override val title = "SQLite Database"
     override val description = "SQLite Database (.idb)"
+    override val icon = FlatSVGIcon("icons/bx-data.svg")
     override val extensions: Array<String> = arrayOf("idb", "db", "sqlite")
-    override val icon = FlatSVGIcon("icons/bx-hdd.svg")
 
     override fun open(path: Path): ToolPanel = IdbView(listOf(path))
 
