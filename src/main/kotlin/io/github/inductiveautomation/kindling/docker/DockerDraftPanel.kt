@@ -20,9 +20,9 @@ import io.github.inductiveautomation.kindling.core.Theme.Companion.theme
 import io.github.inductiveautomation.kindling.core.ToolPanel
 import io.github.inductiveautomation.kindling.docker.Canvas.Companion.NODE_LAYER
 import io.github.inductiveautomation.kindling.docker.DockerServiceToolTransferHandler.Companion.DOCKER_SERVICE_DATA_FLAVOR
+import io.github.inductiveautomation.kindling.docker.engine.ProcessComposeEngine
 import io.github.inductiveautomation.kindling.docker.error.ErrorRegistry
 import io.github.inductiveautomation.kindling.docker.error.ErrorsTab
-import io.github.inductiveautomation.kindling.docker.engine.ProcessComposeEngine
 import io.github.inductiveautomation.kindling.docker.networks.NetworksTab
 import io.github.inductiveautomation.kindling.docker.networks.model.DockerNetwork
 import io.github.inductiveautomation.kindling.docker.services.AbstractDockerServiceNode
@@ -55,10 +55,10 @@ import java.awt.datatransfer.DataFlavor
 import java.awt.event.ContainerEvent
 import java.awt.event.ContainerListener
 import java.io.File
+import java.math.BigInteger
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
-import java.math.BigInteger
 import java.security.MessageDigest
 import javax.swing.DefaultListModel
 import javax.swing.JButton

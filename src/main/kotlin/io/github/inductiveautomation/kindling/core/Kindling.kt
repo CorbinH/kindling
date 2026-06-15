@@ -12,8 +12,8 @@ import io.github.inductiveautomation.kindling.utils.ACTION_ICON_SCALE_FACTOR
 import io.github.inductiveautomation.kindling.utils.CharsetSerializer
 import io.github.inductiveautomation.kindling.utils.ColumnList
 import io.github.inductiveautomation.kindling.utils.DocumentAdapter
-import io.github.inductiveautomation.kindling.utils.FlatScrollPane
 import io.github.inductiveautomation.kindling.utils.EmptyBorder
+import io.github.inductiveautomation.kindling.utils.FlatScrollPane
 import io.github.inductiveautomation.kindling.utils.PathSerializer
 import io.github.inductiveautomation.kindling.utils.PathSerializer.serializedForm
 import io.github.inductiveautomation.kindling.utils.ReifiedJXTable
