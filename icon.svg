@@ -14,6 +14,7 @@
             <stop stop-color="#f7901e" offset="1"/>
         </linearGradient>
     </defs>
+    <text fill="url(#k2k)" x="0" y="41" font-family="Arial" font-style="italic" font-size="26" >Beta</text>
     <g stroke-width="0">
         <path d="m47.902 73.086c47.739-45.365 8.034-50.807-1.9795-72.592 66.145 5.0875 50.332 57.423 1.9795 72.592z"
               fill="#f7901e"/>
