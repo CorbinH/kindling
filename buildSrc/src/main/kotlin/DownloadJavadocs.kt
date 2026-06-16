@@ -5,7 +5,6 @@ import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Input
-import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.TaskAction
 import org.jsoup.Jsoup
@@ -24,7 +23,7 @@ abstract class DownloadJavadocs : DefaultTask() {
     @get:Input
     abstract val urls: ListProperty<String>
 
-    @get:Internal
+    @get:OutputDirectory
     abstract val baseOutputDirectory: DirectoryProperty
 
     @get:OutputDirectory
