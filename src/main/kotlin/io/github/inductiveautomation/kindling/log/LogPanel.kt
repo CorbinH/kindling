@@ -1,13 +1,29 @@
 package io.github.inductiveautomation.kindling.log
 
 import com.formdev.flatlaf.extras.FlatSVGIcon
-import io.github.inductiveautomation.kindling.core.*
 import io.github.inductiveautomation.kindling.core.Detail.BodyLine
+import io.github.inductiveautomation.kindling.core.DetailsPane
+import io.github.inductiveautomation.kindling.core.Filter
 import io.github.inductiveautomation.kindling.core.Kindling.Preferences.Advanced.HyperlinkStrategy
 import io.github.inductiveautomation.kindling.core.Kindling.Preferences.General.ShowFullLoggerNames
 import io.github.inductiveautomation.kindling.core.Kindling.Preferences.General.UseHyperlinks
-import io.github.inductiveautomation.kindling.utils.*
+import io.github.inductiveautomation.kindling.core.LinkHandlingStrategy
+import io.github.inductiveautomation.kindling.core.Timezone
+import io.github.inductiveautomation.kindling.core.ToolOpeningException
+import io.github.inductiveautomation.kindling.core.ToolPanel
 import io.github.inductiveautomation.kindling.utils.Action
+import io.github.inductiveautomation.kindling.utils.EDT_SCOPE
+import io.github.inductiveautomation.kindling.utils.FilterSidebar
+import io.github.inductiveautomation.kindling.utils.FlatScrollPane
+import io.github.inductiveautomation.kindling.utils.HorizontalSplitPane
+import io.github.inductiveautomation.kindling.utils.MajorVersion
+import io.github.inductiveautomation.kindling.utils.ReifiedJXTable
+import io.github.inductiveautomation.kindling.utils.VerticalSplitPane
+import io.github.inductiveautomation.kindling.utils.attachPopupMenu
+import io.github.inductiveautomation.kindling.utils.configureCellRenderer
+import io.github.inductiveautomation.kindling.utils.debounce
+import io.github.inductiveautomation.kindling.utils.selectedRowIndices
+import io.github.inductiveautomation.kindling.utils.toBodyLine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -19,9 +35,21 @@ import org.jdesktop.swingx.table.ColumnControlButton.COLUMN_CONTROL_MARKER
 import java.awt.BorderLayout
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
-import java.util.*
+import java.util.Vector
 import java.util.regex.PatternSyntaxException
-import javax.swing.*
+import javax.swing.BorderFactory
+import javax.swing.Icon
+import javax.swing.JButton
+import javax.swing.JComboBox
+import javax.swing.JLabel
+import javax.swing.JPanel
+import javax.swing.JPopupMenu
+import javax.swing.JSeparator
+import javax.swing.JToggleButton
+import javax.swing.ListSelectionModel
+import javax.swing.SortOrder
+import javax.swing.SwingConstants
+import javax.swing.UIManager
 import javax.swing.event.DocumentEvent
 import javax.swing.event.DocumentListener
 import kotlin.time.Duration.Companion.milliseconds
@@ -174,8 +202,8 @@ abstract class LogPanel<T : LogEvent>(
         val markHighlighter = ColorHighlighter(
             { _, adapter: ComponentAdapter ->
                 header.highlightMarked.isSelected &&
-                        !table.isRowSelected(adapter.row) &&
-                        table.model[table.convertRowIndexToModel(adapter.row)].marked
+                    !table.isRowSelected(adapter.row) &&
+                    table.model[table.convertRowIndexToModel(adapter.row)].marked
             },
             UIManager.getColor("Table.cellFocusColor"),
             UIManager.getColor("Table.selectionForeground"),
