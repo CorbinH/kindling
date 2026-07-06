@@ -3,6 +3,8 @@ package io.github.inductiveautomation.kindling.docker.error
 import io.github.inductiveautomation.kindling.docker.services.AbstractDockerServiceNode
 import io.github.inductiveautomation.kindling.docker.services.ignition.model.IgnitionCommandLineArgument
 import io.github.inductiveautomation.kindling.docker.services.ignition.model.IgnitionServiceModel
+import io.github.inductiveautomation.kindling.docker.services.ignition.model.gatewayHostPort
+import io.github.inductiveautomation.kindling.docker.services.ignition.model.gatewayHttpPort
 import io.github.inductiveautomation.kindling.docker.services.model.DockerServiceModel
 import io.github.inductiveautomation.kindling.statistics.GatewayBackup
 import java.nio.file.Path
@@ -21,6 +23,7 @@ fun interface DockerErrorChecker {
             DuplicateEnvVarsChecker,
             MissingGwbkFileChecker,
             GwbkVersionMismatchChecker,
+            GatewayPortNotBoundChecker,
         )
     }
 }
@@ -173,6 +176,21 @@ private object MissingGwbkFileChecker : DockerErrorChecker {
                 },
             )
         }
+    }
+}
+
+private object GatewayPortNotBoundChecker : DockerErrorChecker {
+    override fun check(services: List<AbstractDockerServiceNode<*>>, baseDir: Path?): List<DockerError> = services.mapNotNull { node ->
+        val model = node.model
+        if (model !is IgnitionServiceModel || model.gatewayHostPort != null) return@mapNotNull null
+        DockerError(
+            severity = DockerError.Severity.WARNING,
+            message = "Gateway \"${model.containerName}\" has no host port bound to its HTTP port (${model.gatewayHttpPort}).",
+            relatedContainerNames = listOf(model.containerName),
+            openConfig = {
+                node.openConfigWindow()
+            },
+        )
     }
 }
 

@@ -214,6 +214,26 @@ data object Kindling {
                 },
             )
 
+            val DockerStackShutdown: Preference<StackShutdownBehavior> = preference(
+                name = "Docker Stack Shutdown",
+                description = "What to do with a running Docker Compose stack when Kindling is closed",
+                default = StackShutdownBehavior.LeaveRunning,
+                serializer = StackShutdownBehavior.serializer(),
+                editor = {
+                    JComboBox(Vector(StackShutdownBehavior.entries)).apply {
+                        selectedItem = currentValue
+
+                        configureCellRenderer { _, value, _, _, _ ->
+                            text = value?.description
+                        }
+
+                        addActionListener {
+                            currentValue = selectedItem as StackShutdownBehavior
+                        }
+                    }
+                },
+            )
+
             override val displayName: String = "General"
             override val serialKey: String = "general"
             override val preferences: List<Preference<*>> = listOf(
@@ -225,6 +245,7 @@ data object Kindling {
                 UseHyperlinks,
                 HighlightByDefault,
                 DefaultTimezone,
+                DockerStackShutdown,
             )
         }
 

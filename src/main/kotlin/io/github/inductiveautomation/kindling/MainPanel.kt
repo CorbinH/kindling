@@ -23,10 +23,12 @@ import io.github.inductiveautomation.kindling.core.Kindling.Preferences.General.
 import io.github.inductiveautomation.kindling.core.Kindling.Preferences.UI.ScaleFactor
 import io.github.inductiveautomation.kindling.core.Kindling.Preferences.UI.Theme
 import io.github.inductiveautomation.kindling.core.MultiTool
+import io.github.inductiveautomation.kindling.core.StackShutdownBehavior
 import io.github.inductiveautomation.kindling.core.Tool
 import io.github.inductiveautomation.kindling.core.ToolOpeningException
 import io.github.inductiveautomation.kindling.core.ToolPanel
 import io.github.inductiveautomation.kindling.core.preferencesEditor
+import io.github.inductiveautomation.kindling.docker.DockerDraftPanel
 import io.github.inductiveautomation.kindling.internal.FileTransferHandler
 import io.github.inductiveautomation.kindling.utils.Action
 import io.github.inductiveautomation.kindling.utils.EmptyBorder
@@ -65,6 +67,8 @@ import java.awt.desktop.QuitStrategy
 import java.awt.event.KeyEvent
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
+import java.awt.event.WindowAdapter
+import java.awt.event.WindowEvent
 import java.awt.image.BufferedImage
 import java.io.File
 import java.nio.charset.Charset
@@ -430,6 +434,21 @@ class MainPanel : JPanel(MigLayout("ins 6, fill, hidemode 3")) {
         }
     }
 
+    /**
+     * Applies the user's configured Docker stack shutdown behavior to every open Docker editor.
+     * Called on application close; blocking, since the JVM exits immediately afterward.
+     */
+    fun applyDockerStackShutdownBehavior() {
+        val behavior = Kindling.Preferences.General.DockerStackShutdown.currentValue
+        if (behavior == StackShutdownBehavior.LeaveRunning) return
+        for (index in 0 until tabs.tabCount) {
+            (tabs.getComponentAt(index) as? DockerDraftPanel)?.let { panel ->
+                runCatching { panel.applyStackShutdownBehavior(behavior) }
+                    .onFailure { LOGGER.warn("Failed to apply shutdown behavior to a Docker stack", it) }
+            }
+        }
+    }
+
     fun openFiles(files: List<File>, specifiedTool: Tool? = null) = when {
         specifiedTool is MultiTool -> {
             openOrError(specifiedTool.title, files.joinToString()) {
@@ -529,6 +548,16 @@ class MainPanel : JPanel(MigLayout("ins 6, fill, hidemode 3")) {
                     val mainPanel = MainPanel()
                     add(mainPanel)
                     jMenuBar = mainPanel.menuBar
+
+                    // Runs before EXIT_ON_CLOSE tears down the JVM, so any configured stop/delete of
+                    // running Docker stacks completes while docker CLI calls can still be issued.
+                    addWindowListener(
+                        object : WindowAdapter() {
+                            override fun windowClosing(e: WindowEvent) {
+                                mainPanel.applyDockerStackShutdownBehavior()
+                            }
+                        },
+                    )
 
                     if (args.isNotEmpty()) {
                         args.map(::File).let(mainPanel::openFiles)

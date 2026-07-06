@@ -48,3 +48,13 @@ enum class GatewayServiceFlavor {
 
     val serialName: String = name.lowercase()
 }
+
+/** Container-side HTTP port the gateway listens on: the GATEWAY_HTTP_PORT env override, or 8088. */
+val IgnitionServiceModel.gatewayHttpPort: String
+    get() = environment[IgnitionStaticDefinition.GATEWAY_HTTP_PORT.name]
+        ?.takeIf { it.isNotBlank() }
+        ?: IgnitionStaticDefinition.GATEWAY_HTTP_PORT.default
+
+/** Host port bound to the gateway's HTTP port, or null if it isn't published. */
+val IgnitionServiceModel.gatewayHostPort: String?
+    get() = ports.find { it.target == gatewayHttpPort }?.published

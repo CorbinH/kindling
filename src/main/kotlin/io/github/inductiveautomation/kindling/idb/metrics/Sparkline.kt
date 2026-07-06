@@ -24,7 +24,9 @@ fun sparkline(data: List<MetricData>, formatter: NumberFormat): JFreeChart = Cha
     TimeSeriesCollection(
         TimeSeries("Series").apply {
             for ((value, timestamp) in data) {
-                add(FixedMillisecond(timestamp), value, false)
+                try {
+                    add(FixedMillisecond(timestamp), value, false)
+                } catch (_: Exception) {}
             }
         },
     ),

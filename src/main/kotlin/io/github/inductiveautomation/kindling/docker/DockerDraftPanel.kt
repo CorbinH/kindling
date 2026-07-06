@@ -16,10 +16,12 @@ import io.github.inductiveautomation.kindling.core.Detail
 import io.github.inductiveautomation.kindling.core.DetailsPane
 import io.github.inductiveautomation.kindling.core.EditorTool
 import io.github.inductiveautomation.kindling.core.Kindling
+import io.github.inductiveautomation.kindling.core.StackShutdownBehavior
 import io.github.inductiveautomation.kindling.core.Theme.Companion.theme
 import io.github.inductiveautomation.kindling.core.ToolPanel
 import io.github.inductiveautomation.kindling.docker.Canvas.Companion.NODE_LAYER
 import io.github.inductiveautomation.kindling.docker.DockerServiceToolTransferHandler.Companion.DOCKER_SERVICE_DATA_FLAVOR
+import io.github.inductiveautomation.kindling.docker.engine.ComposeStatus
 import io.github.inductiveautomation.kindling.docker.engine.ProcessComposeEngine
 import io.github.inductiveautomation.kindling.docker.error.ErrorRegistry
 import io.github.inductiveautomation.kindling.docker.error.ErrorsTab
@@ -28,6 +30,7 @@ import io.github.inductiveautomation.kindling.docker.networks.model.DockerNetwor
 import io.github.inductiveautomation.kindling.docker.services.AbstractDockerServiceNode
 import io.github.inductiveautomation.kindling.docker.services.DockerServiceTool
 import io.github.inductiveautomation.kindling.docker.services.ignition.IgnitionNodeConnector.Companion.midPoint
+import io.github.inductiveautomation.kindling.docker.services.ignition.IgnitionServiceNode
 import io.github.inductiveautomation.kindling.docker.services.ignition.IgnitionServiceTool
 import io.github.inductiveautomation.kindling.docker.services.ignition.model.IgnitionCommandLineArgument
 import io.github.inductiveautomation.kindling.docker.services.model.DefaultDockerServiceModel
@@ -60,6 +63,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
+import java.util.UUID
 import javax.swing.DefaultListModel
 import javax.swing.JButton
 import javax.swing.JFileChooser
@@ -202,15 +206,28 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
         addTab("Errors", errorsTab)
     }
 
-    private val kindlingId = "kindling-${existingFile?.absolutePathString()?.hash() ?: "new-editor"}"
+    private val kindlingId = "kindling-${existingFile?.absolutePathString()?.hash() ?: UUID.randomUUID()}"
 
     private val controlBar = DockerControlBar(
-        engine = ProcessComposeEngine(kindlingId) { out ->
-            YAML.encodeToStream(composeFile, out)
-        },
+        engine = ProcessComposeEngine(
+            projectName = kindlingId,
+            composeProvider = { composeFile },
+            serializer = { YAML.encodeToString(it) },
+            // Relative gwbk bind paths resolve against the compose file's dir; keep it next to them.
+            workingDirProvider = { currentFile?.toAbsolutePath()?.parent },
+        ),
         yamlPath = existingFile ?: Path.of("docker-compose.yaml"),
         localHashProvider = { currentHash },
+        onStatusChange = { onStackStatusChanged(it) },
     )
+
+    // Whether the compose stack is currently running, mirrored from the control bar's polling.
+    private var stackRunning = false
+
+    private fun onStackStatusChanged(status: ComposeStatus) {
+        stackRunning = status is ComposeStatus.Running || status is ComposeStatus.Partial
+        services.filterIsInstance<IgnitionServiceNode>().forEach { it.onStackRunningChanged(stackRunning) }
+    }
 
     private val sidebar = JPanel(MigLayout("fill, ins 0")).apply {
         add(importButton, "growx, pushx, sg")
@@ -329,6 +346,8 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
                 override fun componentAdded(e: ContainerEvent?) {
                     updatePreview()
                     errorRegistry.refresh()
+                    // A node added while the stack is running should reflect that immediately.
+                    (e?.child as? IgnitionServiceNode)?.onStackRunningChanged(stackRunning)
                 }
 
                 override fun componentRemoved(e: ContainerEvent?) {
@@ -460,6 +479,8 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
             yamlPath.outputStream().use {
                 YAML.encodeToStream(composeFile, it)
             }
+            // The bundle is now the backing file, so relative gwbk paths resolve against its folder.
+            currentFile = yamlPath
         } finally {
             if (placement == GwbkPlacement.COPY) {
                 for ((mount, original) in originalPaths) {
@@ -525,6 +546,9 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
         canvas.removeAll()
     }
 
+    /** Applies the user's configured shutdown behavior to this panel's stack (called on app close). */
+    fun applyStackShutdownBehavior(behavior: StackShutdownBehavior) = controlBar.applyShutdownBehavior(behavior)
+
     private fun updatePreview() {
         val text = runCatching {
             val c = composeFile
@@ -540,6 +564,8 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
             ),
         )
         popoutPreviewTextArea.text = text
+        // Re-evaluate the In Sync / Stale indicator against the edited model (no Docker call).
+        controlBar.onModelChanged()
     }
 
     companion object {
