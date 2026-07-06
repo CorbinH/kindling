@@ -13,10 +13,13 @@ import io.github.inductiveautomation.kindling.docker.services.model.DockerServic
 import io.github.inductiveautomation.kindling.docker.services.model.PortMapping
 import io.github.inductiveautomation.kindling.docker.volumes.model.BindMount
 import io.github.inductiveautomation.kindling.statistics.GatewayBackup
+import io.github.inductiveautomation.kindling.statistics.categories.MetaStatistics
+import io.github.inductiveautomation.kindling.utils.MajorVersion
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -30,7 +33,6 @@ import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.nio.file.Path
-import kotlin.collections.find
 import kotlin.io.path.Path
 import kotlin.io.path.absolutePathString
 import kotlin.io.path.createDirectories
@@ -119,13 +121,19 @@ object IgnitionServiceTool : DockerServiceTool {
             portMappings.add(PortMapping(requestedPorts[1].toString(), httpsTarget))
         }
 
-        val containerName = "Ignition-${panel.nodeIdManager.generateID()}"
+        val gatewayName = runBlocking {
+            val stats = MetaStatistics[MajorVersion.lookup(version)]?.calculate(backup)
+            stats?.gatewayName
+        }
+
+        val containerName = gatewayName ?: "Ignition-${panel.nodeIdManager.generateID()}"
         val restorePath = "/restore-$containerName.gwbk"
 
         val model = modelFromDefault(
             DefaultDockerServiceModel(
                 image = "inductiveautomation/ignition:$version",
                 containerName = containerName,
+                hostName = containerName,
                 ports = portMappings,
                 volumes = mutableListOf(
                     BindMount(
