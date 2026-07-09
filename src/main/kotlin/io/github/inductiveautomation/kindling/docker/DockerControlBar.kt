@@ -4,6 +4,7 @@ import com.formdev.flatlaf.extras.FlatSVGIcon
 import io.github.inductiveautomation.kindling.core.StackShutdownBehavior
 import io.github.inductiveautomation.kindling.docker.engine.ComposeResult
 import io.github.inductiveautomation.kindling.docker.engine.ComposeStatus
+import io.github.inductiveautomation.kindling.docker.engine.ContainerStats
 import io.github.inductiveautomation.kindling.docker.engine.DockerComposeEngine
 import io.github.inductiveautomation.kindling.docker.engine.PullProgress
 import io.github.inductiveautomation.kindling.docker.engine.StackSnapshot
@@ -31,6 +32,7 @@ class DockerControlBar(
     val yamlPath: Path,
     val localHashProvider: () -> String,
     private val onStatusChange: (ComposeStatus) -> Unit = {},
+    private val onStats: (Map<String, ContainerStats>) -> Unit = {},
 ) : JPanel(MigLayout("ins 3, fillx, hidemode 3")) {
 
     // Actions are inlined into their buttons since each is only used in one place
@@ -107,6 +109,18 @@ class DockerControlBar(
     }
     private var pollJob: Job? = null
 
+    // Faster, separate poll for per-container resource stats; only queries Docker while running.
+    private val statsTimer = Timer(STATS_INTERVAL_MS) {
+        val running = lastSnapshot.status is ComposeStatus.Running || lastSnapshot.status is ComposeStatus.Partial
+        if (running && statsJob?.isActive != true) {
+            statsJob = EDT_SCOPE.launch {
+                val stats = withContext(Dispatchers.IO) { engine.getStats() }
+                onStats(stats)
+            }
+        }
+    }
+    private var statsJob: Job? = null
+
     init {
         val buttonContainer = JPanel(MigLayout("filly, ins 0"))
         buttons.forEach {
@@ -124,18 +138,22 @@ class DockerControlBar(
         // Runs the first status check off the EDT so startup doesn't block the UI, then polls.
         EDT_SCOPE.launch { refreshStatus() }
         pollTimer.start()
+        statsTimer.start()
     }
 
     override fun removeNotify() {
-        // Stop polling when the tab is closed so the timer/coroutine don't leak.
+        // Stop polling when the tab is closed so the timers/coroutines don't leak.
         pollTimer.stop()
+        statsTimer.stop()
         pollJob?.cancel()
+        statsJob?.cancel()
         super.removeNotify()
     }
 
     private fun runCommand(label: String, action: (DockerComposeEngine) -> ComposeResult) {
         // Pause polling so a mid-command tick doesn't briefly overwrite the "Working" indicator.
         pollTimer.stop()
+        statsTimer.stop()
         statusIndicator.text = "$DOT Working…"
         statusIndicator.foreground = Color.YELLOW
         statusIndicator.toolTipText = null
@@ -146,6 +164,7 @@ class DockerControlBar(
             buttons.forEach { it.isEnabled = true }
             refreshStatus()
             pollTimer.start()
+            statsTimer.start()
             if (result is ComposeResult.Failure) {
                 showErrorDialog(label, result)
             }
@@ -276,5 +295,6 @@ class DockerControlBar(
     companion object {
         private const val DOT = "●"
         private const val POLL_INTERVAL_MS = 3000
+        private const val STATS_INTERVAL_MS = 1000
     }
 }

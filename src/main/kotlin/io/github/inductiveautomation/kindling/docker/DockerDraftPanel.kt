@@ -22,6 +22,7 @@ import io.github.inductiveautomation.kindling.core.ToolPanel
 import io.github.inductiveautomation.kindling.docker.Canvas.Companion.NODE_LAYER
 import io.github.inductiveautomation.kindling.docker.DockerServiceToolTransferHandler.Companion.DOCKER_SERVICE_DATA_FLAVOR
 import io.github.inductiveautomation.kindling.docker.engine.ComposeStatus
+import io.github.inductiveautomation.kindling.docker.engine.ContainerStats
 import io.github.inductiveautomation.kindling.docker.engine.ProcessComposeEngine
 import io.github.inductiveautomation.kindling.docker.error.ErrorRegistry
 import io.github.inductiveautomation.kindling.docker.error.ErrorsTab
@@ -219,6 +220,7 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
         yamlPath = existingFile ?: Path.of("docker-compose.yaml"),
         localHashProvider = { currentHash },
         onStatusChange = { onStackStatusChanged(it) },
+        onStats = { routeStats(it) },
     )
 
     // Whether the compose stack is currently running, mirrored from the control bar's polling.
@@ -227,6 +229,10 @@ class DockerDraftPanel(existingFile: Path?) : ToolPanel("ins 0, fill, hidemode 3
     private fun onStackStatusChanged(status: ComposeStatus) {
         stackRunning = status is ComposeStatus.Running || status is ComposeStatus.Partial
         services.filterIsInstance<IgnitionServiceNode>().forEach { it.onStackRunningChanged(stackRunning) }
+    }
+
+    private fun routeStats(stats: Map<String, ContainerStats>) {
+        services.filterIsInstance<IgnitionServiceNode>().forEach { it.updateStats(stats[it.model.containerName]) }
     }
 
     private val sidebar = JPanel(MigLayout("fill, ins 0")).apply {

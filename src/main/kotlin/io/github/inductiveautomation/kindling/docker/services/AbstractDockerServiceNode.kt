@@ -31,7 +31,7 @@ import kotlin.time.Duration.Companion.milliseconds
 @Suppress("LeakingThis")
 abstract class AbstractDockerServiceNode<T : DockerServiceModel>(
     val model: T,
-) : JPanel(MigLayout("fill, ins 4")) {
+) : JPanel(MigLayout("fill, ins 4, hidemode 3")) {
     abstract var volumeOptions: List<DockerVolume>
 
     abstract var networkOptions: List<String>

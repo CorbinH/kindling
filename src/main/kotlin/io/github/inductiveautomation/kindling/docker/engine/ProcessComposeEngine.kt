@@ -3,8 +3,10 @@ package io.github.inductiveautomation.kindling.docker.engine
 import com.github.dockerjava.api.DockerClient
 import com.github.dockerjava.api.async.ResultCallback
 import com.github.dockerjava.api.model.PullResponseItem
+import com.github.dockerjava.api.model.Statistics
 import com.github.dockerjava.core.DefaultDockerClientConfig
 import com.github.dockerjava.core.DockerClientImpl
+import com.github.dockerjava.core.InvocationBuilder
 import com.github.dockerjava.zerodep.ZerodepDockerHttpClient
 import io.github.inductiveautomation.kindling.docker.DockerComposeFile
 import io.github.inductiveautomation.kindling.utils.getLogger
@@ -19,6 +21,10 @@ class ProcessComposeEngine(
     private val workingDirProvider: () -> Path? = { null },
 ) : DockerComposeEngine {
     private lateinit var composeObject: DockerComposeFile
+
+    // Previous (totalUsage, systemCpuUsage) per container name, so CPU% is a delta over the poll
+    // interval rather than the daemon's cumulative-since-start figure.
+    private val previousCpu = HashMap<String, Pair<Long, Long>>()
 
     private fun writeComposeFile(): Path {
         composeObject = composeProvider.invoke()
@@ -229,6 +235,57 @@ class ProcessComposeEngine(
 
         val remoteHash = containers.firstNotNullOfOrNull { it.labels["io.github.kindling.yaml-hash"] }
         return StackSnapshot(status, remoteHash)
+    }
+
+    override fun getStats(): Map<String, ContainerStats> {
+        val containers = runCatching {
+            docker.listContainersCmd()
+                .withLabelFilter(mapOf("com.docker.compose.project" to projectName))
+                .exec()
+        }.getOrElse {
+            LOGGER.warn("Docker engine unavailable: ${it.message}")
+            return emptyMap()
+        }.filter { it.state == "running" }
+
+        val result = HashMap<String, ContainerStats>()
+        for (container in containers) {
+            val name = container.names.firstOrNull()?.removePrefix("/") ?: continue
+
+            // One-shot read; blocking, but the caller runs this off the EDT.
+            val stats = runCatching {
+                docker.statsCmd(container.id)
+                    .withNoStream(true)
+                    .exec(InvocationBuilder.AsyncResultCallback<Statistics>())
+                    .use { it.awaitResult() }
+            }.getOrElse {
+                LOGGER.warn("Failed to read stats for $name: ${it.message}")
+                continue
+            }
+
+            val total = stats.cpuStats?.cpuUsage?.totalUsage ?: 0
+            val system = stats.cpuStats?.systemCpuUsage ?: 0
+            val cpus = (
+                stats.cpuStats?.onlineCpus
+                    ?: stats.cpuStats?.cpuUsage?.percpuUsage?.size?.toLong()
+                    ?: 1L
+                ).coerceAtLeast(1L)
+            val cpuPercent = previousCpu[name]?.let { (prevTotal, prevSystem) ->
+                val cpuDelta = total - prevTotal
+                val systemDelta = system - prevSystem
+                if (systemDelta > 0 && cpuDelta >= 0) cpuDelta.toDouble() / systemDelta * cpus * 100 else null
+            }
+            previousCpu[name] = total to system
+
+            // Match `docker stats`: subtract reclaimable page cache from raw usage.
+            val usage = stats.memoryStats?.usage ?: 0
+            val cacheLike = stats.memoryStats?.stats?.let { it.inactiveFile ?: it.cache } ?: 0
+            val used = (usage - cacheLike).coerceAtLeast(0)
+
+            result[name] = ContainerStats(cpuPercent, used)
+        }
+        // Forget CPU history for containers that are no longer running.
+        previousCpu.keys.retainAll(result.keys)
+        return result
     }
 
     companion object {
