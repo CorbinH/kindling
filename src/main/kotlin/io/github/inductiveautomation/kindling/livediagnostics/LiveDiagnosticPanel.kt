@@ -26,56 +26,59 @@ import io.ktor.client.request.request
 import io.ktor.http.HttpMethod
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.utils.io.ByteReadChannel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.runBlocking
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
-import net.miginfocom.swing.MigLayout
-import java.io.File
-import java.nio.file.Path
-import javax.swing.Icon
-import javax.swing.JButton
-import javax.swing.JLabel
-import javax.swing.JPanel
-import javax.swing.JTextArea
-import javax.swing.JTextField
-import javax.swing.SwingConstants
-import kotlin.io.path.name
 import io.ktor.utils.io.jvm.javaio.copyTo
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import net.miginfocom.swing.MigLayout
 import java.awt.Dimension
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
+import java.io.File
 import java.io.OutputStream
 import java.nio.file.FileSystems
+import java.nio.file.Path
 import java.nio.file.spi.FileSystemProvider
 import javax.swing.BorderFactory
+import javax.swing.Icon
+import javax.swing.JButton
 import javax.swing.JDialog
 import javax.swing.JFileChooser
+import javax.swing.JLabel
 import javax.swing.JOptionPane
+import javax.swing.JPanel
 import javax.swing.JProgressBar
 import javax.swing.JSeparator
 import javax.swing.JSpinner
+import javax.swing.JTextArea
+import javax.swing.JTextField
 import javax.swing.SpinnerNumberModel
+import javax.swing.SwingConstants
 import javax.swing.SwingUtilities
 import javax.swing.UIManager
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.io.path.name
 
 @Serializable
 data class BundleStatus(val state: String)
+
 @Serializable
 data class BundleComplete(val state: String, val fileSize: Int)
+
 @Serializable
 data class LiveDiagnosticConfigFile(val url: String, val key: String)
+
 @Serializable
 data class CurrentPerformanceData(val cpu: Double, val heapMemory: Double, val nonHeapMemory: Double? = 0.0)
+
 @Serializable
 data class CurrentThreadData(val running: Int, val waiting: Double, val timedWaiting: Double, val blocked: Double)
-
 
 class LiveDiagnosticPanel(var path: Path?) : ToolPanel("ins 0, fill, hidemode 3") {
 
@@ -83,9 +86,7 @@ class LiveDiagnosticPanel(var path: Path?) : ToolPanel("ins 0, fill, hidemode 3"
     private var resourceJob: Job? = null
     private var threadJob: Job? = null
 
-    override fun getToolTipText(): String {
-        return "Live Diagnostic Tool"
-    }
+    override fun getToolTipText(): String = "Live Diagnostic Tool"
     override val icon: Icon = LiveDiagnosticTool.icon
 
     var provider: FileSystemProvider? = null
@@ -142,7 +143,7 @@ class LiveDiagnosticPanel(var path: Path?) : ToolPanel("ins 0, fill, hidemode 3"
     val downloadBundleButton = JButton("Download Bundle").apply {
         addActionListener {
             runBlocking {
-                if(!validateUrl(urlField.text)) {
+                if (!validateUrl(urlField.text)) {
                     cancel()
                 }
                 executeBundleProcess()
@@ -163,76 +164,95 @@ class LiveDiagnosticPanel(var path: Path?) : ToolPanel("ins 0, fill, hidemode 3"
     val leftUpperPanel = JPanel(MigLayout("ins 10, fill, hidemode 3, wrap 1")).apply {
         border = BorderFactory.createLineBorder(UIManager.getColor("Component.borderColor"))
 
-        add(JPanel(MigLayout("ins 0, fillx")).apply {
-            add(JLabel("URL:"), "gapright 10")
-            add(urlField, "pushx, growx, wrap")
-            add(JLabel("API Key:"), "gapright 10")
-            add(apiKeyField, "pushx, growx")
-        }, "growx, pushx")
+        add(
+            JPanel(MigLayout("ins 0, fillx")).apply {
+                add(JLabel("URL:"), "gapright 10")
+                add(urlField, "pushx, growx, wrap")
+                add(JLabel("API Key:"), "gapright 10")
+                add(apiKeyField, "pushx, growx")
+            },
+            "growx, pushx",
+        )
 
-        add(JPanel(MigLayout("ins 0, fillx, wrap 2")).apply {
-            add(downloadBundleButton, "growx")
-            add(saveButton, "growx")
-        }, "growx")
+        add(
+            JPanel(MigLayout("ins 0, fillx, wrap 2")).apply {
+                add(downloadBundleButton, "growx")
+                add(saveButton, "growx")
+            },
+            "growx",
+        )
 
         add(JSeparator(), "growx, gapy 10 10")
 
-        add(JLabel("Resource Metrics").apply {
-            font = font.deriveFont(java.awt.Font.BOLD)
-            font = font.deriveFont(16f)
-        }, "gapy 10 5")
+        add(
+            JLabel("Resource Metrics").apply {
+                font = font.deriveFont(java.awt.Font.BOLD)
+                font = font.deriveFont(16f)
+            },
+            "gapy 10 5",
+        )
 
-        add(JPanel(MigLayout("ins 10, fillx, wrap 2", "[]20[grow, right]")).apply {
-            border = BorderFactory.createTitledBorder("JVM Performance")
+        add(
+            JPanel(MigLayout("ins 10, fillx, wrap 2", "[]20[grow, right]")).apply {
+                border = BorderFactory.createTitledBorder("JVM Performance")
 
-            add(JLabel("CPU Usage:"))
-            add(cpuLabel)
-            add(JLabel("Heap Memory:"))
-            add(heapLabel)
-            add(JLabel("Non-Heap Memory:"))
-            add(nonHeapLabel)
+                add(JLabel("CPU Usage:"))
+                add(cpuLabel)
+                add(JLabel("Heap Memory:"))
+                add(heapLabel)
+                add(JLabel("Non-Heap Memory:"))
+                add(nonHeapLabel)
 
-            add(JSeparator(), "span, growx, gapy 5 5")
-            add(JLabel("Poll Rate (ms):"))
-            add(resourceRateSpinner, "w 80!")
-            add(liveResourceMetricsButton, "span, growx, gapy 5 0")
-        }, "growx")
+                add(JSeparator(), "span, growx, gapy 5 5")
+                add(JLabel("Poll Rate (ms):"))
+                add(resourceRateSpinner, "w 80!")
+                add(liveResourceMetricsButton, "span, growx, gapy 5 0")
+            },
+            "growx",
+        )
 
+        add(
+            JLabel("Thread Metrics").apply {
+                font = font.deriveFont(java.awt.Font.BOLD)
+                font = font.deriveFont(16f)
+            },
+            "gapy 10 5",
+        )
 
-        add(JLabel("Thread Metrics").apply {
-            font = font.deriveFont(java.awt.Font.BOLD)
-            font = font.deriveFont(16f)
-        }, "gapy 10 5")
+        add(
+            JPanel(MigLayout("ins 10, fillx, wrap 4", "[][grow][][grow]")).apply {
+                border = BorderFactory.createTitledBorder("Thread States")
 
-        add(JPanel(MigLayout("ins 10, fillx, wrap 4", "[][grow][][grow]")).apply {
-            border = BorderFactory.createTitledBorder("Thread States")
+                add(JLabel("Running:"))
+                add(runningThreadsLabel)
 
-            add(JLabel("Running:"))
-            add(runningThreadsLabel)
+                add(JLabel("Blocked:"))
+                add(blockedThreadsLabel, "wrap")
 
-            add(JLabel("Blocked:"))
-            add(blockedThreadsLabel, "wrap")
+                add(JLabel("Waiting:"))
+                add(waitingThreadsLabel)
 
-            add(JLabel("Waiting:"))
-            add(waitingThreadsLabel)
+                add(JLabel("Timed Wait:"))
+                add(timedWaitingThreadsLabel)
 
-            add(JLabel("Timed Wait:"))
-            add(timedWaitingThreadsLabel)
-
-            add(JSeparator(), "span, growx, gapy 5 5")
-            add(JLabel("Poll Rate (ms):"), "span 2")
-            add(threadRateSpinner, "span 2, w 80!, wrap")
-            add(liveThreadsButton, "span, growx")
-        }, "growx")
+                add(JSeparator(), "span, growx, gapy 5 5")
+                add(JLabel("Poll Rate (ms):"), "span 2")
+                add(threadRateSpinner, "span 2, w 80!, wrap")
+                add(liveThreadsButton, "span, growx")
+            },
+            "growx",
+        )
     }
     val leftLowerPanel = JPanel(MigLayout("ins 3, fill, hidemode 3")).apply {
         border = BorderFactory.createLineBorder(UIManager.getColor("Component.borderColor"))
         add(fileTree, "grow, push, wrap")
-        add(JButton("Save Bundle").apply {
-            addActionListener {
-
-            }
-        }, "grow")
+        add(
+            JButton("Save Bundle").apply {
+                addActionListener {
+                }
+            },
+            "grow",
+        )
     }
     val leftPanel = VerticalSplitPane(leftUpperPanel, leftLowerPanel, resizeWeight = 0.5)
     val mainPanel = HorizontalSplitPane(leftPanel, tabStrip, resizeWeight = 0.25)
@@ -305,7 +325,7 @@ class LiveDiagnosticPanel(var path: Path?) : ToolPanel("ins 0, fill, hidemode 3"
         }
     }
 
-    private val json = Json {prettyPrint = true}
+    private val json = Json { prettyPrint = true }
     private var isActive = false
 
     fun createMetricComponent(labelText: String): Pair<JLabel, JLabel> {
@@ -322,7 +342,6 @@ class LiveDiagnosticPanel(var path: Path?) : ToolPanel("ins 0, fill, hidemode 3"
             JOptionPane.showMessageDialog(this, "Please enter a valid URL")
         }
         return url.matches(urlRegex)
-
     }
 
     fun stopResourcePolling() {
@@ -372,7 +391,6 @@ class LiveDiagnosticPanel(var path: Path?) : ToolPanel("ins 0, fill, hidemode 3"
         }
     }
 
-
     fun readJSONFile(filePath: Path): LiveDiagnosticConfigFile {
         val jsonString = filePath.toFile().readText(Charsets.UTF_8)
         return Json.decodeFromString<LiveDiagnosticConfigFile>(jsonString)
@@ -387,9 +405,9 @@ class LiveDiagnosticPanel(var path: Path?) : ToolPanel("ins 0, fill, hidemode 3"
             dialog.updateStatus(0, 10, "Status")
             var genComplete = false
 
-            for (i in 1 .. 10) {
+            for (i in 1..10) {
                 dialog.updateStatus(i, 10, "Status")
-                runBlocking {delay(1000)}
+                runBlocking { delay(1000) }
                 try {
                     val status = bundleStatus()
                     if (status.state == "Valid") {
@@ -401,7 +419,6 @@ class LiveDiagnosticPanel(var path: Path?) : ToolPanel("ins 0, fill, hidemode 3"
                 if (i == 9) {
                     dialog.updateStatus(0, 10, "Download Failed to Generate after ${10} attempts.")
                 }
-
             }
             if (genComplete) {
                 val file = downloadBundle()
@@ -413,7 +430,6 @@ class LiveDiagnosticPanel(var path: Path?) : ToolPanel("ins 0, fill, hidemode 3"
         } else {
             dialog.updateStatus(0, 10, "Bundle Failed to Start Generating.")
         }
-
     }
 
     var currentPerformanceData: CurrentPerformanceData? = null
@@ -431,7 +447,6 @@ class LiveDiagnosticPanel(var path: Path?) : ToolPanel("ins 0, fill, hidemode 3"
             heapLabel.text = "%.2f MB".format(heapVal)
             nonHeapLabel.text = "%.2f MB".format(nonHeapVal)
 
-
 //            cpuLabel.foreground = if(cpuVal > 80.0) java.awt.Color.RED else UIManager.getColor("Label.foreground")
         }
     }
@@ -444,7 +459,6 @@ class LiveDiagnosticPanel(var path: Path?) : ToolPanel("ins 0, fill, hidemode 3"
             timedWaitingThreadsLabel.text = "%.0f".format(currentThreadData?.timedWaiting ?: 0.0)
             blockedThreadsLabel.text = "%.0f".format(currentThreadData?.blocked ?: 0.0)
 
-
 //            if ((currentThreadData?.running ?: 0) > 0) {
 //                runningThreadsLabel.foreground = java.awt.Color.RED
 //
@@ -454,29 +468,20 @@ class LiveDiagnosticPanel(var path: Path?) : ToolPanel("ins 0, fill, hidemode 3"
         }
     }
 
-    fun getThreadData(): CurrentThreadData {
-        return runAPICall<CurrentThreadData>(urlField.text+THREAD_EXECUTION_DATA, apiKeyField.text, HttpMethod.Get)
-    }
+    fun getThreadData(): CurrentThreadData = runAPICall<CurrentThreadData>(urlField.text + THREAD_EXECUTION_DATA, apiKeyField.text, HttpMethod.Get)
 
-    fun getLiveData(): CurrentPerformanceData {
-        return runAPICall<CurrentPerformanceData>(urlField.text+LIVE_PERF_DATA, apiKeyField.text, HttpMethod.Get)
+    fun getLiveData(): CurrentPerformanceData = runAPICall<CurrentPerformanceData>(urlField.text + LIVE_PERF_DATA, apiKeyField.text, HttpMethod.Get)
 
-    }
+    fun genBundle(): BundleStatus = runAPICall<BundleStatus>(urlField.text + GENERATE_BUNDLE, apiKeyField.text, HttpMethod.Post)
 
-    fun genBundle(): BundleStatus {
-        return runAPICall<BundleStatus>(urlField.text+GENERATE_BUNDLE, apiKeyField.text, HttpMethod.Post)
-    }
-
-    fun bundleStatus(): BundleComplete {
-        return runAPICall<BundleComplete>(urlField.text+BUNDLE_STATUS, apiKeyField.text, HttpMethod.Get)
-    }
+    fun bundleStatus(): BundleComplete = runAPICall<BundleComplete>(urlField.text + BUNDLE_STATUS, apiKeyField.text, HttpMethod.Get)
 
     fun downloadBundle(): File {
         val tempFile = File.createTempFile("downloaded_diagnostic_bundle", ".tmp")
-        val channel: ByteReadChannel = runAPICall(urlField.text+DOWNLOAD_BUNDLE, apiKeyField.text, HttpMethod.Get)
+        val channel: ByteReadChannel = runAPICall(urlField.text + DOWNLOAD_BUNDLE, apiKeyField.text, HttpMethod.Get)
         val outputStream: OutputStream = tempFile.outputStream()
         try {
-            runBlocking {channel.copyTo(outputStream)}
+            runBlocking { channel.copyTo(outputStream) }
         } finally {
             outputStream.close()
         }
@@ -511,17 +516,18 @@ class LiveDiagnosticPanel(var path: Path?) : ToolPanel("ins 0, fill, hidemode 3"
         const val HIST_PERF_DATA = "/data/api/v1/systemPerformance/charts"
         const val LIVE_PERF_DATA = "/data/api/v1/systemPerformance/currentGauges"
 
-
         inline fun <reified T> runAPICall(url: String, token: String, httpMethod: HttpMethod): T {
             val client = HttpClient(CIO) {
                 install(ContentNegotiation) {
-                    json(Json {
-                        prettyPrint = true
-                        isLenient = true
-                        ignoreUnknownKeys = true
-                        })
-                    }
+                    json(
+                        Json {
+                            prettyPrint = true
+                            isLenient = true
+                            ignoreUnknownKeys = true
+                        },
+                    )
                 }
+            }
             val result = runBlocking {
                 client.request(url) {
                     method = httpMethod
@@ -537,7 +543,7 @@ class LiveDiagnosticPanel(var path: Path?) : ToolPanel("ins 0, fill, hidemode 3"
         }
     }
 
-    class LoadingDialog(): JDialog() {
+    class LoadingDialog : JDialog() {
         val statusLabel = JLabel("").apply {
             horizontalAlignment = SwingConstants.CENTER
         }
@@ -581,7 +587,6 @@ class LiveDiagnosticPanel(var path: Path?) : ToolPanel("ins 0, fill, hidemode 3"
                     detailsLabel.text = status
                     progressBar.isVisible = false
                 }
-
             }
             panel.revalidate()
             panel.repaint()
@@ -596,20 +601,14 @@ class LiveDiagnosticPanel(var path: Path?) : ToolPanel("ins 0, fill, hidemode 3"
             setLocationRelativeTo(owner)
         }
     }
-
 }
 
-object LiveDiagnosticTool: EditorTool {
+object LiveDiagnosticTool : EditorTool {
     override val serialKey: String = "livediagnostics"
     override val title: String = "Live Diagnostics"
     override val description: String = "Open tool for viewing and retrieving diagnostic data"
     override val icon: FlatSVGIcon = FlatSVGIcon("icons/bx-tachometer.svg")
-    override fun open(path: Path): ToolPanel {
-        return LiveDiagnosticPanel(path)
-    }
-    override fun open(): ToolPanel {
-        return LiveDiagnosticPanel(null)
-    }
+    override fun open(path: Path): ToolPanel = LiveDiagnosticPanel(path)
+    override fun open(): ToolPanel = LiveDiagnosticPanel(null)
     override val filter: FileFilter = FileFilter("json files", "json")
 }
-

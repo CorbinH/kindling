@@ -6,8 +6,8 @@ import io.github.inductiveautomation.kindling.cache.CacheViewer
 import io.github.inductiveautomation.kindling.docker.DockerTool
 import io.github.inductiveautomation.kindling.gatewaynetwork.GatewayNetworkTool
 import io.github.inductiveautomation.kindling.idb.IdbViewer
-import io.github.inductiveautomation.kindling.localization.TranslationTool
 import io.github.inductiveautomation.kindling.livediagnostics.LiveDiagnosticTool
+import io.github.inductiveautomation.kindling.localization.TranslationTool
 import io.github.inductiveautomation.kindling.log.LogViewer
 import io.github.inductiveautomation.kindling.quest.QuestDbViewer
 import io.github.inductiveautomation.kindling.serial.SerialViewer
