@@ -608,6 +608,7 @@ object LiveDiagnosticTool : EditorTool {
     override val title: String = "Live Diagnostics"
     override val description: String = "Open tool for viewing and retrieving diagnostic data"
     override val icon: FlatSVGIcon = FlatSVGIcon("icons/bx-tachometer.svg")
+    override val extensions: Array<String> = arrayOf("json")
     override fun open(path: Path): ToolPanel = LiveDiagnosticPanel(path)
     override fun open(): ToolPanel = LiveDiagnosticPanel(null)
     override val filter: FileFilter = FileFilter("json files", "json")
