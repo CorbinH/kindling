@@ -45,6 +45,7 @@ import io.ktor.utils.io.jvm.javaio.copyTo
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import java.awt.Dimension
 import java.awt.event.MouseAdapter
@@ -55,7 +56,9 @@ import java.nio.file.spi.FileSystemProvider
 import javax.swing.BorderFactory
 import javax.swing.JDialog
 import javax.swing.JFileChooser
+import javax.swing.JOptionPane
 import javax.swing.JProgressBar
+import javax.swing.JSeparator
 import javax.swing.JSpinner
 import javax.swing.SpinnerNumberModel
 import javax.swing.SwingUtilities
@@ -64,22 +67,17 @@ import kotlin.coroutines.cancellation.CancellationException
 
 @Serializable
 data class BundleStatus(val state: String)
-
 @Serializable
 data class BundleComplete(val state: String, val fileSize: Int)
-
 @Serializable
 data class LiveDiagnosticConfigFile(val url: String, val key: String)
-
 @Serializable
 data class CurrentPerformanceData(val cpu: Double, val heapMemory: Double, val nonHeapMemory: Double? = 0.0)
-
 @Serializable
 data class CurrentThreadData(val running: Int, val waiting: Double, val timedWaiting: Double, val blocked: Double)
 
 
 class LiveDiagnosticPanel(var path: Path?) : ToolPanel("ins 0, fill, hidemode 3") {
-
 
     private val apiScope = CoroutineScope(Dispatchers.IO)
     private var resourceJob: Job? = null
@@ -98,13 +96,14 @@ class LiveDiagnosticPanel(var path: Path?) : ToolPanel("ins 0, fill, hidemode 3"
                 yield(getComponentAt(i) as PathView)
             }
         }
+
     val fileTree = ZipFileTree(null)
     val resourceRateSpinner = JSpinner(SpinnerNumberModel(5000L, 500L, Long.MAX_VALUE, 500L))
     val threadRateSpinner = JSpinner(SpinnerNumberModel(5000L, 500L, Long.MAX_VALUE, 500L))
 
     val liveResourceMetricsButton = JButton("Get Live Values").apply {
         addActionListener {
-            if (resourceJob == null) {
+            if (resourceJob == null && validateUrl(urlField.text)) {
                 text = "Stop"
                 resourceJob = apiScope.launch {
                     startResourcePolling()
@@ -118,7 +117,7 @@ class LiveDiagnosticPanel(var path: Path?) : ToolPanel("ins 0, fill, hidemode 3"
 
     val liveThreadsButton = JButton("Capture Threads").apply {
         addActionListener {
-            if (threadJob == null) {
+            if (threadJob == null && validateUrl(urlField.text)) {
                 text = "Stop"
                 threadJob = apiScope.launch {
                     startThreadPolling()
@@ -135,7 +134,6 @@ class LiveDiagnosticPanel(var path: Path?) : ToolPanel("ins 0, fill, hidemode 3"
     var apiKeyField = JTextField()
     var urlField = JTextField()
 
-
     val saveButton = JButton("Save Config").apply {
         addActionListener {
             saveConfigToJson()
@@ -144,42 +142,88 @@ class LiveDiagnosticPanel(var path: Path?) : ToolPanel("ins 0, fill, hidemode 3"
     val downloadBundleButton = JButton("Download Bundle").apply {
         addActionListener {
             runBlocking {
+                if(!validateUrl(urlField.text)) {
+                    cancel()
+                }
                 executeBundleProcess()
                 getLiveData()
             }
         }
     }
 
-    val leftUpperPanel = JPanel(MigLayout("ins 3, fill, hidemode 3")).apply {
+    val cpuLabel = JLabel("0.00%").apply { font = font.deriveFont(java.awt.Font.BOLD) }
+    val heapLabel = JLabel("0.00 MB").apply { font = font.deriveFont(java.awt.Font.BOLD) }
+    val nonHeapLabel = JLabel("0.00 MB").apply { font = font.deriveFont(java.awt.Font.BOLD) }
+
+    val runningThreadsLabel = JLabel("0")
+    val waitingThreadsLabel = JLabel("0")
+    val timedWaitingThreadsLabel = JLabel("0")
+    val blockedThreadsLabel = JLabel("0")
+
+    val leftUpperPanel = JPanel(MigLayout("ins 10, fill, hidemode 3, wrap 1")).apply {
         border = BorderFactory.createLineBorder(UIManager.getColor("Component.borderColor"))
-        add(JPanel(MigLayout("fill")).apply {
-            add(JLabel("URL: "))
-            add(urlField, "grow, wrap, pushx")
-            add(JLabel("API Key:  "))
-            add(apiKeyField, "grow, wrap, pushx")
-        }, "grow, wrap")
 
-        add(JPanel(MigLayout("fill")).apply{
-            add(downloadBundleButton, "grow, pushx")
-            add(saveButton,"grow, pushx")
-        }, "grow, wrap")
-        add(resourceStats, "push, grow, wrap, h 100!")
-        add(threadStats, "push, grow, wrap, h 100!")
-        add(JPanel(MigLayout("fill")).apply {
-            add(JLabel("Live Resource Capture"), "grow")
-            add(JLabel("Capture Rate: ").apply {
-                horizontalAlignment = SwingConstants.RIGHT
-            }, "grow")
-            add(resourceRateSpinner, "grow")
-            add(liveResourceMetricsButton, "grow, wrap")
-            add(JLabel("Live Thread Capture"), "grow")
-            add(JLabel("Capture Rate: ").apply {
-                horizontalAlignment = SwingConstants.RIGHT
-            }, "grow")
-            add(threadRateSpinner, "grow")
-            add(liveThreadsButton, "grow, wrap")
-        },"grow, wrap")
+        add(JPanel(MigLayout("ins 0, fillx")).apply {
+            add(JLabel("URL:"), "gapright 10")
+            add(urlField, "pushx, growx, wrap")
+            add(JLabel("API Key:"), "gapright 10")
+            add(apiKeyField, "pushx, growx")
+        }, "growx, pushx")
 
+        add(JPanel(MigLayout("ins 0, fillx, wrap 2")).apply {
+            add(downloadBundleButton, "growx")
+            add(saveButton, "growx")
+        }, "growx")
+
+        add(JSeparator(), "growx, gapy 10 10")
+
+        add(JLabel("Resource Metrics").apply {
+            font = font.deriveFont(java.awt.Font.BOLD)
+            font = font.deriveFont(16f)
+        }, "gapy 10 5")
+
+        add(JPanel(MigLayout("ins 10, fillx, wrap 2", "[]20[grow, right]")).apply {
+            border = BorderFactory.createTitledBorder("JVM Performance")
+
+            add(JLabel("CPU Usage:"))
+            add(cpuLabel)
+            add(JLabel("Heap Memory:"))
+            add(heapLabel)
+            add(JLabel("Non-Heap Memory:"))
+            add(nonHeapLabel)
+
+            add(JSeparator(), "span, growx, gapy 5 5")
+            add(JLabel("Poll Rate (ms):"))
+            add(resourceRateSpinner, "w 80!")
+            add(liveResourceMetricsButton, "span, growx, gapy 5 0")
+        }, "growx")
+
+
+        add(JLabel("Thread Metrics").apply {
+            font = font.deriveFont(java.awt.Font.BOLD)
+            font = font.deriveFont(16f)
+        }, "gapy 10 5")
+
+        add(JPanel(MigLayout("ins 10, fillx, wrap 4", "[][grow][][grow]")).apply {
+            border = BorderFactory.createTitledBorder("Thread States")
+
+            add(JLabel("Running:"))
+            add(runningThreadsLabel)
+
+            add(JLabel("Blocked:"))
+            add(blockedThreadsLabel, "wrap")
+
+            add(JLabel("Waiting:"))
+            add(waitingThreadsLabel)
+
+            add(JLabel("Timed Wait:"))
+            add(timedWaitingThreadsLabel)
+
+            add(JSeparator(), "span, growx, gapy 5 5")
+            add(JLabel("Poll Rate (ms):"), "span 2")
+            add(threadRateSpinner, "span 2, w 80!, wrap")
+            add(liveThreadsButton, "span, growx")
+        }, "growx")
     }
     val leftLowerPanel = JPanel(MigLayout("ins 3, fill, hidemode 3")).apply {
         border = BorderFactory.createLineBorder(UIManager.getColor("Component.borderColor"))
@@ -263,6 +307,23 @@ class LiveDiagnosticPanel(var path: Path?) : ToolPanel("ins 0, fill, hidemode 3"
 
     private val json = Json {prettyPrint = true}
     private var isActive = false
+
+    fun createMetricComponent(labelText: String): Pair<JLabel, JLabel> {
+        val nameLabel = JLabel(labelText).apply {
+            font = font.deriveFont(java.awt.Font.BOLD)
+        }
+        val valueLabel = JLabel("--")
+        return nameLabel to valueLabel
+    }
+
+    fun validateUrl(url: String): Boolean {
+        val urlRegex = Regex("(https?://)[\\w.-]+(:\\d+)*")
+        if (!urlRegex.matches(url)) {
+            JOptionPane.showMessageDialog(this, "Please enter a valid URL")
+        }
+        return url.matches(urlRegex)
+
+    }
 
     fun stopResourcePolling() {
         resourceJob?.cancel()
@@ -361,36 +422,35 @@ class LiveDiagnosticPanel(var path: Path?) : ToolPanel("ins 0, fill, hidemode 3"
     fun updateResourceMetrics() {
         currentPerformanceData = getLiveData()
 
-        val cpuPercentage = currentPerformanceData?.cpu?.let { "%.2f".format(it) } ?: "0.00"
-        val heapMemory = currentPerformanceData?.heapMemory?.let { "%.2f".format(it / 1024.0 / 1024.0) } ?: "0.00"
-        val nonHeapMemory = currentPerformanceData?.nonHeapMemory?.let { "%.2f".format(it / 1024.0 / 1024.0) } ?: "0.00"
+        val cpuVal = currentPerformanceData?.cpu ?: 0.0
+        val heapVal = (currentPerformanceData?.heapMemory ?: 0.0) / 1024.0 / 1024.0
+        val nonHeapVal = (currentPerformanceData?.nonHeapMemory ?: 0.0) / 1024.0 / 1024.0
 
         SwingUtilities.invokeLater {
-            resourceStats.text = """
-            Resource Data
-            CPU: $cpuPercentage%
-            HeapMemory: $heapMemory MB
-            NonHeapMemory: $nonHeapMemory MB
-        """.trimIndent()
+            cpuLabel.text = "%.2f%%".format(cpuVal)
+            heapLabel.text = "%.2f MB".format(heapVal)
+            nonHeapLabel.text = "%.2f MB".format(nonHeapVal)
+
+
+//            cpuLabel.foreground = if(cpuVal > 80.0) java.awt.Color.RED else UIManager.getColor("Label.foreground")
         }
     }
 
     fun updateThreadMetrics() {
         currentThreadData = getThreadData()
-
-        val running = currentThreadData?.running ?: 0
-        val waiting = currentThreadData?.waiting ?: 0
-        val timedWaiting = currentThreadData?.timedWaiting ?: 0
-        val blocked = currentThreadData?.blocked ?: 0
-
         SwingUtilities.invokeLater {
-            threadStats.text = """
-            Threading Data
-            Running: $running
-            Waiting: $waiting
-            TimedWaiting: $timedWaiting
-            Blocked: $blocked
-        """.trimIndent()
+            runningThreadsLabel.text = currentThreadData?.running?.toString() ?: "0"
+            waitingThreadsLabel.text = "%.0f".format(currentThreadData?.waiting ?: 0.0)
+            timedWaitingThreadsLabel.text = "%.0f".format(currentThreadData?.timedWaiting ?: 0.0)
+            blockedThreadsLabel.text = "%.0f".format(currentThreadData?.blocked ?: 0.0)
+
+
+//            if ((currentThreadData?.running ?: 0) > 0) {
+//                runningThreadsLabel.foreground = java.awt.Color.RED
+//
+//            } else {
+//                runningThreadsLabel.foreground = UIManager.getColor("Label.foreground")
+//            }
         }
     }
 
